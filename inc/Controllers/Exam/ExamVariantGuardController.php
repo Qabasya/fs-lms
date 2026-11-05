@@ -15,6 +15,7 @@ use Inc\Enums\Wp\PostMetaName;
 use Inc\Enums\Wp\TransientKey;
 use Inc\Managers\Wp\TransientManager;
 use Inc\Services\Exam\ExamVariantGuard;
+use Inc\Services\Exam\ExamSnapshotSyncService;
 use Inc\Shared\Traits\TemplateRenderer;
 
 /**
@@ -35,6 +36,7 @@ class ExamVariantGuardController extends BaseController implements ServiceInterf
 	public function __construct(
 		private readonly ExamVariantGuard $guard,
 		private readonly TransientManager $transients,
+		private readonly ExamSnapshotSyncService $snapshotSync,
 	) {
 		parent::__construct();
 	}
@@ -44,8 +46,13 @@ class ExamVariantGuardController extends BaseController implements ServiceInterf
 	 */
 	public function register(): void {
 		add_filter( 'update_post_metadata', array( $this, 'guardMetaUpdate' ), 1, 4 );
+		add_filter( 'update_post_metadata', array( $this->snapshotSync, 'filterUpdate' ), 2, 5 );
 		add_filter( 'add_post_metadata', array( $this, 'guardMeta' ), 1, 3 );
+		add_filter( 'add_post_metadata', array( $this->snapshotSync, 'filterAdd' ), 2, 5 );
 		add_filter( 'delete_post_metadata', array( $this, 'guardMeta' ), 1, 3 );
+		add_filter( 'delete_post_metadata', array( $this->snapshotSync, 'filterDelete' ), 2, 5 );
+		add_filter( 'update_post_metadata_by_mid', array( $this->snapshotSync, 'filterUpdateById' ), 2, 4 );
+		add_filter( 'delete_post_metadata_by_mid', array( $this->snapshotSync, 'filterDeleteById' ), 2, 2 );
 		add_filter( 'wp_insert_post_data', array( $this, 'guardPostData' ), 1, 2 );
 		add_filter( 'pre_trash_post', array( $this, 'guardTrash' ), 5, 2 );
 		add_filter( 'pre_delete_post', array( $this, 'guardDelete' ), 5, 2 );

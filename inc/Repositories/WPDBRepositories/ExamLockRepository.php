@@ -14,12 +14,23 @@ namespace Inc\Repositories\WPDBRepositories;
 class ExamLockRepository extends AbstractExamRepository {
 
 	/** @return bool true — блокировка взята; false — её уже держит другое соединение. */
-	public function acquire( string $name ): bool {
-		return 1 === $this->readInt( $this->wpdb->prepare( 'SELECT GET_LOCK( %s, 0 )', $this->lockName( $name ) ) );
+	public function acquire( string $name, int $timeout = 0 ): bool {
+		return 1 === $this->readInt( $this->wpdb->prepare( 'SELECT GET_LOCK( %s, %d )', $this->lockName( $name ), max( 0, $timeout ) ) );
 	}
 
 	public function release( string $name ): void {
 		$this->readInt( $this->wpdb->prepare( 'SELECT RELEASE_LOCK( %s )', $this->lockName( $name ) ) );
+	}
+
+	/** Не допускает неявный COMMIT внешней транзакции при сохранении варианта. */
+	public function assertNoActiveTransaction(): void {
+		$value = $this->wpdb->get_var( 'SELECT @@session.in_transaction' );
+		if ( null === $value || '' !== (string) $this->wpdb->last_error ) {
+			throw new \RuntimeException( 'Не удалось проверить состояние транзакции базы данных.' );
+		}
+		if ( 0 !== (int) $value ) {
+			throw new \RuntimeException( 'Вариант нельзя сохранять внутри другой транзакции.' );
+		}
 	}
 
 	/** Имя с префиксом базы: несколько сайтов на одном сервере баз данных не делят блокировки. */

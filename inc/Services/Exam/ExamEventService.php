@@ -65,6 +65,7 @@ class ExamEventService {
 		private readonly ExamGuestApplicationRepository $guestApplications,
 		private readonly ExamLaunchChecklist $checklist,
 		private readonly ExamAccessTokenRepository $tokens,
+		private readonly ExamVariantMutex $variantMutex,
 	) {}
 
 	/**
@@ -174,6 +175,10 @@ class ExamEventService {
 	 * @throws \RuntimeException Сохранённый сеанс не найден при повторном чтении.
 	 */
 	public function saveSession( int $actorUserId, int $eventId, array $input, ?int $sessionId, ?int $expectedVersion ): ExamSessionDTO {
+		return $this->variantMutex->run( fn (): ExamSessionDTO => $this->saveSessionLocked( $actorUserId, $eventId, $input, $sessionId, $expectedVersion ) );
+	}
+
+	private function saveSessionLocked( int $actorUserId, int $eventId, array $input, ?int $sessionId, ?int $expectedVersion ): ExamSessionDTO {
 		$early = $this->requireEvent( $eventId );
 		$this->assertCanManage( $actorUserId, $early );
 
@@ -336,6 +341,10 @@ class ExamEventService {
 	 * @throws CodedException Нет доступа, сеанс недоступен для правки либо в нём ещё есть записи.
 	 */
 	public function deleteSession( int $actorUserId, int $sessionId ): void {
+		$this->variantMutex->run( fn () => $this->deleteSessionLocked( $actorUserId, $sessionId ) );
+	}
+
+	private function deleteSessionLocked( int $actorUserId, int $sessionId ): void {
 		$session = $this->sessions->find( $sessionId );
 		if ( null === $session ) {
 			throw new CodedException( ErrorCode::ExamNotFound, 'Сеанс не найден.' );
@@ -403,6 +412,10 @@ class ExamEventService {
 	 * @throws CodedException Нет доступа, версия устарела или черновик, сеансы и окно записи не готовы к публикации.
 	 */
 	public function publish( int $actorUserId, int $eventId, int $expectedVersion ): ExamEventDTO {
+		return $this->variantMutex->run( fn (): ExamEventDTO => $this->publishLocked( $actorUserId, $eventId, $expectedVersion ) );
+	}
+
+	private function publishLocked( int $actorUserId, int $eventId, int $expectedVersion ): ExamEventDTO {
 		$early = $this->requireEvent( $eventId );
 		$this->assertCanManage( $actorUserId, $early );
 		if ( $early->guestRegistrationEnabled ) {
@@ -516,40 +529,39 @@ class ExamEventService {
 	 */
 	public function rebuildSnapshot( int $actorUserId, int $eventId, int $assessmentId ): void {
 		$this->assertCanManage( $actorUserId, $this->requireEvent( $eventId ) );
-
-		$this->inTransactionWithRetry(
-			function () use ( $eventId, $assessmentId ): void {
-				$event = $this->lockEvent( $eventId );
-				$this->assertEditable( $event );
-
-				$now  = $this->time->nowUtc();
-				$used = false;
-				foreach ( $this->sessions->findByEvent( $eventId ) as $session ) {
-					if ( $session->assessmentId !== $assessmentId || ( ExamSessionStatus::Cancelled->value === $session->status && null === $session->firstStartedAt ) ) {
-						continue;
-					}
-					$used = true;
-					if ( null !== $session->firstStartedAt || $session->scheduledAt <= $now ) {
-						throw new CodedException( ErrorCode::ExamState, 'Сеанс с этим вариантом уже начался: снимок менять нельзя.' );
-					}
-				}
-				if ( ! $used ) {
-					throw new CodedException( ErrorCode::ExamState, 'В проведении нет сеансов с этим вариантом.' );
-				}
-				if ( $this->attempts->countInProgressExamByEvent( $eventId, $assessmentId ) > 0 ) {
-					throw new CodedException( ErrorCode::ExamState, 'Идёт сеанс с этим вариантом: снимок менять нельзя.' );
-				}
-
-				$snapshot                           = $this->snapshotOf( $event );
-				$snapshot[ (string) $assessmentId ] = $this->buildSnapshot( $assessmentId );
-
-				if ( ! $this->events->update( $eventId, array( 'variant_snapshot' => (string) wp_json_encode( $snapshot ) ), $event->version ) ) {
-					throw $this->stale();
-				}
-			}
-		);
-
+		$this->variantMutex->run( fn () => $this->inTransactionWithRetry( fn () => $this->rebuildSnapshotInTransaction( $eventId, $assessmentId ) ) );
 		ExamLogAction::SnapshotRebuilt->record( array( 'event_id' => $eventId, 'actor' => $actorUserId, 'context' => array( 'assessment_id' => $assessmentId ) ) );
+	}
+
+	/** Обновляет снимок под общей блокировкой в уже открытой транзакции. */
+	public function rebuildSnapshotInTransaction( int $eventId, int $assessmentId ): void {
+		$event = $this->lockEvent( $eventId );
+		$this->assertEditable( $event );
+
+		$now  = $this->time->nowUtc();
+		$used = false;
+		foreach ( $this->sessions->findByEvent( $eventId ) as $session ) {
+			if ( $session->assessmentId !== $assessmentId || ( ExamSessionStatus::Cancelled->value === $session->status && null === $session->firstStartedAt ) ) {
+				continue;
+			}
+			$used = true;
+			if ( null !== $session->firstStartedAt || $session->scheduledAt <= $now ) {
+				throw new CodedException( ErrorCode::ExamState, 'Сеанс с этим вариантом уже начался: снимок менять нельзя.' );
+			}
+		}
+		if ( ! $used ) {
+			throw new CodedException( ErrorCode::ExamState, 'В проведении нет сеансов с этим вариантом.' );
+		}
+		if ( $this->attempts->countInProgressExamByEvent( $eventId, $assessmentId ) > 0 ) {
+			throw new CodedException( ErrorCode::ExamState, 'Идёт сеанс с этим вариантом: снимок менять нельзя.' );
+		}
+
+		$snapshot                           = $this->snapshotOf( $event );
+		$snapshot[ (string) $assessmentId ] = $this->buildSnapshot( $assessmentId );
+
+		if ( ! $this->events->update( $eventId, array( 'variant_snapshot' => (string) wp_json_encode( $snapshot ) ), $event->version ) ) {
+			throw $this->stale();
+		}
 	}
 
 	/**
@@ -564,6 +576,10 @@ class ExamEventService {
 	 * @throws \RuntimeException Перенесённый сеанс не найден при повторном чтении.
 	 */
 	public function moveSession( int $actorUserId, int $sessionId, array $input, string $reason, int $expectedVersion ): ExamSessionDTO {
+		return $this->variantMutex->run( fn (): ExamSessionDTO => $this->moveSessionLocked( $actorUserId, $sessionId, $input, $reason, $expectedVersion ) );
+	}
+
+	private function moveSessionLocked( int $actorUserId, int $sessionId, array $input, string $reason, int $expectedVersion ): ExamSessionDTO {
 		$reason = trim( $reason );
 		if ( '' === $reason ) {
 			throw new CodedException( ErrorCode::ExamInput, 'Укажите причину переноса.' );
@@ -669,6 +685,10 @@ class ExamEventService {
 	 * @throws CodedException Нет доступа, причина пуста, версия устарела либо сеанс уже начат или завершён.
 	 */
 	public function cancelSession( int $actorUserId, int $sessionId, string $reason, int $expectedVersion ): void {
+		$this->variantMutex->run( fn () => $this->cancelSessionLocked( $actorUserId, $sessionId, $reason, $expectedVersion ) );
+	}
+
+	private function cancelSessionLocked( int $actorUserId, int $sessionId, string $reason, int $expectedVersion ): void {
 		$reason = trim( $reason );
 		if ( '' === $reason ) {
 			throw new CodedException( ErrorCode::ExamInput, 'Укажите причину отмены.' );
@@ -737,6 +757,10 @@ class ExamEventService {
 	 * @throws CodedException Нет доступа, причина пуста, версия устарела либо в проведении уже начат экзамен.
 	 */
 	public function cancelEvent( int $actorUserId, int $eventId, string $reason, int $expectedVersion ): void {
+		$this->variantMutex->run( fn () => $this->cancelEventLocked( $actorUserId, $eventId, $reason, $expectedVersion ) );
+	}
+
+	private function cancelEventLocked( int $actorUserId, int $eventId, string $reason, int $expectedVersion ): void {
 		$this->assertCanManage( $actorUserId, $this->requireEvent( $eventId ) );
 
 		$reason = trim( $reason );
@@ -806,6 +830,10 @@ class ExamEventService {
 	 * @throws CodedException Нет доступа, версия устарела, у проведения есть участники либо экзамен уже начат.
 	 */
 	public function deleteEvent( int $actorUserId, int $eventId, int $expectedVersion ): void {
+		$this->variantMutex->run( fn () => $this->deleteEventLocked( $actorUserId, $eventId, $expectedVersion ) );
+	}
+
+	private function deleteEventLocked( int $actorUserId, int $eventId, int $expectedVersion ): void {
 		$this->assertCanManage( $actorUserId, $this->requireEvent( $eventId ) );
 
 		$this->inTransactionWithRetry(
@@ -840,6 +868,10 @@ class ExamEventService {
 	 * @return bool true — проведение завершено этим вызовом.
 	 */
 	public function completeIfDone( int $eventId ): bool {
+		return $this->variantMutex->run( fn (): bool => $this->completeIfDoneLocked( $eventId ) );
+	}
+
+	private function completeIfDoneLocked( int $eventId ): bool {
 		return (bool) $this->inTransactionWithRetry(
 			function () use ( $eventId ): bool {
 				$event = $this->events->findForUpdate( $eventId );

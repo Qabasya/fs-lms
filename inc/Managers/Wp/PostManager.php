@@ -595,6 +595,36 @@ class PostManager {
 		update_post_meta( $post_id, $key, wp_slash( $value ) );
 	}
 
+	/** Операции метаданных с исходным результатом WordPress для транзакционной синхронизации. */
+	public function updateMetaChecked( int $postId, string $key, mixed $value, mixed $previous = '' ): mixed {
+		return update_metadata( 'post', $postId, $key, wp_slash( $value ), $previous );
+	}
+
+	/** Добавляет значение, переданное фильтром метаданных WordPress. */
+	public function addMetaChecked( int $postId, string $key, mixed $value, bool $unique ): mixed {
+		return add_metadata( 'post', $postId, $key, wp_slash( $value ), $unique );
+	}
+
+	/** Удаляет значение, переданное фильтром метаданных WordPress. */
+	public function deleteMetaChecked( int $postId, string $key, mixed $value ): bool {
+		return delete_metadata( 'post', $postId, $key, wp_slash( $value ), false );
+	}
+
+	/** Читает строку метаданных по её идентификатору. */
+	public function metaById( int $metaId ): object|false {
+		return get_metadata_by_mid( 'post', $metaId );
+	}
+
+	/** Обновляет строку метаданных по её идентификатору. */
+	public function updateMetaById( int $metaId, mixed $value, mixed $key ): bool {
+		return update_metadata_by_mid( 'post', $metaId, $value, $key );
+	}
+
+	/** Удаляет строку метаданных по её идентификатору. */
+	public function deleteMetaById( int $metaId ): bool {
+		return delete_metadata_by_mid( 'post', $metaId );
+	}
+
 	/**
 	 * Получает список постов с их терминами по конкретному ID термина.
 	 *

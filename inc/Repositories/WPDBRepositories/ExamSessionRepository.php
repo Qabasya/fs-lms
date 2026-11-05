@@ -68,6 +68,19 @@ class ExamSessionRepository extends AbstractExamRepository {
 		return array_map( array( ExamSessionDTO::class, 'fromArray' ), $rows );
 	}
 
+	/** ID опубликованных проведений, использующих вариант; порядок блокировок постоянен. */
+	public function publishedEventIdsForAssessment( int $assessmentId ): array {
+		$rows = $this->readRows( $this->wpdb->prepare(
+			'SELECT DISTINCT s.event_id FROM %i s INNER JOIN %i e ON e.id = s.event_id WHERE s.assessment_id = %d AND e.status = %s AND (s.status <> %s OR s.first_started_at IS NOT NULL) ORDER BY s.event_id ASC',
+			$this->table,
+			TableName::ExamEvents->prefixed(),
+			$assessmentId,
+			ExamEventStatus::Published->value,
+			ExamSessionStatus::Cancelled->value
+		) );
+		return array_map( static fn( array $row ): int => (int) $row['event_id'], $rows );
+	}
+
 	/**
 	 * Версионированное обновление сеанса.
 	 *

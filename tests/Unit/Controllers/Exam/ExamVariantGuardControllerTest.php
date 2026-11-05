@@ -31,7 +31,7 @@ class ExamVariantGuardControllerTest extends TestCase {
 		$this->guard->method( 'isAttachmentFrozen' )->willReturnCallback( static fn ( int $id ): bool => 900 === $id );
 		$this->guard->method( 'reason' )->willReturn( 'Вариант используется в экзамене «Пробный»: изменение недоступно.' );
 
-		$this->controller = new ExamVariantGuardController( $this->guard, $this->transients );
+		$this->controller = new ExamVariantGuardController( $this->guard, $this->transients, $this->createMock( \Inc\Services\Exam\ExamSnapshotSyncService::class ) );
 	}
 
 	public function test_assessment_items_cannot_change_when_frozen(): void {

@@ -63,7 +63,17 @@ class AssessmentAuthorCallbacks extends BaseController {
 			}
 		}
 
-		if ( ! $this->assessmentManager->setItemIds( $assessment_id, $item_ids, $task_points, null, $slot_ids ) ) {
+		try {
+			$saved = $this->assessmentManager->setItemIds( $assessment_id, $item_ids, $task_points, null, $slot_ids );
+		} catch ( \DomainException $error ) {
+			$this->error( $error->getMessage() );
+			return;
+		} catch ( \Throwable $error ) {
+			\Inc\Shared\PluginLogger::exception( 'AssessmentSnapshot', $error, array( 'assessment_id' => $assessment_id ), true );
+			$this->error( 'Не удалось сохранить вариант и обновить снимки экзаменов. Повторите попытку.' );
+			return;
+		}
+		if ( ! $saved ) {
 			$this->error( 'Экзамен не найден.' );
 			return;
 		}

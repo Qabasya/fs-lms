@@ -191,10 +191,15 @@ class ExamEventServiceTest extends TestCase {
 			$this->events, $this->sessions, $this->registrations, $this->attempts, $guard ?? $this->guard, $this->variants,
 			new ExamRoomService( $this->rooms, $this->sessions, $time, new \Inc\Services\Course\RoomAvailabilityService( $this->rooms, $this->sessions, $time ) ), $formats, $this->assessments, $this->outbox, $time,
 			$this->registrationService, $this->holds, $this->guestApplications, $this->checklist,
-			$this->tokens,
+			$this->tokens, $this->variantMutex(),
 		);
 	}
 
+	private function variantMutex(): \Inc\Services\Exam\ExamVariantMutex {
+		$mutex = $this->createMock( \Inc\Services\Exam\ExamVariantMutex::class );
+		$mutex->method( 'run' )->willReturnCallback( static fn( callable $operation ): mixed => $operation() );
+		return $mutex;
+	}
 	/** @param array<string, mixed> $override */
 	private function room( array $override = array() ): RoomDTO {
 		return RoomDTO::fromArray( array_merge( array( 'id' => '2', 'name' => '305', 'seats' => '12', 'allowed_subjects' => '[]', 'is_active' => '1' ), $override ) );

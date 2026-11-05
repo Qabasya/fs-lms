@@ -71,6 +71,7 @@ class ExamAttemptService {
 		private readonly ExamTime $time,
 		private readonly GuestSessionService $guestSessions,
 		private readonly GuestParticipantMaterializer $guestData,
+		private readonly ExamVariantMutex $variantMutex,
 	) {}
 
 	/**
@@ -113,7 +114,7 @@ class ExamAttemptService {
 	 * @throws \RuntimeException Попытку не удалось создать или прочитать после сохранения.
 	 */
 	public function start( AttemptContext $ctx ): AttemptDTO {
-		$result = $this->inTransactionWithRetry( fn (): AttemptDTO|true => $this->startLocked( $ctx ) );
+		$result = $this->variantMutex->run( fn (): AttemptDTO|true => $this->inTransactionWithRetry( fn (): AttemptDTO|true => $this->startLocked( $ctx ) ) );
 
 		// Неявка зафиксирована внутри транзакции и должна сохраниться, поэтому отказ — после COMMIT.
 		if ( true === $result ) {

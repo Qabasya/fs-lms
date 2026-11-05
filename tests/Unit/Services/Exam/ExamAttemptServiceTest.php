@@ -92,10 +92,15 @@ class ExamAttemptServiceTest extends TestCase {
 			$this->participations, $this->participants, $this->registrations, $this->sessions, $this->events, $this->attempts,
 			$this->persons, $this->createMock( AssessmentManager::class ), $this->attemptService, $this->noShow,
 			$this->createMock( ExamFormatRegistry::class ), $this->accessGuard, $this->outbox, new ExamTime( $clock ),
-			$this->guestSessions, $this->guestData,
+			$this->guestSessions, $this->guestData, $this->variantMutex(),
 		);
 	}
 
+	private function variantMutex(): \Inc\Services\Exam\ExamVariantMutex {
+		$mutex = $this->createMock( \Inc\Services\Exam\ExamVariantMutex::class );
+		$mutex->method( 'run' )->willReturnCallback( static fn( callable $operation ): mixed => $operation() );
+		return $mutex;
+	}
 	private function setNow( string $utc, string $local ): void {
 		$this->now = array( 'utc' => $utc, 'local' => $local );
 	}
@@ -605,7 +610,7 @@ class ExamAttemptServiceTest extends TestCase {
 			$this->participations, $this->participants, $this->createMock( ExamRegistrationRepository::class ), $this->sessions, $this->events, $this->attempts,
 			$this->persons, $this->createMock( AssessmentManager::class ), $this->attemptService, $this->noShow,
 			$this->createMock( ExamFormatRegistry::class ), $this->accessGuard, $this->outbox, new ExamTime( $this->createMock( ClockInterface::class ) ),
-			$this->guestSessions, $this->guestData,
+			$this->guestSessions, $this->guestData, $this->variantMutex(),
 		);
 		try {
 			$missing->contextForStudent( 42, 999 );

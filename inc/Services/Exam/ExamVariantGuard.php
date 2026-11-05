@@ -72,6 +72,12 @@ class ExamVariantGuard {
 		return array_keys( $this->frozenMap() );
 	}
 
+	/** Повторно читает состояние после ожидания общей блокировки. */
+	public function clearCache(): void {
+		$this->frozen = null;
+		$this->tasks = null;
+	}
+
 	/**
 	 * Проверяет присутствие варианта в карте действующих замороженных проведений.
 	 */
