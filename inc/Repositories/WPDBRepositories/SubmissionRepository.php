@@ -43,6 +43,22 @@ class SubmissionRepository {
 		return $row ? SubmissionDTO::fromArray( $row ) : null;
 	}
 
+	/** Пакет сданных агрегатов учебных работ; опросы и экзаменные попытки не входят. */
+	public function listWorkAggregatesAfter( int $afterId, int $limit ): array {
+		$rows = $this->wpdb->get_results( $this->wpdb->prepare(
+			'SELECT * FROM %i WHERE id > %d AND task_id IS NULL AND work_type IN (%s, %s, %s) AND status IN (%s, %s) ORDER BY id ASC LIMIT %d',
+			$this->table,
+			$afterId,
+			\Inc\Enums\Course\WorkType::Practice->value,
+			\Inc\Enums\Course\WorkType::Independent->value,
+			\Inc\Enums\Course\WorkType::Homework->value,
+			SubmissionStatus::Graded->value,
+			SubmissionStatus::PendingReview->value,
+			max( 1, $limit )
+		), ARRAY_A );
+		return array_map( [ SubmissionDTO::class, 'fromArray' ], $rows ?: array() );
+	}
+
 	/** Поиск для дедупликации. */
 	public function findForWork(
 		int  $studentPersonId,
