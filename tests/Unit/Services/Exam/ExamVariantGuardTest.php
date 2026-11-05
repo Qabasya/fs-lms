@@ -51,11 +51,15 @@ class ExamVariantGuardTest extends TestCase {
 			'status' => 'published',
 			'variant_snapshot' => json_encode( array( '500' => array( 'task_ids' => array( 11, 12 ) ) ) ),
 		) ) );
-		$this->posts->method( 'getMeta' )->willReturnCallback( fn ( int $id, string $key ) => 'fs_lms_task_bundle_child_ids' === $key ? ( $this->meta[ $id ]['children'] ?? '' ) : ( $this->meta[ $id ]['data'] ?? '' ) );
+		$this->posts->method( 'getMeta' )->willReturnCallback( fn ( int $id, string $key ) => match ( $key ) {
+			'fs_lms_task_bundle_child_ids' => $this->meta[ $id ]['children'] ?? '',
+			'fs_lms_template_type' => 'standard_task',
+			default => $this->meta[ $id ]['data'] ?? '',
+		} );
 
 		$this->posts->method( 'get' )->willReturnCallback( static fn ( int $id ) => get_post( $id ) );
 
-		$this->guard = new ExamVariantGuard( $this->sessions, $this->events, $this->assessments, $this->posts, $time );
+		$this->guard = new ExamVariantGuard( $this->sessions, $this->events, $this->assessments, $this->posts, $time, new \Inc\Services\Template\TemplateRegistry() );
 	}
 
 	/** @return array<string, mixed> */
@@ -117,6 +121,13 @@ class ExamVariantGuardTest extends TestCase {
 		self::assertFalse( $this->guard->isConditionOnlyEdit( 11, array( 'task_condition' => 'Условие' ) ), 'Удаление поля — тоже изменение.' );
 	}
 
+	public function test_legacy_solution_normalization_and_decoded_answer_are_equivalent(): void {
+		$this->frozenRows = array( $this->row() );
+		$this->meta[11]['data'] = array( 'task_condition' => 'Старое', 'task_answer' => '&lt;', 'task_text' => '<p>$x$</p><p>&nbsp;</p>' );
+		self::assertTrue( $this->guard->isConditionOnlyEdit( 11, array( 'task_condition' => 'Новое', 'task_answer' => '<', 'task_text' => "[latexpage]\n<p>\$x\$</p>" ) ) );
+		self::assertFalse( $this->guard->isConditionOnlyEdit( 11, array( 'task_condition' => 'Новое', 'task_answer' => '>', 'task_text' => "[latexpage]\n<p>\$x\$</p>" ) ) );
+	}
+
 	/** Правило только для заданий: вариант (контрольная) и свободные посты остаются как были. */
 	public function test_condition_exception_does_not_apply_to_variant_or_free_posts(): void {
 		$this->frozenRows = array( $this->row() );
@@ -160,6 +171,17 @@ class ExamVariantGuardTest extends TestCase {
 		self::assertFalse( $this->guard->isTaskFrozen( 77 ) );
 	}
 
+	public function test_stale_snapshot_does_not_freeze_removed_task(): void {
+		$this->frozenRows = array( $this->row() );
+		$this->assessments->method( 'get' )->willReturn( new AssessmentDTO(
+			id: 500, subjectKey: 'inf_ege', title: 'В', taskIds: array( 11 ), timeLimit: 0, attemptsAllowed: 0, passScore: 0.0,
+			scoringPolicy: \Inc\Enums\Assessment\ScoringPolicy::Highest, status: 'publish', kind: \Inc\Enums\Assessment\AssessmentKind::EgeComputer, taskPoints: array(), scoreMap: array()
+		) );
+
+		self::assertTrue( $this->guard->isTaskFrozen( 11 ) );
+		self::assertFalse( $this->guard->isTaskFrozen( 12 ) );
+	}
+
 	public function test_attachment_of_frozen_task_is_frozen(): void {
 		$this->frozenRows = array( $this->row() );
 		fs_test_seed_post( array( 'ID' => 900, 'post_type' => 'attachment', 'post_parent' => 11 ) );
@@ -188,7 +210,7 @@ class ExamVariantGuardTest extends TestCase {
 			scoringPolicy: \Inc\Enums\Assessment\ScoringPolicy::Highest, status: 'publish', kind: \Inc\Enums\Assessment\AssessmentKind::EgeComputer, taskPoints: array(), scoreMap: array()
 		) );
 		$time = $this->createStub( ExamTime::class );
-		$guard = new ExamVariantGuard( $this->sessions, $events, $this->assessments, $this->posts, $time );
+		$guard = new ExamVariantGuard( $this->sessions, $events, $this->assessments, $this->posts, $time, new \Inc\Services\Template\TemplateRegistry() );
 
 		self::assertTrue( $guard->isTaskFrozen( 31 ) );
 	}

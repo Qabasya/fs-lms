@@ -14,6 +14,8 @@ use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\WPDBRepositories\ExamEventRepository;
 use Inc\Repositories\WPDBRepositories\ExamSessionRepository;
+use Inc\MetaBoxes\Fields\TextareaField;
+use Inc\Services\Template\TemplateRegistry;
 
 /**
  * Неизменяемость варианта экзамена (этап 13.2, SPEC §12): после первого старта (или начала сеанса по времени) состав, веса, длительность
@@ -58,6 +60,7 @@ class ExamVariantGuard {
 		private readonly AssessmentManager $assessments,
 		private readonly PostManager $posts,
 		private readonly ExamTime $time,
+		private readonly TemplateRegistry $templates,
 	) {}
 
 	/**
@@ -95,7 +98,14 @@ class ExamVariantGuard {
 
 		$current = $this->posts->getMeta( $taskId, PostMetaName::Meta->value );
 
-		return is_array( $current ) && $this->withoutConditions( $current ) === $this->withoutConditions( $newMeta );
+		if ( ! is_array( $current ) ) {
+			return false;
+		}
+		$templateId = $this->posts->getMeta( $taskId, PostMetaName::TemplateType->value );
+		$template = $this->templates->get( is_string( $templateId ) ? $templateId : '' );
+		$fields = $template?->get_fields() ?? array();
+
+		return $this->withoutConditions( $current, $fields ) === $this->withoutConditions( $newMeta, $fields );
 	}
 
 	/** Значение меты не меняется (запись того же): такая запись безвредна и отказа не вызывает. */
@@ -129,11 +139,17 @@ class ExamVariantGuard {
 	 *
 	 * @return array<mixed>
 	 */
-	private function withoutConditions( array $meta ): array {
+	private function withoutConditions( array $meta, array $fields = array() ): array {
 		$kept = array();
 		foreach ( $meta as $key => $value ) {
 			if ( is_string( $key ) && str_ends_with( $key, '_condition' ) ) {
 				continue;
+			}
+			$field = $fields[ $key ]['object'] ?? null;
+			if ( null !== $field && ! is_array( $value ) ) {
+				// TextareaField decodes stored entities when rendering, before its sanitize step.
+				$value = $field instanceof TextareaField ? html_entity_decode( (string) $value, ENT_QUOTES | ENT_HTML5, 'UTF-8' ) : $value;
+				$value = $field->sanitize( $value );
 			}
 			$kept[ $key ] = is_array( $value ) ? $this->withoutConditions( $value ) : (string) $value;
 		}
@@ -254,15 +270,19 @@ class ExamVariantGuard {
 	}
 
 	/**
-	 * Состав — по снимку проведения (он определяет попытки); нет снимка — по текущему составу варианта.
+	 * Устаревший снимок может содержать задание, удалённое до заморозки варианта.
+	 * При недоступной работе сохраняем защиту снимка; при отсутствии снимка используем работу.
 	 *
 	 * @return list<int>
 	 */
 	private function taskIdsOf( int $eventId, int $assessmentId ): array {
 		$event = $this->events->find( $eventId );
 		$ids   = $event?->snapshotFor( $assessmentId )['task_ids'] ?? null;
+		$assessment = $this->assessments->get( $assessmentId );
 		if ( ! is_array( $ids ) ) {
-			$ids = $this->assessments->get( $assessmentId )->taskIds ?? array();
+			$ids = $assessment?->taskIds ?? array();
+		} elseif ( null !== $assessment ) {
+			$ids = array_intersect( array_map( 'intval', $ids ), array_map( 'intval', $assessment->taskIds ) );
 		}
 
 		return array_values( array_filter( array_map( 'intval', $ids ) ) );
