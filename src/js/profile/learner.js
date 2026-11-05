@@ -9,7 +9,7 @@ import { defaultTileIds, tileCatalog } from './learner-home-tiles.js';
 import { homeTile, arrowsHtml, tilesHtml, editBarHtml, wireHomeEditor } from './home-customization.js';
 import { esc, toast, fmtDayMonth, fmtDate, emptyState, chipBg, chipHtml, chipText, chipSoft, scheduleTone, shortName, todayIso, roomLabel } from './utils.js';
 import { toggleVisible, applyProgress } from '../common/utils.js';
-import { icoCalendar, icoCheck, icoAlert, icoSearch, icoChevronRight, icoChevronDown, icoClock, icoStar, icoHome, icoLock } from '../common/icons.js';
+import { icoCalendar, icoCheck, icoAlert, icoSearch, icoChevronRight, icoChevronDown, icoClock, icoHome, icoLock } from '../common/icons.js';
 import { createApi } from './api.js';
 import { workCardHtml, workChipHtml, workStatusText } from './work-card.js';
 import { learnerLayout, learnerFlat } from './program-window.js';
@@ -119,11 +119,10 @@ function saveLayout() {
 
 function deadlinesSectionHtml(d) {
     return `<div class="prof-card" data-home-section="deadlines">
-        <div class="prof-card-head"><h3>Дедлайны и оценки</h3>${homeEdit ? arrowsHtml() : ''}</div>
+        <div class="prof-card-head"><h3>Дедлайны</h3>${homeEdit ? arrowsHtml() : ''}</div>
         <div>
             ${d.deadlines.map(dlRow).join('')}
-            ${d.recent.map(gradeRow).join('')}
-            ${(d.deadlines.length + d.recent.length) ? '' : empty('Пока пусто.')}
+            ${d.deadlines.length ? '' : empty('Пока пусто.')}
         </div>
     </div>`;
 }
@@ -710,19 +709,6 @@ function dlRow(d) {
     }
     return `<div class="prof-work-item${d.overdue ? ' overdue' : ''}">${inner}</div>`;
 }
-
-function gradeRow(g) {
-    // Дата + время сдачи (ДД.ММ.ГГГГ ЧЧ:ММ).
-    const sub  = [ esc(g.group_name), fmtDateTime(g.graded_at) ].filter(Boolean).join(' · ');
-    const tag  = g.url ? 'a' : 'div';
-    const href = g.url ? ` href="${esc(g.url)}"` : '';
-    return `<${tag} class="prof-work-item${g.url ? ' is-clickable' : ''}"${href}>
-        <div class="prof-work-ico grade">${icoStar(18)}</div>
-        <div class="prof-work-main"><div class="prof-work-title">${esc(g.title)}</div><div class="prof-work-sub">${sub}</div></div>
-        <span class="prof-work-count">${esc(g.value)}</span>
-    </${tag}>`;
-}
-
 
 /* Строка занятия — те же колонки, что в «Моих оценках»: отметка · группа · дата ·
    тема · работы. Ширины фиксированы, поэтому текст строк стоит друг под другом. */

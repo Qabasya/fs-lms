@@ -72,7 +72,7 @@
 .prof-dash-grid2 { display: grid; grid-template-columns: minmax(0, 1fr); gap: rem(18); }
 .prof-sched-card { margin-bottom: rem(18); }
 
-// В сетке главной три секции (плитки, расписание, «Дедлайны и оценки») — промежуток между ними задаёт один `gap`;
+// В сетке главной три секции (плитки, расписание, «Дедлайны») — промежуток между ними задаёт один `gap`;
 // собственные нижние отступы плиток и расписания его удваивали бы (36 вместо 18).
 .prof-dash-grid2 > .prof-sched-card,
 .prof-dash-grid2 > .prof-stat-tiles { margin-bottom: 0; }

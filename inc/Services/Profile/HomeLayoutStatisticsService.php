@@ -39,7 +39,7 @@ class HomeLayoutStatisticsService {
 				'positions' => array( 0, 0, 0 ),
 			),
 			'deadlines' => array(
-				'label'     => 'Дедлайны и оценки',
+				'label'     => 'Дедлайны',
 				'positions' => array( 0, 0, 0 ),
 			),
 			'attention' => array(
