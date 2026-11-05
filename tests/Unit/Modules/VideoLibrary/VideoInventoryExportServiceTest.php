@@ -18,7 +18,10 @@ class VideoInventoryExportServiceTest extends TestCase {
 		try {
 			$service->export( $path );
 			self::assertSame( $data, json_decode( file_get_contents( $path ), true, 512, JSON_THROW_ON_ERROR ) );
-			self::assertSame( 0600, fileperms( $path ) & 0777 );
+			// Windows reports synthetic POSIX mode bits; access there is controlled by the directory ACL.
+			if ( 'Windows' !== PHP_OS_FAMILY ) {
+				self::assertSame( 0600, fileperms( $path ) & 0777 );
+			}
 			$before = file_get_contents( $path );
 			try {
 				$service->export( $path );

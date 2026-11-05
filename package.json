@@ -16,7 +16,7 @@
     "not dead"
   ],
   "scripts": {
-    "test": "vendor/bin/phpunit",
+    "test": "php vendor/bin/phpunit",
     "test:js": "node --import ./tests/js/register.mjs --test \"tests/js/**/*.test.mjs\"",
     "lint:js": "eslint .",
     "fix:js": "eslint . --fix",
