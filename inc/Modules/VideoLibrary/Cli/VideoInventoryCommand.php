@@ -1,6 +1,6 @@
 <?php
 /**
- * Read-only video inventory command.
+ * Video inventory and recording-link reset commands.
  *
  * @package FS_LMS
  */
@@ -14,7 +14,7 @@ use Inc\Modules\VideoLibrary\Services\VideoInventoryExportService;
 use Inc\Modules\VideoLibrary\Services\VideoRecordingResetService;
 use WP_CLI;
 
-/** Exports migration inventory without requiring DNS, S3 or a browser session. */
+/** Управляет инвентарём и отвязкой видеозаписей через WP-CLI. */
 class VideoInventoryCommand implements ServiceInterface {
 	/** Receives the inventory exporter. */
 	public function __construct( private readonly VideoInventoryExportService $exporter, private readonly VideoRecordingResetService $reset ) {}
