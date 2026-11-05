@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Managers\Course;
 
 use Inc\Managers\Wp\PostManager;
+use Inc\Services\Course\SelfPacedContentGuard;
 
 use Inc\DTO\Course\LessonDTO;
 use Inc\DTO\Course\StepDTO;
@@ -22,6 +23,7 @@ class LessonManager {
 
 	public function __construct(
 		private readonly PostManager $posts,
+		private readonly ?SelfPacedContentGuard $selfPacedGuard = null,
 	) {}
 
 	public function create( string $subjectKey, LessonDTO $dto ): int {
@@ -41,6 +43,7 @@ class LessonManager {
 	}
 
 	public function update( int $lessonId, LessonDTO $dto ): bool {
+		$this->selfPacedGuard?->assertMetadata( $lessonId, PostMetaName::Meta->value, $dto->toArray() );
 		$updated = $this->posts->update( $lessonId, array(
 			'post_title' => $dto->topic,
 		) );

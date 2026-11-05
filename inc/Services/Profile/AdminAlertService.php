@@ -68,7 +68,7 @@ class AdminAlertService {
 	public function overdueJournals( string $from, string $to ): array {
 		$out = array();
 		foreach ( $this->groupLessons->listGroupEndedBetween( $from, $to ) as $lesson ) {
-			if ( $lesson->hasAttendance || $this->notifications->isOpenGroup( $lesson->groupId ) ) {
+			if ( $lesson->hasAttendance || ( $this->notifications->isOpenGroup( $lesson->groupId ) || $this->notifications->isSelfPacedGroup( $lesson->groupId ) ) ) {
 				continue;
 			}
 			if ( empty( $this->notifications->lessonStudentPersonIds( $lesson ) ) ) {
@@ -258,7 +258,7 @@ class AdminAlertService {
 	private function activeGroups(): array {
 		return array_values( array_filter(
 			$this->groups->findAll(),
-			static fn( object $g ): bool => empty( $g->deleted_at )
+			static fn( object $g ): bool => empty( $g->deleted_at ) && empty( $g->self_paced_course_id )
 				&& AccessMode::Open !== AccessMode::fromValueOrDefault( (string) ( $g->access_mode ?? '' ) )
 		) );
 	}

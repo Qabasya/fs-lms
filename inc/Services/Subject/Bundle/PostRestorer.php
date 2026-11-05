@@ -5,6 +5,9 @@ declare( strict_types=1 );
 namespace Inc\Services\Subject\Bundle;
 
 use Inc\Shared\SafeHtml;
+use Inc\Enums\Wp\PostMetaName;
+use Inc\Repositories\OptionsRepositories\SubjectRepository;
+use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Subject\Import\ImportedEntitiesCollector;
 use Inc\Managers\Wp\PostManager;
 use Inc\Managers\Wp\TermManager;
@@ -40,6 +43,7 @@ class PostRestorer {
 	public function __construct(
 		private readonly PostManager $posts,
 		private readonly TermManager $terms,
+		private readonly SubjectRepository $subjects,
 	) {}
 
 	/**
@@ -72,7 +76,20 @@ class PostRestorer {
 
 		$created->addPost( $postId );
 
-		foreach ( (array) ( $data['meta'] ?? array() ) as $metaKey => $metaValue ) {
+		$meta = (array) ( $data['meta'] ?? array() );
+		// A copied course must be explicitly reviewed and enabled on its destination.
+		unset( $meta[ PostMetaName::CourseServiceGroupId->value ] );
+		if ( PostTypeResolver::isCoursePostType( $postType ) ) {
+			$meta[ PostMetaName::CourseSelfPacedEnabled->value ] = false;
+			$meta[ PostMetaName::CourseServiceGroupId->value ] = 0;
+			$audience = $meta[ PostMetaName::CourseAudienceSubjectKeys->value ] ?? array();
+			$meta[ PostMetaName::CourseAudienceSubjectKeys->value ] = array_values( array_unique( array_filter(
+				is_array( $audience ) ? $audience : array(),
+				fn ( mixed $key ): bool => is_string( $key ) && null !== $this->subjects->getByKey( $key ),
+			) ) );
+		}
+
+		foreach ( $meta as $metaKey => $metaValue ) {
 			$this->posts->updateMeta( $postId, sanitize_key( (string) $metaKey ), $metaValue );
 		}
 

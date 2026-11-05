@@ -22,7 +22,7 @@ class ExamResultTemplateTest extends TestCase {
 		$data = $override + array(
 			'revealed' => true, 'event_title' => 'Пробный ОГЭ', 'title' => 'Вариант', 'submitted' => '2026-03-10 12:00:00', 'caption' => '9 из 19', 'preliminary' => true,
 			'units' => array( array( 'status' => 'correct', 'anchor' => 'u-1', 'number' => '1' ), array( 'status' => 'pending', 'anchor' => 'u-2', 'number' => '2' ) ),
-			'counts' => array( 'correct' => 1, 'partial' => 0, 'wrong' => 0, 'pending' => 1 ),
+			'counts' => array( 'correct' => 1, 'incorrect' => 1, 'unanswered' => 1, 'pending' => 1 ),
 			'tasks' => array(
 				$task( array() ),
 				$task( array( 'n' => 2, 'anchor' => 'u-2', 'verdict' => 'pending', 'verdict_text' => 'Проверяется преподавателем', 'score' => null, 'answer' => 'моё сочинение' ) ),

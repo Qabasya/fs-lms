@@ -59,6 +59,10 @@ readonly class GroupCalendarService {
 	 * @return array<int, array{id:int, name:string}>
 	 */
 	public function freeRoomsForGroup( int $groupId, string $start, ?string $end = null, bool $shared = false ): array {
+		if ( (int) ( $this->groups->findById( $groupId )->self_paced_course_id ?? 0 ) > 0 ) {
+			throw new \InvalidArgumentException( 'Самостоятельный курс не имеет расписания группы.' );
+		}
+
 		$group = $this->groups->findById( $groupId );
 		if ( ! $group ) {
 			return array();
@@ -83,6 +87,10 @@ readonly class GroupCalendarService {
 	 * @return array{assigned:bool, course_id:int, period:?array, holidays:string[], lessonDays:string[], lessonTimes:array<string,string>, slots_total:int, unplaced:int, themes:array<int,array<string,mixed>>}
 	 */
 	public function getCalendar( int $groupId ): array {
+		if ( (int) ( $this->groups->findById( $groupId )->self_paced_course_id ?? 0 ) > 0 ) {
+			throw new \InvalidArgumentException( 'Самостоятельный курс не имеет расписания группы.' );
+		}
+
 		$group        = $this->groups->findById( $groupId );
 		$meta         = $this->calendar->periodMeta( $groupId );
 		// Этап 2 (Tasks.md): переполнение периода видно и без нажатия «Распределить» —

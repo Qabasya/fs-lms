@@ -48,6 +48,28 @@ class GroupRosterCallbacksTest extends TestCase {
 		self::assertSame( 9001, $r->payload['students'][0]['person_id'] );
 	}
 
+	public function test_forged_service_group_id_cannot_expose_roster_to_content_manager(): void {
+		$this->guard->expects( self::once() )->method( 'isSelfPacedGroup' )->with( 808 )->willReturn( true );
+		$this->guard->expects( self::never() )->method( 'canManage' );
+		$this->roster->expects( self::never() )->method( 'forGroup' );
+		$_POST = array( 'group_id' => '808' );
+
+		$result = fs_test_capture_json( fn() => $this->cb->ajaxGetGroupRoster() );
+
+		self::assertFalse( $result->success );
+	}
+
+	public function test_authorized_service_course_summary_keeps_explicit_student_scope(): void {
+		$this->guard->method( 'isSelfPacedGroup' )->willReturn( true );
+		$this->guard->method( 'canManage' )->willReturn( true );
+		$this->directory->expects( self::once() )->method( 'canViewStudentSummary' )
+			->with( 808, 9001, self::anything(), self::anything() )->willReturn( true );
+		$this->summary->expects( self::once() )->method( 'forStudent' )->with( 808, 9001 )->willReturn( array( 'lessons' => array() ) );
+		$_POST = array( 'group_id' => '808', 'student_person_id' => '9001' );
+
+		self::assertTrue( fs_test_capture_json( fn() => $this->cb->ajaxGetStudentSummary() )->success );
+	}
+
 	public function test_get_group_roster_denied_when_not_manager(): void {
 		$this->guard->method( 'canManage' )->willReturn( false );
 		$this->roster->expects( $this->never() )->method( 'forGroup' );
@@ -57,6 +79,7 @@ class GroupRosterCallbacksTest extends TestCase {
 	}
 
 	public function test_get_student_summary_returns_lessons(): void {
+		$this->directory->method( 'canViewStudentSummary' )->willReturn( true );
 		$this->guard->method( 'canManage' )->willReturn( true );
 		$this->summary->expects( $this->once() )
 			->method( 'forStudent' )
@@ -91,5 +114,13 @@ class GroupRosterCallbacksTest extends TestCase {
 		self::assertTrue( $r->success );
 		self::assertSame( 'math', $r->payload['groups'][0]['subject_key'] );
 		self::assertSame( 9001, $r->payload['students'][0]['person_id'] );
+	}
+
+	public function test_content_management_right_does_not_bypass_service_participant_scope(): void {
+		$this->guard->method( 'canManage' )->willReturn( true );
+		$this->directory->expects( self::once() )->method( 'canViewStudentSummary' )->willReturn( false );
+		$this->summary->expects( self::never() )->method( 'forStudent' );
+		$_POST = array( 'group_id' => '8', 'student_person_id' => '9001' );
+		self::assertFalse( fs_test_capture_json( fn() => $this->cb->ajaxGetStudentSummary() )->success );
 	}
 }

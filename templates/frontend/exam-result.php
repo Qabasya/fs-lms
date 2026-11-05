@@ -24,7 +24,7 @@ declare( strict_types=1 );
  * @var string $caption
  * @var bool   $preliminary
  * @var list<array<string, mixed>> $units
- * @var array{correct: int, partial: int, wrong: int, pending: int} $counts
+ * @var array{correct: int, incorrect: int, unanswered: int, pending: int} $counts
  * @var list<array<string, mixed>> $tasks
  * @var array{courses: array, articles: array, articles_url: string, trial_url?: string}|null $sidebar Сайдбар: заглушка «Курсы» и призыв на пробное занятие (статьи по ошибкам в нём не показываются)
  * @var array<string, string> $contacts

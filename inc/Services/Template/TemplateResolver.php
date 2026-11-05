@@ -54,15 +54,17 @@ class TemplateResolver {
 	 * Определяет ID шаблона для конкретного поста.
 	 *
 	 * @param \WP_Post $post Объект поста (задания)
+	 * @param array|null $candidateTerms Несохранённые номера задания; null читает сохранённые.
+	 * @param array|null $candidateMeta Несохранённые значения меты, с сохранением приоритета глобальной привязки.
 	 *
 	 * @return string ID выбранного шаблона
 	 */
-	public function resolveId( \WP_Post $post ): string {
+	public function resolveId( \WP_Post $post, ?array $candidateTerms = null, ?array $candidateMeta = null ): string {
 		// 0. Дочернее задание связки 19-21 — обычное `standard_task` (TaskBundleService::upsertChild()): свой ответ лежит в
 		// `task_answer`. Глобальная привязка шаблона к номеру 19 (триплет) к нему не относится: иначе проверка искала бы
 		// `task_19_answer` в мете ребёнка, не находила и не засчитывала верный ответ (в экзамене не засчитывалось №19).
 		if ( '' !== (string) $this->posts->getMeta( $post->ID, PostMetaName::TaskBundleParentId->value ) ) {
-			$own = (string) $this->posts->getMeta( $post->ID, PostMetaName::TemplateType->value );
+			$own = (string) ( null !== $candidateMeta && array_key_exists( PostMetaName::TemplateType->value, $candidateMeta ) ? $candidateMeta[ PostMetaName::TemplateType->value ] : $this->posts->getMeta( $post->ID, PostMetaName::TemplateType->value ) );
 
 			return '' !== $own ? $own : TaskTemplate::Standard->value;
 		}
@@ -73,7 +75,7 @@ class TemplateResolver {
 		// 2. ПРИОРИТЕТ 1: Глобальные настройки в БД (MetaBoxRepository)
 		$taxonomy = "{$subject_key}_task_number";
 		// wp_get_post_terms() — возвращает массив терминов, привязанных к посту
-		$terms    = wp_get_post_terms( $post->ID, $taxonomy );
+		$terms    = $candidateTerms ?? wp_get_post_terms( $post->ID, $taxonomy );
 		
 		// Проверка, что термины получены без ошибок и не пустые
 		if ( ! is_wp_error( $terms ) && ! empty( $terms ) ) {
@@ -87,7 +89,7 @@ class TemplateResolver {
 		}
 		
 		// 3. ПРИОРИТЕТ 2: Мета-поле конкретного поста (обратная совместимость со старыми данными)
-		$saved_meta = $this->posts->getMeta( $post->ID, PostMetaName::TemplateType->value );
+		$saved_meta = null !== $candidateMeta && array_key_exists( PostMetaName::TemplateType->value, $candidateMeta ) ? $candidateMeta[ PostMetaName::TemplateType->value ] : $this->posts->getMeta( $post->ID, PostMetaName::TemplateType->value );
 		if ( empty( $saved_meta ) ) {
 			$saved_meta = $this->posts->getMeta( $post->ID, self::LEGACY_TEMPLATE_META );
 		}

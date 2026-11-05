@@ -31,11 +31,22 @@ class SubjectDeletionCascadeHandler {
 	) {}
 
 	public function handle( DeleteSubjectEvent $event ): void {
+		$this->groups->withSelfPacedLifecycleLock( fn() => $this->handleLocked( $event ) );
+	}
+
+	private function handleLocked( DeleteSubjectEvent $event ): void {
+		$this->subjects->refreshCache();
 		$subjectKey  = $event->subjectKey;
 		$actorId     = $event->actorId;
 		$subjectName = $this->subjects->getByKey( $subjectKey )?->name;
 
 		$dbGroups = $this->groups->findBySubjectKey( $subjectKey );
+		// Check the entire inventory before deleting even the first ordinary group.
+		foreach ( $dbGroups as $group ) {
+			if ( (int) ( $group->self_paced_course_id ?? 0 ) > 0 ) {
+				throw new \DomainException( 'Удаление запрещено: есть самостоятельные курсы со служебными группами. История прохождения должна быть сохранена.' );
+			}
+		}
 		foreach ( $dbGroups as $group ) {
 			$this->dispatcher->dispatch( new DeleteGroupEvent( (int) $group->id, $actorId ) );
 		}

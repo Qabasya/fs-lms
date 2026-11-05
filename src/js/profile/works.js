@@ -262,7 +262,7 @@ function filtersHtml() {
         `<button type="button" class="${o.key === state.sortBy ? 'on' : ''}" data-sort="${o.key}">${esc(o.label)}</button>`).join('');
     return `<div class="wk-filters">
         <div class="wk-filter">
-            ${groupPickerBtnHtml(g || { id: 0, name: 'Выберите группу', subject: '' }, 'wkGroupBtn')}
+            ${groupPickerBtnHtml(g || { id: 0, name: 'Выберите группу или курс', subject: '' }, 'wkGroupBtn')}
         </div>
         <div class="wk-filter">
             ${optionPickerBtnHtml(type.label, 'wkTypeBtn', 'Тип работы')}

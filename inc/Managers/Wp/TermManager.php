@@ -27,6 +27,20 @@ use Inc\Enums\Wp\PostMetaName;
  */
 class TermManager {
 
+	/** Candidate guards apply only to explicit self-paced course dependencies. */
+	public function __construct( private readonly ?\Inc\Services\Course\SelfPacedContentGuard $selfPacedGuard = null ) {}
+
+	/** REST field names for exposed task-number relationships of a post type. */
+	public function restTaskNumberFields( string $postType ): array {
+		$fields = array();
+		foreach ( get_object_taxonomies( $postType, 'objects' ) as $taxonomy ) {
+			if ( $taxonomy->show_in_rest && str_ends_with( $taxonomy->name, '_task_number' ) ) {
+				$fields[ $taxonomy->rest_base ?: $taxonomy->name ] = $taxonomy->name;
+			}
+		}
+		return $fields;
+	}
+
 	/**
 	 * Возвращает массив ID терминов указанной таксономии.
 	 *
@@ -235,9 +249,27 @@ class TermManager {
 	 * @return void
 	 */
 	public function setPostTerms( int $post_id, array $terms, string $taxonomy ): void {
+		$this->assertPostTerms( $post_id, $terms, $taxonomy );
 		// wp_set_post_terms() — устанавливает термины для поста
 		// Умеет работать как с ID, так и со слагами
 		wp_set_post_terms( $post_id, $terms, $taxonomy );
+	}
+
+	/** Validate an unsaved term relationship candidate without writing it. */
+	public function assertPostTerms( int $post_id, array $terms, string $taxonomy ): void {
+		if ( str_ends_with( $taxonomy, '_task_number' ) && null !== $this->selfPacedGuard ) {
+			$candidates = array();
+			foreach ( $terms as $term ) {
+				$candidate = is_int( $term ) ? $this->get( $term, $taxonomy ) : $this->findBySlug( (string) $term, $taxonomy );
+				if ( null !== $candidate ) {
+					$candidates[] = $candidate;
+				} elseif ( ! is_int( $term ) ) {
+					// Non-hierarchical task numbers accept numeric strings as slugs, including newly created terms.
+					$candidates[] = (object) array( 'slug' => (string) $term );
+				}
+			}
+			$this->selfPacedGuard->assertTaskTerms( $post_id, $candidates );
+		}
 	}
 
 	/**

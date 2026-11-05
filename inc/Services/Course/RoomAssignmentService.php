@@ -44,6 +44,7 @@ class RoomAssignmentService {
 	 * @throws \InvalidArgumentException группа/кабинет не найдены или предмет не разрешён.
 	 */
 	public function assignToGroup( int $groupId, ?int $roomId ): array {
+		$this->assertOrdinaryGroup( $groupId );
 		$group = $this->groups->findById( $groupId );
 		if ( ! $group ) {
 			throw new \InvalidArgumentException( 'Группа не найдена.' );
@@ -92,6 +93,8 @@ class RoomAssignmentService {
 		if ( ! $lesson ) {
 			throw new \InvalidArgumentException( 'Занятие не найдено.' );
 		}
+
+		$this->assertOrdinaryGroup( $lesson->groupId );
 
 		if ( null !== $roomId ) {
 			$room = $this->rooms->find( $roomId );
@@ -143,6 +146,7 @@ class RoomAssignmentService {
 	 * @return array{applied:int, skipped:int, warnings:string[]}
 	 */
 	private function overrideForRangeLocked( int $groupId, ?int $roomId, string $from, string $to ): array {
+		$this->assertOrdinaryGroup( $groupId );
 		if ( null !== $roomId ) {
 			$room = $this->rooms->find( $roomId );
 			if ( ! $room ) {
@@ -240,4 +244,10 @@ class RoomAssignmentService {
 
 		return $defaultRoomId ? ( $this->rooms->find( $defaultRoomId )?->name ?? '—' ) : '—';
 	}
+	private function assertOrdinaryGroup( int $groupId ): void {
+		if ( (int) ( $this->groups->findById( $groupId )->self_paced_course_id ?? 0 ) > 0 ) {
+			throw new \InvalidArgumentException( 'Самостоятельный курс не имеет кабинета и расписания.' );
+		}
+	}
+
 }

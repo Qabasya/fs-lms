@@ -112,7 +112,7 @@ class EnrollmentFlowTest extends TestCase {
 			$this->clock,
 			$this->logEvents,
 			new EnrollmentPersonResolver( $this->personRepo, $this->personService, $this->crypto ),
-			new EnrollmentTransaction( $this->recordRepo, $this->personService, $this->consentService, $this->clock ),
+			new EnrollmentTransaction( $this->recordRepo, $this->personService, $this->consentService, $this->clock, $this->groupsRepo ),
 			new \Inc\Services\Enrollment\EnrollmentAccountsService(
 				new AccountProvisioningService( $this->userManager, $this->passwordGenerator, $this->personRepo, $this->logEvents ),
 				$this->passwordGenerator

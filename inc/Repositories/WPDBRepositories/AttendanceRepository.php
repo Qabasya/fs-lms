@@ -100,9 +100,12 @@ class AttendanceRepository {
 	}
 
 	/** @return AttendanceDTO[] */
-	public function listByStudent( int $studentPersonId ): array {
+	public function listByStudent( int $studentPersonId, bool $includeSelfPaced = true ): array {
 		$rows = $this->wpdb->get_results(
-			$this->wpdb->prepare( 'SELECT * FROM %i WHERE student_person_id = %d', $this->table, $studentPersonId ),
+
+			$includeSelfPaced
+				? $this->wpdb->prepare( 'SELECT * FROM %i WHERE student_person_id = %d', $this->table, $studentPersonId )
+				: $this->wpdb->prepare( 'SELECT a.* FROM %i a LEFT JOIN %i l ON l.id = a.group_lesson_id LEFT JOIN %i g ON g.id = l.group_id WHERE a.student_person_id = %d AND g.self_paced_course_id IS NULL', $this->table, TableName::GroupLessons->prefixed(), TableName::Groups->prefixed(), $studentPersonId ),
 			ARRAY_A
 		);
 		return array_map( array( AttendanceDTO::class, 'fromArray' ), $rows ?: array() );

@@ -9,7 +9,7 @@ use Inc\Modules\Shared\ModuleConfig;
 /**
  * Class VideoLibraryConfig
  *
- * Конфигурация модуля VideoLibrary (видеозаписи занятий в S3 Beget).
+ * Конфигурация модуля VideoLibrary (видеозаписи занятий в S3).
  * Модуль владеет СВОЕЙ опцией `fs_lms_video_library` — ядро о ней не знает.
  *
  * Флаг включения: константа `FS_LMS_VIDEO_LIBRARY` в wp-config.php перекрывает тумблер из опции

@@ -136,6 +136,9 @@ class OpenGroupEnrollmentService {
 		if ( ! $group ) {
 			throw new \InvalidArgumentException( 'Группа не найдена.' );
 		}
+		if ( (int) ( $group->self_paced_course_id ?? 0 ) > 0 ) {
+			throw new \InvalidArgumentException( 'Самостоятельный курс начинается только самим учеником.' );
+		}
 		$open = AccessMode::Open === AccessMode::fromValueOrDefault( (string) ( $group->access_mode ?? '' ) );
 		if ( ! $open && ! $this->isShared( $group ) ) {
 			throw new \InvalidArgumentException( 'Добавлять существующих учеников можно только в открытые и общие группы.' );

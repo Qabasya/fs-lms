@@ -33,6 +33,9 @@ use Inc\Managers\Wp\MediaManager;
 
 class LessonPlayerServiceTest extends TestCase {
 
+	private \Inc\Services\Enrollment\SelfPacedAccessPolicy $selfPacedAccess;
+	private bool $paused = false;
+
 	private LessonManager                 $lessons;
 	private LessonGateResolver            $gate;
 	private LessonProgressService         $progress;
@@ -51,6 +54,10 @@ class LessonPlayerServiceTest extends TestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
+		$this->selfPacedAccess = $this->createMock( \Inc\Services\Enrollment\SelfPacedAccessPolicy::class );
+		$this->selfPacedAccess->method( 'canContinue' )->willReturn( true );
+		$this->selfPacedAccess->method( 'canAccessGroup' )->willReturnCallback( fn() => ! $this->paused );
+		$this->selfPacedAccess->method( 'canParentAccessGroup' )->willReturn( true );
 		$this->lessons          = $this->createMock( LessonManager::class );
 		$this->gate             = $this->createMock( LessonGateResolver::class );
 		$this->progress         = $this->createMock( LessonProgressService::class );
@@ -93,8 +100,16 @@ class LessonPlayerServiceTest extends TestCase {
 			$this->createMock( CourseNavService::class ),
 			$this->createMock( \Inc\Services\Course\WorkTaskCheckService::class ),
 			$this->groups,
-			new \Inc\Services\Course\WorkSolutionReveal( new \Inc\Services\Task\TaskSolutionService( $this->createMock( \Inc\Services\Task\CorrectAnswerResolver::class ) ), new \Inc\Managers\Wp\PostManager() )
+			new \Inc\Services\Course\WorkSolutionReveal( new \Inc\Services\Task\TaskSolutionService( $this->createMock( \Inc\Services\Task\CorrectAnswerResolver::class ) ), new \Inc\Managers\Wp\PostManager() ),
+			$this->selfPacedAccess
 		);
+	}
+
+	public function test_paused_independent_course_does_not_render_files_or_issue_signed_urls(): void {
+		$this->paused = true;
+		$this->lessons->expects( self::never() )->method( 'get' );
+		$this->progress->expects( self::never() )->method( 'getStepStatuses' );
+		self::assertNull( $this->service->buildView( 42, $this->makeGroupLesson() ) );
 	}
 
 	private function makeGroupLesson( int $id = 1, int $lessonId = 10, ?string $recordingUrl = null, ?string $recordingLink = null, string $status = 'scheduled' ): GroupLessonDTO {

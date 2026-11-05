@@ -28,6 +28,13 @@ use Inc\Enums\Settings\OptionName;
  */
 class SubjectRepository {
 
+	/** Discard request-local option snapshots after waiting for a lifecycle lock. */
+	public function refreshCache(): void {
+		wp_cache_delete( OptionName::Subjects->value, 'options' );
+		wp_cache_delete( 'alloptions', 'options' );
+		wp_cache_delete( 'notoptions', 'options' );
+	}
+
 	/**
 	 * Конструктор репозитория.
 	 */

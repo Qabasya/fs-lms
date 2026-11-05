@@ -66,13 +66,13 @@ class StudentRecordRepository {
 	 * поверх основной, а не зачисление: «группа ученика», «оставшиеся записи» и аудитория экзамена её не учитывают.
 	 * Плейсхолдер `%i` — таблица групп.
 	 */
-	private const NOT_SHARED_SQL = ' AND ( group_id IS NULL OR group_id NOT IN ( SELECT id FROM %i WHERE is_shared = 1 ) )';
+	private const NOT_SHARED_SQL = ' AND ( group_id IS NULL OR group_id NOT IN ( SELECT id FROM %i WHERE is_shared = 1 OR self_paced_course_id IS NOT NULL ) )';
 
 	/**
 	 * Находит все записи студента (включая архивные).
 	 *
 	 * @param int  $studentPersonId ID студента
-	 * @param bool $includeShared   false — без записей общих групп (основное зачисление ученика)
+	 * @param bool $includeShared   false — без записей общих и служебных самостоятельных групп (основное зачисление)
 	 *
 	 * @return StudentRecordDTO[]
 	 */
@@ -93,7 +93,7 @@ class StudentRecordRepository {
 	 * Находит активные записи студента (статус Active).
 	 *
 	 * @param int  $studentPersonId ID студента
-	 * @param bool $includeShared   false — без записей общих групп (основное зачисление ученика)
+	 * @param bool $includeShared   false — без записей общих и служебных самостоятельных групп (основное зачисление)
 	 *
 	 * @return StudentRecordDTO[]
 	 */
@@ -111,7 +111,7 @@ class StudentRecordRepository {
 	}
 
 	/**
-	 * Находит «основную» активную запись студента: последнюю по дате зачисления, не в общей группе.
+	 * Находит «основную» активную запись студента: последнюю по дате зачисления, не в общей или служебной группе.
 	 * Из неё берутся группа ученика, школа и ФИО в списках экзаменов и карточках.
 	 *
 	 * @param int $studentPersonId ID студента

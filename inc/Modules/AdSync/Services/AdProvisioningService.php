@@ -544,7 +544,8 @@ class AdProvisioningService {
 	private function activeRecords( int $personId ): array {
 		return array_values( array_filter(
 			$this->records->findActiveByStudent( $personId ),
-			static fn( StudentRecordDTO $r ): bool => ! $r->isTrial
+			fn( StudentRecordDTO $r ): bool => ! $r->isTrial
+				&& ! (int) ( $this->groups->findById( $r->groupId )->self_paced_course_id ?? 0 )
 		) );
 	}
 
@@ -552,7 +553,8 @@ class AdProvisioningService {
 	private function subjectOf( StudentRecordDTO $record ): ?string {
 		$group = $this->groups->findById( $record->groupId );
 
-		return null !== $group ? (string) $group->subject_key : null;
+		return null !== $group && ! (int) ( $group->self_paced_course_id ?? 0 )
+			? (string) $group->subject_key : null;
 	}
 
 	private function usernameFromApplication( int $applicationId ): string {

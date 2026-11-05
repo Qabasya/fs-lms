@@ -119,11 +119,12 @@ class AdminCallbacks extends BaseController {
 		$academic_periods = $this->periods->readAll();
 
 		// Карта «id периода → количество групп» для колонки в табе периодов.
+		$ordinaryGroups = array_filter( $this->groupsRepository->findAll(), static fn( object $group ): bool => (int) ( $group->self_paced_course_id ?? 0 ) <= 0 );
 		$period_group_counts = array();
 		foreach ( $academic_periods as $period ) {
 			$period_id = (string) ( $period['id'] ?? '' );
 			if ( '' !== $period_id ) {
-				$period_group_counts[ $period_id ] = $this->groupsRepository->countByPeriodId( $period_id );
+				$period_group_counts[ $period_id ] = count( array_filter( $ordinaryGroups, static fn( object $group ): bool => (string) $group->academic_period_id === $period_id ) );
 			}
 		}
 
@@ -133,6 +134,9 @@ class AdminCallbacks extends BaseController {
 		$rooms        = $this->rooms->findAll();
 		$rooms_groups = array();
 		foreach ( $this->groupsRepository->findAll() as $g ) {
+			if ( (int) ( $g->self_paced_course_id ?? 0 ) > 0 ) {
+				continue;
+			}
 			$meetings   = json_decode( $g->meetings ?? '[]', true ) ?: array();
 			$by_room    = array(); // room_id => занятия только этого кабинета
 			foreach ( $meetings as $mt ) {
@@ -197,6 +201,9 @@ class AdminCallbacks extends BaseController {
 
 		$groups = array();
 		foreach ( $this->groupsRepository->findAll() as $g ) {
+			if ( (int) ( $g->self_paced_course_id ?? 0 ) > 0 ) {
+				continue;
+			}
 			if ( ! empty( $g->deleted_at ) ) {
 				continue;
 			}
@@ -269,15 +276,17 @@ class AdminCallbacks extends BaseController {
 		$filter_subject_key = $this->sanitizeGetKey( 'subject_key' );
 		$filter_teacher_id  = $this->sanitizeGetInt( 'teacher_id' );
 		$filter_room_id     = $this->sanitizeGetInt( 'room_id' );
+		$filter_group_type = \Inc\Enums\Course\GroupType::tryFrom( $this->sanitizeGetKey( 'group_type' ) );
 
 		$groups_filters = array_filter( array(
 			'subject_key' => $filter_subject_key,
 			'teacher_id'  => $filter_teacher_id > 0 ? $filter_teacher_id : '',
 			'room_id'     => $filter_room_id > 0 ? $filter_room_id : '',
+			'group_type'  => $filter_group_type?->value ?? '',
 		) );
 
 		$groups   = '' !== $selected_period_id
-			? $this->groupsRepository->findByFilters( $selected_period_id, $filter_subject_key, $filter_teacher_id, $filter_room_id )
+			? $this->groupsRepository->findByFilters( $selected_period_id, $filter_subject_key, $filter_teacher_id, $filter_room_id, $filter_group_type )
 			: array();
 		$subjects        = $this->subjects->readAll();    // карта имён для подписи существующих групп
 		$active_subjects = $this->subjects->readActive(); // без архивных — для фильтра и скрытия групп
@@ -287,7 +296,7 @@ class AdminCallbacks extends BaseController {
 		// Данные не удаляются — вернутся при разархивации предмета.
 		$groups = array_filter(
 			$groups,
-			static fn( object $g ): bool => isset( $active_subjects[ $g->subject_key ] )
+			static fn( object $g ): bool => (int) ( $g->self_paced_course_id ?? 0 ) <= 0 && isset( $active_subjects[ $g->subject_key ] )
 		);
 
 		$teacher_map = array();

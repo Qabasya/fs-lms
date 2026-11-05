@@ -8,6 +8,7 @@ use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
 use Inc\Enums\Wp\PageRoutes;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
+use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Services\Course\GroupAccessGuard;
 use Inc\Services\Course\LessonPlayerService;
@@ -36,6 +37,7 @@ class LessonPlayerController extends BaseController implements ServiceInterface 
 		private readonly LessonPlayerService   $player,
 		private readonly PlayerModeSwitchService $modeSwitch,
 		private readonly StudentActivityLogger   $activity,
+		private readonly GroupsRepository $groups,
 	) {
 		parent::__construct();
 	}
@@ -81,6 +83,11 @@ class LessonPlayerController extends BaseController implements ServiceInterface 
 		} elseif ( null !== $person && $this->guard->isMemberEver( $row->groupId, $person->id ) ) {
 			// Ученик группы: плеер с его прогрессом ($personId ниже).
 		} elseif ( null !== $person && $this->guard->isParentOf( $row->groupId, $person->id ) ) {
+			// Родителю самостоятельного курса доступна только безопасная программа.
+			$group = $this->groups->findById( $row->groupId );
+			if ( (int) ( $group->self_paced_course_id ?? 0 ) > 0 ) {
+				return $this->notFound();
+			}
 			$isParent = true;
 		} else {
 			return $this->notFound();

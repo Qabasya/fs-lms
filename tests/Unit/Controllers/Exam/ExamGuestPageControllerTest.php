@@ -33,6 +33,7 @@ class ExamGuestPageControllerTest extends TestCase {
 			$this->createMock( \Inc\Services\Exam\GuestResultViewService::class ),
 			$this->createMock( \Inc\Services\Exam\GuestResultSidebarService::class ),
 			$this->createMock( \Inc\Services\Exam\ExamReportViewService::class ),
+			$this->createMock( \Inc\Services\Exam\ExamReportCsvExport::class ),
 			$this->responder,
 			$this->createMock( \Inc\Managers\Wp\PostManager::class )
 		);

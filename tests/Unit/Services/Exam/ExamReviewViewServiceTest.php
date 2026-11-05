@@ -54,7 +54,7 @@ class ExamReviewViewServiceTest extends TestCase {
 		) )->build( 80 );
 
 		self::assertTrue( $data['preliminary'] );
-		self::assertSame( array( 'correct' => 1, 'partial' => 0, 'wrong' => 0, 'pending' => 1 ), $data['counts'] );
+		self::assertSame( array( 'correct' => 1, 'incorrect' => 0, 'unanswered' => 0, 'pending' => 1 ), $data['counts'] );
 		self::assertSame( '', $data['tasks'][0]['correct'] );
 		self::assertNull( $data['tasks'][1]['score'] );
 		self::assertSame( 'Проверяется преподавателем', $data['tasks'][1]['verdict_text'] );
@@ -76,6 +76,26 @@ class ExamReviewViewServiceTest extends TestCase {
 		self::assertSame( 'Иванов Пётр', $guest['guest_name'], 'имя — для заголовка страницы гостя' );
 		unset( $guest['contacts'], $guest['guest_name'] );
 		self::assertSame( $data, $guest );
+	}
+
+	public function test_counts_split_wrong_and_unanswered_and_fold_partial_into_wrong(): void {
+		$data = $this->service( array(
+			'revealed' => true, 'result' => array( 'final' => true ),
+			'units' => array(
+				array( 'status' => 'correct' ),
+				array( 'status' => 'incorrect' ),
+				array( 'status' => 'partial' ),
+				array( 'status' => 'unanswered' ),
+				array( 'status' => 'pending' ),
+			),
+			'tasks' => array(),
+		) )->build( 80 );
+
+		self::assertSame(
+			array( 'correct' => 1, 'incorrect' => 2, 'unanswered' => 1, 'pending' => 1 ),
+			$data['counts'],
+			'partial считается в «Неверно», «Не решено» — отдельной плиткой'
+		);
 	}
 
 	public function test_answer_time_and_duration_are_formatted_as_clock(): void {

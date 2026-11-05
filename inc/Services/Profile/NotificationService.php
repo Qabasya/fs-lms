@@ -252,7 +252,12 @@ readonly class NotificationService {
 		);
 	}
 
-	/** Общая (дополнительная) группа: ученики добавляются пачками, поштучных плиток преподавателю нет. */
+	/** Independent course participation must not produce schedule/enrollment alerts. */
+	public function isSelfPacedGroup( int $groupId ): bool {
+		return (int) ( $this->groups->findById( $groupId )?->self_paced_course_id ?? 0 ) > 0;
+	}
+
+	/** Общая (дополнительная) группа: поштучных плиток преподавателю нет. */
 	public function isSharedGroup( int $groupId ): bool {
 		return 1 === (int) ( $this->groups->findById( $groupId )?->is_shared ?? 0 );
 	}

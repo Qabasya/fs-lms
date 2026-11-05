@@ -47,7 +47,7 @@ class ExpulsionServiceTest extends TestCase {
 		$this->persons->method( 'findByWpUserId' )->willReturn( $this->person( 5 ) );
 		$this->persons->method( 'find' )->willReturn( $this->person( 7 ) );
 		$this->groups->method( 'findById' )->willReturnCallback(
-			static fn ( int $id ): ?object => (object) array( 'id' => $id, 'is_shared' => self::SHARED_GROUP === $id ? 1 : 0 )
+			static fn ( int $id ): ?object => (object) array( 'id' => $id, 'is_shared' => self::SHARED_GROUP === $id ? 1 : 0, 'self_paced_course_id' => 3 === $id ? 15 : null )
 		);
 
 		$this->service = new ExpulsionService(
@@ -185,4 +185,25 @@ class ExpulsionServiceTest extends TestCase {
 			'updated_at'          => '2024-01-01 00:00:00',
 		) );
 	}
+	public function test_service_record_cannot_be_expelled_as_primary_without_side_effects(): void {
+		$this->records->method( 'find' )->willReturn( $this->record( 12, 3 ) );
+		$this->records->expects( self::never() )->method( 'setExpelled' );
+		$this->records->expects( self::never() )->method( 'setFinished' );
+		$this->persons->expects( self::never() )->method( 'softDelete' );
+		$this->dispatcher->expects( self::never() )->method( 'dispatch' );
+		$this->expectException( \RuntimeException::class );
+		$this->expectExceptionMessage( 'самостоятельном курсе' );
+		$this->service->expel( 77, 'reason', 12 );
+	}
+	public function test_last_primary_expulsion_preserves_service_participation_and_progress(): void {
+		$this->records->method( 'find' )->willReturn( $this->record( 10, self::MAIN_GROUP ) );
+		$this->records->method( 'findActiveByStudent' )->willReturnCallback( fn( int $id, bool $includeShared = true ): array => $includeShared ? array( $this->record( 12, 3 ) ) : array() );
+		$this->records->expects( self::once() )->method( 'setExpelled' )->with( 10, self::anything(), self::anything(), 'reason' );
+		$this->records->expects( self::never() )->method( 'setFinished' );
+		$this->records->expects( self::never() )->method( 'deleteAllByStudent' );
+		$this->persons->expects( self::exactly( 2 ) )->method( 'softDelete' )->with( self::callback( static fn( int $id ): bool => in_array( $id, array( 5, 7 ), true ) ) );
+		$result = $this->service->expel( 77, 'reason', 10 );
+		self::assertSame( 12, $result['remaining_active_records'][0]->id );
+	}
+
 }

@@ -79,25 +79,26 @@ class ExamReviewViewService {
 	}
 
 	/**
-	 * Три показателя шапки по единицам оценивания; «проверяется» — отдельно, чтобы не выдавать ручную часть ни за верную, ни за неверную.
+	 * Показатели шапки по единицам оценивания; «проверяется» — отдельно, чтобы не выдавать ручную часть ни за верную, ни за неверную.
+	 * «Неверно» — ответ есть, полного балла нет (включая частичный балл): плитки «Частично» нет по решению владельца.
 	 *
 	 * @param list<array<string, mixed>> $units
 	 *
-	 * @return array{correct: int, partial: int, wrong: int, pending: int}
+	 * @return array{correct: int, incorrect: int, unanswered: int, pending: int}
 	 */
 	private function counts( array $units ): array {
 		$counts = array(
-			'correct' => 0,
-			'partial' => 0,
-			'wrong'   => 0,
-			'pending' => 0,
+			'correct'    => 0,
+			'incorrect'  => 0,
+			'unanswered' => 0,
+			'pending'    => 0,
 		);
 		foreach ( $units as $unit ) {
 			$key = match ( (string) ( $unit['status'] ?? '' ) ) {
-				'correct'             => 'correct',
-				'partial'             => 'partial',
-				'pending'             => 'pending',
-				default               => 'wrong',
+				'correct'    => 'correct',
+				'pending'    => 'pending',
+				'unanswered' => 'unanswered',
+				default      => 'incorrect',
 			};
 			++$counts[ $key ];
 		}

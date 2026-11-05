@@ -128,6 +128,7 @@ class LearnerContextBuilder {
 				'id'          => (int) $g->id,
 				'name'        => ! empty( $g->is_shared ) ? '' : $g->name,
 				'is_shared'   => ! empty( $g->is_shared ),
+				'self_paced_course_id' => (int) ( $g->self_paced_course_id ?? 0 ),
 				// #12: человекочитаемое название предмета вместо слага (fallback — слаг).
 				'subject'     => $this->subjects->getByKey( $g->subject_key )?->name ?? $g->subject_key,
 				'subject_key' => $g->subject_key,

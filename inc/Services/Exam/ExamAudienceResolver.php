@@ -49,7 +49,7 @@ class ExamAudienceResolver {
 
 		foreach ( $groups as $group ) {
 			// Пропускаем удалённые группы и общие: допуск к предмету даёт основная группа
-			if ( null !== $group->deleted_at || 1 === (int) ( $group->is_shared ?? 0 ) ) {
+			if ( null !== $group->deleted_at || (int) ( $group->self_paced_course_id ?? 0 ) > 0 || 1 === (int) ( $group->is_shared ?? 0 ) ) {
 				continue;
 			}
 
@@ -143,7 +143,7 @@ class ExamAudienceResolver {
 			}
 
 			$group = $this->groups->findById( $record->groupId );
-			if ( null === $group || null !== $group->deleted_at ) {
+			if ( null === $group || null !== $group->deleted_at || (int) ( $group->self_paced_course_id ?? 0 ) > 0 ) {
 				continue;
 			}
 			if ( ! $includeShared && 1 === (int) ( $group->is_shared ?? 0 ) ) {
@@ -177,7 +177,7 @@ class ExamAudienceResolver {
 			}
 
 			$group = $this->groups->findById( $record->groupId );
-			if ( null === $group || null !== $group->deleted_at ) {
+			if ( null === $group || null !== $group->deleted_at || (int) ( $group->self_paced_course_id ?? 0 ) > 0 ) {
 				continue;
 			}
 

@@ -221,7 +221,10 @@ final class TeacherProfileView implements ProfileViewInterface {
 			'groups'   => array_map(
 				fn( $g ): array => array(
 					'id'          => (int) $g->id,
-					'name'        => $g->name,
+					'name'        => ! empty( $g->self_paced_course_id ) ? ( $this->courses->get( (int) $g->self_paced_course_id )?->title ?? 'Самостоятельный курс' ) : $g->name,
+					'self_paced_course_id' => ! empty( $g->self_paced_course_id ) ? (int) $g->self_paced_course_id : null,
+					'course_id' => (int) ( $g->course_id ?? 0 ),
+					'service_course_title' => ! empty( $g->self_paced_course_id ) ? ( $this->courses->get( (int) $g->self_paced_course_id )?->title ?? 'Самостоятельный курс' ) : '',
 					'subject'     => $this->subjectName( (string) $g->subject_key ),
 					'subject_key' => (string) $g->subject_key, // ключ цвета чипа (chipIndex, utils.js)
 					'avatar'      => $this->courses->avatarUrl( (int) ( $g->course_id ?? 0 ) ), // аватар курса группы

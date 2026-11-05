@@ -30,6 +30,13 @@ class RoomAssignmentServiceTest extends TestCase {
 	private $examSessions;
 	private RoomAssignmentService $service;
 
+	public function test_service_group_rejects_room_assignment_even_when_clearing_room(): void {
+		$this->groups->method( 'findById' )->willReturn( (object) array( 'self_paced_course_id' => 100 ) );
+		$this->groups->expects( self::never() )->method( 'update' );
+		$this->expectException( \InvalidArgumentException::class );
+		$this->service->assignToGroup( 5, null );
+	}
+
 	protected function setUp(): void {
 		parent::setUp();
 		$this->rooms        = $this->createMock( RoomRepository::class );

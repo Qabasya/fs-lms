@@ -314,3 +314,18 @@ body.fs-lms-course-screen {
 	#wpbody-content { padding-bottom: 0 !important; }    // перебивает WP-core
 	#wpfooter { display: none; }
 }
+
+.fs-lms-cb-wrap .course-access {
+	padding: $spacing-lg;
+	margin-bottom: $spacing-lg;
+	background: $color-bg-modal;
+	border: 1px solid $color-border-footer;
+	border-radius: $border-radius-sm;
+
+	&[hidden] { display: none; }
+	fieldset { border: 0; padding: 0; margin: 0; }
+	legend { font-weight: $font-semibold; margin-bottom: $spacing-md; }
+	.description { margin: $spacing-md 0; }
+	.course-access-audience { display: flex; flex-wrap: wrap; gap: $spacing-md $spacing-xl; }
+	.is-error { color: $color-danger; }
+}

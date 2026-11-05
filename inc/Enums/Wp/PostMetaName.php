@@ -23,6 +23,10 @@ enum PostMetaName: string {
 	 */
 	case Meta = 'fs_lms_meta';
 
+	case CourseSelfPacedEnabled = 'fs_lms_course_self_paced_enabled';
+	case CourseAudienceSubjectKeys = 'fs_lms_course_audience_subject_keys';
+	case CourseServiceGroupId = 'fs_lms_course_service_group_id';
+
 	/**
 	 * ID оригинального поста, из которого создан форк.
 	 */

@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Assessment;
 
+use Inc\Services\Enrollment\SelfPacedAccessPolicy;
 use Inc\Contracts\ClockInterface;
 use Inc\DTO\Assessment\AssessmentDTO;
 use Inc\DTO\Assessment\AttemptDTO;
@@ -54,6 +55,7 @@ readonly class AttemptPageService {
 		private GroupAccessGuard            $groupGuard,
 		private AttemptService              $attemptService,
 		private ExamAttemptService          $examAttempts,
+		private readonly SelfPacedAccessPolicy $selfPacedAccess,
 	) {}
 
 	/**
@@ -221,6 +223,11 @@ readonly class AttemptPageService {
 
 		$person  = $this->persons->findByWpUserId( $userId );
 		$isOwner = null !== $person && $person->id === $attempt->studentPersonId;
+		if ( $isOwner && (int) $attempt->groupId > 0
+			&& null === $attempt->examParticipationId
+			&& ! $this->selfPacedAccess->canAccessGroup( (int) $attempt->groupId, $person->id ) ) {
+			return null;
+		}
 		$manages = ! $isOwner && $this->canManageAttempt( $attempt, $assessment, $userId );
 		if ( ! $isOwner && ! $manages ) {
 			return null;

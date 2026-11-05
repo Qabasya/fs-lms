@@ -18,6 +18,8 @@ use PHPUnit\Framework\TestCase;
 
 class LessonAccessPolicyTest extends TestCase {
 
+	private \Inc\Services\Enrollment\SelfPacedAccessPolicy $selfPacedAccess;
+
 	/** Фиксированное «сейчас» для правила авто-открытия по дате (#13). */
 	private const NOW = '2024-06-01 00:00:00';
 
@@ -28,6 +30,10 @@ class LessonAccessPolicyTest extends TestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
+		$this->selfPacedAccess = $this->createMock( \Inc\Services\Enrollment\SelfPacedAccessPolicy::class );
+		$this->selfPacedAccess->method( 'canContinue' )->willReturn( true );
+		$this->selfPacedAccess->method( 'canAccessGroup' )->willReturn( true );
+		$this->selfPacedAccess->method( 'canParentAccessGroup' )->willReturn( true );
 		$this->studentRecords   = $this->createMock( StudentRecordRepository::class );
 		$this->groupLessons     = $this->createMock( GroupLessonRepository::class );
 		$this->groups           = $this->createMock( GroupsRepository::class );
@@ -54,6 +60,7 @@ class LessonAccessPolicyTest extends TestCase {
 			new ExpulsionPolicyRepository(),
 			$visibility,
 			$this->groups,
+			$this->selfPacedAccess,
 		);
 		$GLOBALS['_test_options'] = [];
 	}
@@ -63,6 +70,27 @@ class LessonAccessPolicyTest extends TestCase {
 		$group              = new \stdClass();
 		$group->access_mode = $mode;
 		$this->groups->method( 'findById' )->willReturn( $group );
+	}
+
+	public function test_paused_independent_access_blocks_read_submit_even_for_active_record(): void {
+		$access = $this->createMock( \Inc\Services\Enrollment\SelfPacedAccessPolicy::class );
+		$access->method( 'canContinue' )->willReturn( false );
+		$visibility = $this->createMock( LessonVisibilityService::class );
+		$visibility->expects( self::never() )->method( 'effectiveVisibility' );
+		$policy = new LessonAccessPolicy( $this->studentRecords, $this->groupLessons, new ExpulsionPolicyRepository(), $visibility, $this->groups, $access );
+		self::assertSame( AccessLevel::None, $policy->resolve( $this->makeRecord( EnrollmentStatus::Active ), $this->makeLesson( visibility: 'open', openedAt: null ) ) );
+	}
+
+	public function test_bulk_readability_reuses_eligibility_only_within_one_batch(): void {
+		$access = $this->createMock( \Inc\Services\Enrollment\SelfPacedAccessPolicy::class );
+		$access->expects( self::exactly( 2 ) )->method( 'canContinue' )->willReturnOnConsecutiveCalls( true, false );
+		$this->studentRecords->method( 'findAllByStudentAndGroup' )->willReturn( array( $this->makeRecord( EnrollmentStatus::Active ) ) );
+		$visibility = $this->createMock( LessonVisibilityService::class );
+		$visibility->method( 'effectiveVisibility' )->willReturn( 'open' );
+		$policy = new LessonAccessPolicy( $this->studentRecords, $this->groupLessons, new ExpulsionPolicyRepository(), $visibility, $this->groups, $access );
+		$lessons = array( $this->makeLesson( visibility: 'open', openedAt: null ), $this->makeLesson( visibility: 'open', openedAt: null ) );
+		self::assertSame( array( true ), array_values( $policy->readabilityForLessons( 42, $lessons ) ) );
+		self::assertSame( array( false ), array_values( $policy->readabilityForLessons( 42, $lessons ) ) );
 	}
 
 	// --- resolve() matrix ---
@@ -212,6 +240,7 @@ class LessonAccessPolicyTest extends TestCase {
 			new ExpulsionPolicyRepository(),
 			$visibility,
 			$this->groups,
+			$this->selfPacedAccess,
 		);
 	}
 

@@ -18,9 +18,9 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 $video_secret_set = '' !== $config->hmacSecret();
 $video_s3         = $config->s3();
 $video_s3_consts  = array(
-	'FS_LMS_S3_ENDPOINT' => array( defined( 'FS_LMS_S3_ENDPOINT' ), $video_s3['endpoint'], 'Endpoint S3 (по умолчанию Beget)' ),
+	'FS_LMS_S3_ENDPOINT' => array( defined( 'FS_LMS_S3_ENDPOINT' ), $video_s3['endpoint'], 'Endpoint S3 из панели провайдера; задайте явно при переносе (legacy: Beget)' ),
 	'FS_LMS_S3_REGION'   => array( defined( 'FS_LMS_S3_REGION' ), $video_s3['region'], 'Регион для SigV4 (по умолчанию ru-1)' ),
-	'FS_LMS_S3_BUCKET'   => array( '' !== $video_s3['bucket'], $video_s3['bucket'], 'Имя приватного бакета (Beget генерирует с префиксом)' ),
+	'FS_LMS_S3_BUCKET'   => array( '' !== $video_s3['bucket'], $video_s3['bucket'], 'Имя приватного бакета из панели S3-провайдера' ),
 	'FS_LMS_S3_KEY'      => array( '' !== $video_s3['key'], '', 'Access key (достаточно read-only ключа)' ),
 	'FS_LMS_S3_SECRET'   => array( '' !== $video_s3['secret'], '', 'Secret key' ),
 );

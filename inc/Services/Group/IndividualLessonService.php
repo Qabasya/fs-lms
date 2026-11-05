@@ -93,6 +93,7 @@ readonly class IndividualLessonService {
 		?string $extraKey = null,
 		?string $broadcastUrl = null
 	): int {
+		$this->assertOrdinaryGroup( $groupId );
 		if ( ! $this->groups->findById( $groupId ) ) {
 			throw new \InvalidArgumentException( 'Группа не найдена.' );
 		}
@@ -140,6 +141,7 @@ readonly class IndividualLessonService {
 		if ( ! $studentPersonIds ) {
 			throw new \InvalidArgumentException( 'Выберите хотя бы одного ученика.' );
 		}
+		$this->assertOrdinaryGroup( $groupId );
 		if ( ! $this->groups->findById( $groupId ) ) {
 			throw new \InvalidArgumentException( 'Группа не найдена.' );
 		}
@@ -166,6 +168,7 @@ readonly class IndividualLessonService {
 	 * @return array<int, array<string, mixed>> По дате; `group_lesson_id` — первая строка занятия (для плеера)
 	 */
 	public function getExtraLessons( int $groupId ): array {
+		$this->assertOrdinaryGroup( $groupId );
 		$group = $this->groups->findById( $groupId );
 		if ( ! $group ) {
 			return array();
@@ -237,6 +240,7 @@ readonly class IndividualLessonService {
 		int     $actorUserId,
 		?string $broadcastUrl = null
 	): void {
+		$this->assertOrdinaryGroup( $groupId );
 		$rows = array_values( array_filter(
 			$this->groupLessons->listByGroup( $groupId ),
 			static fn( GroupLessonDTO $r ): bool => $r->kind->isIndividual() && $r->extraKey === $extraKey
@@ -313,6 +317,7 @@ readonly class IndividualLessonService {
 	 * @throws \InvalidArgumentException Нет занятия или по нему есть данные учеников
 	 */
 	public function deleteExtraLessons( int $groupId, string $extraKey, int $actorUserId ): void {
+		$this->assertOrdinaryGroup( $groupId );
 		$rows = array_values( array_filter(
 			$this->groupLessons->listByGroup( $groupId ),
 			static fn( GroupLessonDTO $r ): bool => $r->kind->isIndividual() && $r->extraKey === $extraKey
@@ -463,6 +468,7 @@ readonly class IndividualLessonService {
 	 * @return array<int, array<string, mixed>>
 	 */
 	public function getIndividualProgram( int $groupId ): array {
+		$this->assertOrdinaryGroup( $groupId );
 		$group = $this->groups->findById( $groupId );
 		if ( ! $group ) {
 			return array();
@@ -519,6 +525,7 @@ readonly class IndividualLessonService {
 	 * @return array<int, array{id:int, title:string, in_course:bool}>
 	 */
 	public function lessonCandidatesForGroup( int $groupId, string $search = '', bool $courseOnly = false ): array {
+		$this->assertOrdinaryGroup( $groupId );
 		$group = $this->groups->findById( $groupId );
 		if ( ! $group ) {
 			return array();
@@ -687,6 +694,7 @@ readonly class IndividualLessonService {
 			throw new \InvalidArgumentException( 'Индивидуальное занятие не найдено.' );
 		}
 
+		$this->assertOrdinaryGroup( $row->groupId );
 		return $row;
 	}
 
@@ -724,4 +732,10 @@ readonly class IndividualLessonService {
 			throw new \InvalidArgumentException( 'Урок не найден.' );
 		}
 	}
+	private function assertOrdinaryGroup( int $groupId ): void {
+		if ( (int) ( $this->groups->findById( $groupId )->self_paced_course_id ?? 0 ) > 0 ) {
+			throw new \InvalidArgumentException( 'Самостоятельный курс не имеет индивидуальных занятий и расписания.' );
+		}
+	}
+
 }

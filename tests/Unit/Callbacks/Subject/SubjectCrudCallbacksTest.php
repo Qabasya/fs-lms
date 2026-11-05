@@ -126,4 +126,14 @@ class SubjectCrudCallbacksTest extends TestCase {
 		self::assertFalse( $r->success );
 		self::assertStringContainsString( 'Пробный ЕГЭ', (string) $r->payload );
 	}
+	public function test_force_cannot_delete_subject_with_service_group_after_ordinary_group(): void {
+		$this->subjects->method( 'getByKey' )->willReturn( new SubjectDTO( 'math', 'Математика' ) );
+		$this->groups->method( 'findBySubjectKey' )->willReturn( array( (object) array( 'id' => 1 ), (object) array( 'id' => 27, 'self_paced_course_id' => 15 ) ) );
+		$this->dispatcher->expects( self::never() )->method( 'dispatch' );
+		$_POST = array( 'key' => 'math', 'force' => '1' );
+		$response = fs_test_capture_json( fn() => $this->cb->ajaxDeleteSubject() );
+		self::assertFalse( $response->success );
+		self::assertStringContainsString( 'историю прохождения', $response->payload );
+	}
+
 }

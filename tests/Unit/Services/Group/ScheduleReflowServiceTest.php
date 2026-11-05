@@ -32,6 +32,13 @@ class ScheduleReflowServiceTest extends TestCase {
 	private ScheduleReflowService $service;
 	private ClockInterface $clock;
 
+	public function test_service_group_cannot_reflow_program(): void {
+		$this->groups->method( 'findById' )->willReturn( (object) array( 'self_paced_course_id' => 100 ) );
+		$this->groupLessons->expects( self::never() )->method( 'listByGroup' );
+		$this->expectException( \InvalidArgumentException::class );
+		$this->service->reflow( 5, 1 );
+	}
+
 	protected function setUp(): void {
 		parent::setUp();
 		$this->groupLessons     = $this->createMock( GroupLessonRepository::class );

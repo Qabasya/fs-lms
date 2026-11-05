@@ -10,6 +10,9 @@ namespace Inc\Enums\Access;
  */
 enum Capability: string {
 
+	/** Existing WordPress right of authenticated learners. */
+	case Read = 'read';
+
 // ===== Администрирование =====
 
 	/** Базовое право администратора WordPress для доступа к настройкам */

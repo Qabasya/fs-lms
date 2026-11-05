@@ -28,6 +28,7 @@ readonly class StudentRecordInputDTO {
 		public ?string $expelReason         = null,
 		public ?int    $expelledByUserId    = null,
 		public bool    $isTrial             = false,
+		public ?string $selfPacedBasisSubject = null,
 	) {}
 
 	public function toArray(): array {
@@ -53,6 +54,7 @@ readonly class StudentRecordInputDTO {
 			'created_at'           => $this->createdAt,
 			'updated_at'           => $this->updatedAt,
 			'is_trial'             => $this->isTrial ? 1 : 0,
+			'self_paced_basis_subject' => $this->selfPacedBasisSubject,
 		);
 	}
 }

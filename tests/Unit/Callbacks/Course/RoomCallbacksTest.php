@@ -34,6 +34,17 @@ class RoomCallbacksTest extends TestCase {
 		$this->cb         = new RoomCallbacks( $this->rooms, $this->assignment, $this->groups, $this->subjects, $this->exams );
 	}
 
+	public function test_room_group_selector_keeps_shared_scheduled_and_omits_service_group(): void {
+		$this->rooms->method( 'findAll' )->willReturn( array() );
+		$this->groups->method( 'findAll' )->willReturn( array(
+			(object) array( 'id' => 1, 'name' => 'Shared', 'subject_key' => 'inf', 'is_shared' => 1, 'self_paced_course_id' => null ),
+			(object) array( 'id' => 2, 'name' => 'Independent', 'subject_key' => 'inf', 'self_paced_course_id' => 100 ),
+		) );
+		$result = fs_test_capture_json( fn() => $this->cb->ajaxGetRooms() );
+		self::assertTrue( $result->success );
+		self::assertSame( array( 1 ), array_column( $result->payload['groups'], 'id' ) );
+	}
+
 	public function test_save_room_creates_when_no_id(): void {
 		$this->rooms->expects( $this->once() )->method( 'create' )->willReturn( 5 );
 		$this->rooms->expects( $this->never() )->method( 'update' );

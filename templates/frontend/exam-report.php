@@ -18,7 +18,8 @@ declare( strict_types=1 );
  * @var string $title
  * @var string $event
  * @var string $page_url
- * @var list<array{n: int, name: string, primary: string, secondary: string, units: list<array{number: string, status: string}>, open: bool}> $rows
+ * @var list<array{n: int, name: string, short_name: string, primary: string, secondary: string, units: list<array{number: string, status: string}>, open: bool}> $rows
+ * @var array{columns: list<string>, participants: int, rows: list<array<string, mixed>>, footer: array<string, mixed>} $table Матрица «ученики × задания» (`ExamReportViewService::matrix()`)
  * @var array{participants: int, average: string, best: string, worst: string} $stats
  * @var array<string, mixed>|null $review
  * @var array<int, array{label: string, url?: string, current?: bool}> $crumbs
@@ -37,9 +38,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 	?>
 
 	<header class="fs-exam-result__head">
-		<h1 class="fs-exam-result__title"><?php echo esc_html( $title ); ?></h1>
+		<h1 class="fs-exam-result__title">
+			<?php echo esc_html( $title ); ?>
+			<a class="prof-btn prof-btn-sm fs-exam-report__csv" href="<?php echo esc_url( add_query_arg( array( 'csv' => '1' ), $page_url ) ); ?>"><?php esc_html_e( 'Скачать отчёт', 'fs-lms' ); ?></a>
+		</h1>
 		<p class="fs-exam-result__meta"><?php echo esc_html( $event ); ?></p>
 	</header>
+
+	<p class="fs-exam-result__meta fs-exam-report__hint"><?php esc_html_e( 'Нажмите на строку ученика, чтобы открыть его работу ниже.', 'fs-lms' ); ?></p>
 
 	<dl class="fs-exam-result__stats">
 		<div class="fs-exam-result__stat"><dt><?php esc_html_e( 'Учеников', 'fs-lms' ); ?></dt><dd><?php echo (int) $stats['participants']; ?></dd></div>
@@ -48,43 +54,91 @@ if ( ! defined( 'ABSPATH' ) ) {
 		<div class="fs-exam-result__stat is-wrong"><dt><?php esc_html_e( 'Худший результат', 'fs-lms' ); ?></dt><dd><?php echo esc_html( (string) $stats['worst'] ); ?></dd></div>
 	</dl>
 
-	<table class="fs-exam-report__table">
-		<thead>
-			<tr>
-				<th><?php esc_html_e( 'Ученик', 'fs-lms' ); ?></th>
-				<th><?php esc_html_e( 'Первичный балл', 'fs-lms' ); ?></th>
-				<th><?php esc_html_e( 'Вторичный балл', 'fs-lms' ); ?></th>
-				<th></th>
-			</tr>
-		</thead>
-		<tbody>
-			<?php foreach ( $rows as $row ) : ?>
-				<?php $current = null !== $review && (int) $review['row'] === (int) $row['n']; ?>
-				<tr class="<?php echo $row['open'] ? 'has-units' : 'is-placeholder'; ?><?php echo $current ? ' is-current' : ''; ?>">
-					<td><?php echo esc_html( $row['name'] ); ?></td>
-					<td><?php echo esc_html( $row['primary'] ); ?></td>
-					<td><?php echo esc_html( $row['secondary'] ); ?></td>
-					<td>
-						<?php if ( $row['open'] ) : ?>
-							<a class="fs-exam-report__open" href="<?php echo esc_url( add_query_arg( array( 'row' => (int) $row['n'] ), $page_url ) . '#fs-exam-report-review' ); ?>"><?php esc_html_e( 'Результат и работа', 'fs-lms' ); ?></a>
-						<?php endif; ?>
-					</td>
-				</tr>
-				<?php if ( $row['open'] && array() !== $row['units'] ) : ?>
-					<tr class="fs-exam-report__units<?php echo $current ? ' is-current' : ''; ?>">
-						<td colspan="4">
-							<?php // Те же квадратики, что в навигации разбора, но без ссылок: подпись — только цветом границы и цифры. ?>
-							<div class="fs-exam-result__nav fs-exam-report__chips">
-								<?php foreach ( $row['units'] as $unit ) : ?>
-									<span class="fs-exam-result__chip is-<?php echo esc_attr( (string) $unit['status'] ); ?>"><?php echo esc_html( (string) $unit['number'] ); ?></span>
-								<?php endforeach; ?>
-							</div>
-						</td>
+	<?php
+	$columns = $table['columns'] ?? array();
+	$rows    = $table['rows'] ?? array();
+	$footer  = $table['footer'] ?? array( 'average_primary' => '', 'average_secondary' => '', 'attempts' => array(), 'correct' => array(), 'attempts_share' => array(), 'correct_share' => array() );
+	?>
+
+	<?php if ( array() === $rows ) : ?>
+		<p class="description">Участников в отчёте нет.</p>
+	<?php else : ?>
+		<div class="fs-exam-report__scroll">
+			<table class="fs-exam-report__table">
+				<thead>
+					<tr>
+						<th class="fs-exam-report__name"><?php esc_html_e( 'ФИО', 'fs-lms' ); ?></th>
+						<?php foreach ( $columns as $number ) : ?>
+							<th class="fs-exam-report__task"><?php echo esc_html( $number ); ?></th>
+						<?php endforeach; ?>
+						<th class="fs-exam-report__sum"><?php esc_html_e( 'Первичный', 'fs-lms' ); ?></th>
+						<th class="fs-exam-report__sum"><?php esc_html_e( 'Вторичный', 'fs-lms' ); ?></th>
 					</tr>
-				<?php endif; ?>
-			<?php endforeach; ?>
-		</tbody>
-	</table>
+				</thead>
+				<tbody>
+					<?php foreach ( $rows as $row ) : ?>
+						<?php $current = null !== $review && (int) $review['row'] === (int) $row['n']; ?>
+						<tr class="<?php echo $row['open'] ? 'has-units' : 'is-placeholder'; ?><?php echo $current ? ' is-current' : ''; ?>"
+							<?php if ( $row['open'] ) : ?>
+								data-row-url="<?php echo esc_url( add_query_arg( array( 'row' => (int) $row['n'] ), $page_url ) . '#fs-exam-report-review' ); ?>"
+							<?php endif; ?>>
+							<th class="fs-exam-report__name" scope="row"><?php echo esc_html( $row['short_name'] ); ?></th>
+							<?php foreach ( $columns as $number ) : ?>
+								<?php $cell = $row['cells'][ $number ] ?? null; ?>
+								<td class="fs-exam-report__cell<?php echo null !== $cell && '' !== $cell['class'] ? ' ' . esc_attr( (string) $cell['class'] ) : ''; ?>">
+									<?php echo null !== $cell ? esc_html( (string) $cell['score'] ) : ''; ?>
+								</td>
+							<?php endforeach; ?>
+							<td class="fs-exam-report__sum"><?php echo esc_html( (string) $row['primary'] ); ?></td>
+							<td class="fs-exam-report__sum"><?php echo esc_html( (string) $row['secondary'] ); ?></td>
+						</tr>
+					<?php endforeach; ?>
+				</tbody>
+				<tfoot>
+					<tr class="fs-exam-report__foot">
+						<th class="fs-exam-report__name" scope="row"><?php esc_html_e( 'Средний', 'fs-lms' ); ?></th>
+						<?php foreach ( $columns as $number ) : ?>
+							<td class="fs-exam-report__cell"></td>
+						<?php endforeach; ?>
+						<td class="fs-exam-report__sum"><?php echo esc_html( (string) $footer['average_primary'] ); ?></td>
+						<td class="fs-exam-report__sum"><?php echo esc_html( (string) $footer['average_secondary'] ); ?></td>
+					</tr>
+					<tr class="fs-exam-report__foot">
+						<th class="fs-exam-report__name" scope="row"><?php esc_html_e( 'Попытки', 'fs-lms' ); ?></th>
+						<?php foreach ( $footer['attempts'] as $value ) : ?>
+							<td class="fs-exam-report__cell"><?php echo esc_html( (string) $value ); ?></td>
+						<?php endforeach; ?>
+						<td class="fs-exam-report__sum"></td>
+						<td class="fs-exam-report__sum"></td>
+					</tr>
+					<tr class="fs-exam-report__foot">
+						<th class="fs-exam-report__name" scope="row"><?php esc_html_e( 'Верные решения', 'fs-lms' ); ?></th>
+						<?php foreach ( $footer['correct'] as $value ) : ?>
+							<td class="fs-exam-report__cell"><?php echo esc_html( (string) $value ); ?></td>
+						<?php endforeach; ?>
+						<td class="fs-exam-report__sum"></td>
+						<td class="fs-exam-report__sum"></td>
+					</tr>
+					<tr class="fs-exam-report__foot">
+						<th class="fs-exam-report__name" scope="row"><?php esc_html_e( '% попыток', 'fs-lms' ); ?></th>
+						<?php foreach ( $footer['attempts_share'] as $value ) : ?>
+							<td class="fs-exam-report__cell is-share"><?php echo esc_html( (string) $value ); ?></td>
+						<?php endforeach; ?>
+						<td class="fs-exam-report__sum"></td>
+						<td class="fs-exam-report__sum"></td>
+					</tr>
+					<tr class="fs-exam-report__foot">
+						<th class="fs-exam-report__name" scope="row"><?php esc_html_e( '% верных', 'fs-lms' ); ?></th>
+						<?php foreach ( $footer['correct_share'] as $value ) : ?>
+							<td class="fs-exam-report__cell is-share"><?php echo esc_html( (string) $value ); ?></td>
+						<?php endforeach; ?>
+						<td class="fs-exam-report__sum"></td>
+						<td class="fs-exam-report__sum"></td>
+					</tr>
+				</tfoot>
+			</table>
+		</div>
+	<?php endif; ?>
 
 	<?php if ( null !== $review ) : ?>
 		<section class="fs-exam-report__review" id="fs-exam-report-review">

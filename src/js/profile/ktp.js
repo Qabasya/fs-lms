@@ -22,6 +22,7 @@ import { INDI_ID, loadIndividual } from './ktp/ktp-individual.js';
 import { openIndiModal } from './indi-modal.js';
 import { openOffScheduleModal } from './ktp/ktp-offschedule-modal.js';
 import { readNav, saveNav } from './nav-state.js';
+import { ordinaryGroups } from './ordinary-groups.js';
 
 let root = null;
 let state = null;
@@ -34,7 +35,7 @@ export function renderKTP(r) {
     root = r;
     const p = window.fsProfile || {};
     state = {
-        groups:  Array.isArray(p.groups) ? p.groups : [],
+        groups:  ordinaryGroups(p.groups),
         sched:   p.schedule || null,
         groupId: null,
         data:    null,

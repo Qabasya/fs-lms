@@ -10,7 +10,7 @@ use Inc\Modules\VideoLibrary\Config\VideoLibraryConfig;
  * Class S3UrlSigner
  *
  * AWS SigV4 **query presign** (GET) на чистом PHP — без SDK (CLAUDE.md: только встроенные API).
- * Path-style URL: `{endpoint}/{bucket}/{key}` (Beget S3 требует path-style addressing).
+ * Path-style URL: `{endpoint}/{bucket}/{key}` (Timeweb и другие S3-провайдеры).
  *
  * Схема подписи (https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-query-string-auth.html):
  * canonical request (GET, канонический URI, отсортированный query, host-заголовок,
@@ -44,7 +44,13 @@ class S3UrlSigner {
 		$scope   = gmdate( 'Ymd', $now ) . '/' . $s3['region'] . '/' . self::SERVICE . '/aws4_request';
 
 		$endpoint = rtrim( $s3['endpoint'], '/' );
-		$host     = (string) wp_parse_url( $endpoint, PHP_URL_HOST );
+		$host     = strtolower( (string) wp_parse_url( $endpoint, PHP_URL_HOST ) );
+		$scheme   = strtolower( (string) wp_parse_url( $endpoint, PHP_URL_SCHEME ) );
+		$port     = wp_parse_url( $endpoint, PHP_URL_PORT );
+		if ( null !== $port && ( ( 'https' === $scheme && 443 !== $port ) || ( 'http' === $scheme && 80 !== $port ) ) ) {
+			$host .= ':' . $port;
+		}
+		$basePath = rtrim( (string) wp_parse_url( $endpoint, PHP_URL_PATH ), '/' );
 		$uri      = '/' . $bucket . '/' . $this->encodeKey( ltrim( $key, '/' ) );
 
 		$query = array(
@@ -64,7 +70,7 @@ class S3UrlSigner {
 
 		$canonicalRequest = implode( "\n", array(
 			'GET',
-			$uri,
+			$basePath . $uri,
 			$canonicalQuery,
 			'host:' . $host,
 			'',

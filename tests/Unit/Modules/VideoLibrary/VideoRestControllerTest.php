@@ -44,6 +44,14 @@ class VideoRestControllerTest extends TestCase {
 
 	// ── 200 ──────────────────────────────────────────────────────────────────
 
+	public function test_storage_failure_returns_retryable_error_without_internal_details(): void {
+		$this->service->method( 'register' )->willThrowException( new \RuntimeException( 'Internal database details' ) );
+		$response = $this->controller->postVideo( $this->request( $this->validBody() ) );
+		self::assertSame( 503, $response->get_status() );
+		self::assertSame( false, $response->get_data()['ok'] );
+		self::assertStringNotContainsString( 'Internal database', $response->get_data()['error'] );
+	}
+
 	public function test_matched_returns_200_with_lesson_id(): void {
 		$this->service->method( 'register' )->willReturn( array(
 			'recording_id'    => 10,

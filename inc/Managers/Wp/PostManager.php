@@ -47,6 +47,12 @@ class PostManager {
 	 *
 	 * @return array<int, array{key: string, compare: string}>
 	 */
+	/** Drop post/meta cache after a transactional write or rollback. */
+	public function clearCache( int $postId ): void {
+		clean_post_cache( $postId );
+		wp_cache_delete( $postId, 'post_meta' );
+	}
+
 	public function bundleChildExclusion(): array {
 		return array(
 			array(

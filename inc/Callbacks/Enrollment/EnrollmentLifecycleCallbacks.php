@@ -226,8 +226,9 @@ class EnrollmentLifecycleCallbacks extends BaseController {
 		// Индивидуальная группа с уже зачисленным учеником (один ученик на группу) в выбор не попадает.
 		$groups = array_filter(
 			$groups,
-			fn( object $g ): bool => AccessMode::Individual->value !== (string) ( $g->access_mode ?? '' )
-				|| 0 === $this->studentRecordRepository->countActiveByGroup( (int) $g->id, $trialStudentId )
+			fn( object $g ): bool => ! (int) ( $g->self_paced_course_id ?? 0 )
+				&& ( AccessMode::Individual->value !== (string) ( $g->access_mode ?? '' )
+				|| 0 === $this->studentRecordRepository->countActiveByGroup( (int) $g->id, $trialStudentId ) )
 		);
 
 		$result = array_values( array_map(

@@ -145,6 +145,8 @@ use Inc\Migrations\Migration_1_0_101;
 use Inc\Migrations\Migration_1_0_102;
 use Inc\Migrations\Migration_1_0_103;
 use Inc\Migrations\Migration_1_0_104;
+use Inc\Migrations\Migration_1_0_105;
+use Inc\Migrations\Migration_1_0_106;
 use Inc\Migrations\Migration_1_0_81;
 use Inc\Migrations\Migration_1_0_82;
 use Inc\Migrations\Migration_1_0_83;
@@ -181,6 +183,7 @@ final class Init {
 	 */
 	public static function getServices(): array {
 		return array(
+			\Inc\Controllers\Course\SelfPacedContentGuardController::class,
 			Enqueue::class,                   // Подключение скриптов и стилей (фасад Core/Assets)
 			AdminFooterModalsController::class, // Модалки Confirm/Alert в admin_footer
 			AdminController::class,           // Административное меню
@@ -367,6 +370,8 @@ final class Init {
 		$migrationRunner->register( new Migration_1_0_102() );
 		$migrationRunner->register( new Migration_1_0_103() );
 		$migrationRunner->register( new Migration_1_0_104() );
+		$migrationRunner->register( new Migration_1_0_105() );
+		$migrationRunner->register( new Migration_1_0_106() );
 		$migrationRunner->run();
 
 		// Data-миграция (не схема): ссылки на файлы заданий со старой схемой

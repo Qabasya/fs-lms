@@ -56,7 +56,7 @@ class PostCollector {
 	private static function skippedMeta(): array {
 		return array_merge(
 			self::SKIPPED_META,
-			array( PostMetaName::ForkedFrom->value, PostMetaName::ForkedForGroup->value )
+			array( PostMetaName::ForkedFrom->value, PostMetaName::ForkedForGroup->value, PostMetaName::CourseServiceGroupId->value )
 		);
 	}
 

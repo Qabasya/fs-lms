@@ -295,14 +295,14 @@ class AdProvisioningServiceTest extends TestCase {
 	}
 
 	/** Зачисление в группу направления `inf_oge`; ученик — i.petrov с сохранённым паролем. */
-	private function enrolledMocks( array $active = array() ): array {
+	private function enrolledMocks( array $active = array(), bool $serviceGroup = false ): array {
 		$m = $this->mocks();
 		$m['persons']->method( 'findIncludingDeleted' )->willReturn( $this->person() );
 		$m['persons']->method( 'findByWpUserId' )->willReturn( $this->person() );
 		$m['users']->method( 'find' )->willReturn( $this->wpUser() );
 		$m['records']->method( 'find' )->willReturn( $this->record() );
 		$m['records']->method( 'findActiveByStudent' )->willReturn( $active );
-		$m['groups']->method( 'findById' )->willReturn( (object) array( 'subject_key' => 'inf_oge' ) );
+		$m['groups']->method( 'findById' )->willReturn( (object) array( 'subject_key' => 'inf_oge', 'self_paced_course_id' => $serviceGroup ? 15 : null ) );
 		$m['pass']->method( 'getCredentials' )->willReturn( array( 'login' => 'i.petrov', 'password' => 'Новый123' ) );
 		return $m;
 	}
@@ -576,4 +576,18 @@ class AdProvisioningServiceTest extends TestCase {
 		$m['outbox']->method( 'latestByApplication' )->willReturn( null );
 		self::assertSame( 'none', $this->service( $m )->statusForApplication( 5 ) );
 	}
+	public function test_service_course_cannot_keep_domain_account_active_after_primary_expulsion(): void {
+		$enqueued = null;
+		$m = $this->enrolledMocks( array( $this->record( 4 ) ), true );
+		$this->capture( $m, $enqueued );
+		$this->service( $m )->enqueueDeprovisionByPerson( 42 );
+		self::assertSame( 'deprovision', $enqueued['event'] );
+	}
+
+	public function test_service_record_id_cannot_reactivate_domain_account(): void {
+		$m = $this->enrolledMocks( array( $this->record( 4 ) ), true );
+		$m['outbox']->expects( self::never() )->method( 'enqueue' );
+		$this->service( $m )->enqueueReactivation( 3, 42 );
+	}
+
 }

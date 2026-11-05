@@ -72,6 +72,12 @@ class DeletionCallbacks extends BaseController {
 		$this->authorize( Nonce::DeleteGroup, Capability::Admin );
 
 		$groupId = $this->sanitizeInt( 'group_id' );
+		$group = $this->groups->findById( $groupId );
+		if ( $group && (int) ( $group->self_paced_course_id ?? 0 ) > 0 ) {
+			$this->error( 'Служебную группу самостоятельного курса нельзя удалить отдельно от курса.' );
+			return;
+		}
+
 
 		$this->success( array(
 			// countUniqueStudentsByGroup() — подсчёт уникальных студентов в группе
@@ -89,8 +95,13 @@ class DeletionCallbacks extends BaseController {
 
 		$groupId = $this->sanitizeInt( 'group_id' );
 
-		// dispatch() — запуск обработки события удаления
-		$this->dispatcher->dispatch( new DeleteGroupEvent( $groupId, get_current_user_id() ) );
+		// The internal handler also rejects crafted direct deletion events.
+		try {
+			$this->dispatcher->dispatch( new DeleteGroupEvent( $groupId, get_current_user_id() ) );
+		} catch ( \DomainException $error ) {
+			$this->error( $error->getMessage() );
+			return;
+		}
 
 		$this->success( array( 'message' => 'Группа удалена' ) );
 	}
@@ -110,6 +121,12 @@ class DeletionCallbacks extends BaseController {
 
 		// findBySubjectKey() — поиск групп по ключу предмета
 		$dbGroups     = $this->groups->findBySubjectKey( $subjectKey );
+		foreach ( $dbGroups as $group ) {
+			if ( (int) ( $group->self_paced_course_id ?? 0 ) > 0 ) {
+				$this->error( 'Удаление запрещено: есть самостоятельные курсы со служебными группами. История прохождения должна быть сохранена.' );
+				return;
+			}
+		}
 		$groupCount   = count( $dbGroups );
 		$studentCount = 0;
 
@@ -137,6 +154,12 @@ class DeletionCallbacks extends BaseController {
 
 		// findByPeriodId() — поиск групп по ID периода
 		$dbGroups     = $this->groups->findByPeriodId( $periodId );
+		foreach ( $dbGroups as $group ) {
+			if ( (int) ( $group->self_paced_course_id ?? 0 ) > 0 ) {
+				$this->error( 'Удаление запрещено: есть самостоятельные курсы со служебными группами. История прохождения должна быть сохранена.' );
+				return;
+			}
+		}
 		$groupCount   = count( $dbGroups );
 		$studentCount = 0;
 
@@ -160,7 +183,12 @@ class DeletionCallbacks extends BaseController {
 
 		$periodId = $this->sanitizeKey( 'period_id' );
 
-		$this->dispatcher->dispatch( new DeletePeriodEvent( $periodId, get_current_user_id() ) );
+		try {
+			$this->dispatcher->dispatch( new DeletePeriodEvent( $periodId, get_current_user_id() ) );
+		} catch ( \DomainException $error ) {
+			$this->error( $error->getMessage() );
+			return;
+		}
 
 		$this->success( array( 'message' => 'Период удалён' ) );
 	}

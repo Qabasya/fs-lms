@@ -10,6 +10,7 @@ use Inc\DTO\Log\Events\EntityChangedEvent;
 use Inc\Enums\Access\Capability;
 use Inc\Enums\Access\UserRole;
 use Inc\Enums\Course\AccessMode;
+use Inc\Enums\Course\GroupType;
 use Inc\Enums\Enrollment\EnrollmentStatus;
 use Inc\Enums\Log\EntityType;
 use Inc\Enums\Log\LogEvent;
@@ -130,10 +131,17 @@ class StudentGroupCallbacks extends BaseController {
 		// Режим «открытая» задаётся только при создании (Эпик 15): без расписания, программа
 		// публикуется целиком при назначении курса. «Индивидуальная» — тоже без расписания:
 		// занятия ставятся в КТП вручную; режим можно сменить позже (GroupModeService).
-		$access_mode = AccessMode::fromValueOrDefault( $this->sanitizeKey( 'access_mode' ) );
-
-		// «Общая (дополнительная)» группа — курс и расписание поверх основной группы ученика (не для индивидуальных).
-		$is_shared = AccessMode::Individual !== $access_mode && $this->sanitizeBool( 'is_shared' );
+		try {
+			$type = $this->submittedGroupType();
+			if ( $type->isLegacy() ) {
+				throw new \InvalidArgumentException( 'Старое сочетание типов нельзя использовать для новой группы.' );
+			}
+		} catch ( \InvalidArgumentException $e ) {
+			$this->error( $e->getMessage() );
+			return;
+		}
+		$access_mode = $type->accessMode();
+		$is_shared = $type->isShared();
 
 		// Создание группы в БД
 		$id = $this->groupsRepository->create( array(
@@ -248,13 +256,17 @@ class StudentGroupCallbacks extends BaseController {
 			$this->error( 'Группа не найдена.' );
 		}
 
+		if ( (int) ( $group->self_paced_course_id ?? 0 ) > 0 ) {
+			$this->error( 'Служебная группа изменяется только через настройки курса.' );
+			return;
+		}
+
 		// Смена режима «по расписанию» ↔ «индивидуальная» (открытая не меняется): расписание
 		// индивидуальной группы пусто, его очищает сама смена режима.
-		$current = AccessMode::fromValueOrDefault( (string) ( $group->access_mode ?? '' ) );
-		$target  = $this->hasParam( 'access_mode' ) ? AccessMode::fromValueOrDefault( $this->sanitizeKey( 'access_mode' ) ) : $current;
-
 		try {
-			$changed = $this->groupMode->change( $id, $target );
+			$type = $this->submittedGroupType( $group );
+			$target = $type->accessMode();
+			$changed = $this->groupMode->change( $id, $target, $type );
 		} catch ( \DomainException | \InvalidArgumentException $e ) {
 			$this->error( $e->getMessage() );
 			return;
@@ -264,11 +276,7 @@ class StudentGroupCallbacks extends BaseController {
 			'teacher_id'    => $teacher_id,
 			'broadcast_url' => $this->broadcastUrl(),
 		);
-		// Признак общей группы меняется отдельно от режима; индивидуальная группа общей быть не может.
-		if ( $this->hasParam( 'is_shared' ) || AccessMode::Individual === $target ) {
-			$fields['is_shared'] = AccessMode::Individual !== $target && $this->sanitizeBool( 'is_shared' ) ? 1 : 0;
-		}
-		if ( AccessMode::Individual !== $target ) {
+		if ( ! $target->isScheduleless() ) {
 			$fields['room_id']  = $room_id;
 			$fields['meetings'] = (string) wp_json_encode( $schedule );
 		}
@@ -373,6 +381,24 @@ class StudentGroupCallbacks extends BaseController {
 		}
 
 		$this->success( $plan );
+	}
+
+	/** Тип на границе формы; старый транспорт access_mode/is_shared тоже проверяется. */
+	private function submittedGroupType( ?object $group = null ): GroupType {
+		if ( $this->hasParam( 'group_type' ) ) {
+			return GroupType::tryFrom( $this->sanitizeKey( 'group_type' ) )
+				?? throw new \InvalidArgumentException( 'Выберите тип группы.' );
+		}
+		$mode = $this->hasParam( 'access_mode' )
+			? AccessMode::tryFrom( $this->sanitizeKey( 'access_mode' ) )
+			: AccessMode::fromValueOrDefault( (string) ( $group->access_mode ?? '' ) );
+		if ( null === $mode ) {
+			throw new \InvalidArgumentException( 'Выберите тип группы.' );
+		}
+		$shared = $this->hasParam( 'is_shared' )
+			? $this->sanitizeBool( 'is_shared' )
+			: 1 === (int) ( $group->is_shared ?? 0 );
+		return GroupType::fromStorage( $mode->value, $shared );
 	}
 
 	/**

@@ -29,6 +29,8 @@ class LearnerCoursesSectionTest extends TestCase {
 	private CourseManager&MockObject $courses;
 	private AssessmentManager&MockObject $assessments;
 	private LearnerCoursesSection $section;
+	private \Inc\Services\Profile\Learner\SelfPacedCourseCatalog $catalog;
+	private \Inc\Services\Enrollment\SelfPacedAccessPolicy $access;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -40,6 +42,8 @@ class LearnerCoursesSectionTest extends TestCase {
 		);
 
 		$this->courses = $this->createMock( CourseManager::class );
+		$this->catalog = $this->createMock( \Inc\Services\Profile\Learner\SelfPacedCourseCatalog::class );
+		$this->access = $this->createMock( \Inc\Services\Enrollment\SelfPacedAccessPolicy::class );
 		$this->section = new LearnerCoursesSection(
 			$this->courses,
 			$this->createMock( LessonManager::class ),
@@ -47,6 +51,8 @@ class LearnerCoursesSectionTest extends TestCase {
 			$this->lock,
 			$this->createMock( LearnerContextBuilder::class ),
 			$this->assessments,
+			$this->catalog,
+			$this->access,
 		);
 	}
 
@@ -108,5 +114,37 @@ class LearnerCoursesSectionTest extends TestCase {
 		$lesson = $courses[0]['modules'][0]['lessons'][0];
 		self::assertSame( 'https://site.test/lesson/?gl=101', $lesson['player_url'] );
 		self::assertSame( '2026-10-20', $lesson['date'] );
+	}
+
+	private function group( int $selfCourse = 0 ): array {
+		return array( 'course_id' => 1, 'room_id' => 0, 'teacher_id' => 0, 'name' => 'Группа', 'subject' => '', 'subject_key' => '', 'self_paced_course_id' => $selfCourse );
+	}
+
+	public function test_two_ordinary_groups_of_same_course_keep_distinct_identity(): void {
+		$cards = $this->section->buildCourses( array( 8 => $this->group(), 9 => $this->group() ), array(), array(), array(), 10 );
+		self::assertSame( array( 'group:8', 'group:9' ), array_column( $cards, 'key' ) );
+		self::assertSame( array( 8, 9 ), array_column( $cards, 'id' ) );
+		self::assertSame( array( 1, 1 ), array_column( $cards, 'course_id' ) );
+		self::assertTrue( $cards[0]['enrolled'] );
+	}
+
+	public function test_paused_service_course_retains_progress_but_strips_player_urls(): void {
+		$this->courses->method( 'get' )->willReturn( CourseDTO::fromArray( array( 'id' => 1, 'modules' => array( array( 'title' => 'Модуль', 'lesson_ids' => array( 17 ) ) ) ) ) );
+		$this->access->expects( self::once() )->method( 'canAccessGroup' )->with( 8, 10 )->willReturn( false );
+		$row = GroupLessonDTO::fromArray( array( 'id' => 20, 'group_id' => 8, 'lesson_id' => 17, 'position' => 1 ) );
+		$item = array( 'topic' => 'Тема', 'date' => '', 'room' => '', 'status' => 'done', 'player_url' => 'https://private/player' );
+		$card = $this->section->buildCourses( array( 8 => $this->group( 1 ) ), array( 20 => $row ), array( 20 => $item ), array(), 10 )[0];
+		self::assertTrue( $card['access_paused'] );
+		self::assertSame( 1, $card['passed'] );
+		self::assertSame( '', $card['continue_url'] );
+		self::assertSame( '', $card['modules'][0]['lessons'][0]['player_url'] );
+		self::assertSame( 'locked', $card['modules'][0]['lessons'][0]['status'] );
+		self::assertFalse( $card['can_start'] );
+	}
+
+	public function test_exam_lock_overrides_student_start_permission_in_catalog(): void {
+		$this->lock->method( 'getActiveLockingAttempt' )->willReturn( $this->attempt() );
+		$this->catalog->expects( self::once() )->method( 'offers' )->with( 10, array(), false )->willReturn( array() );
+		self::assertSame( array(), $this->section->buildCourses( array(), array(), array(), array(), 10, true ) );
 	}
 }

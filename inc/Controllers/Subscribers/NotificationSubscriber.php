@@ -238,7 +238,7 @@ class NotificationSubscriber implements ServiceInterface {
 
 	/** Зачислен ученик — основному преподавателю группы. В общую группу ученики добавляются пачкой — одна сводная плитка от сервиса. */
 	public function handleStudentEnrolled( EnrollmentStatusEvent $event ): void {
-		if ( null === $event->groupId || $this->notifications->isSharedGroup( $event->groupId ) ) {
+		if ( null === $event->groupId || ( $this->notifications->isSharedGroup( $event->groupId ) || $this->notifications->isSelfPacedGroup( $event->groupId ) ) ) {
 			return;
 		}
 

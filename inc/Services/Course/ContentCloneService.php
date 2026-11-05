@@ -17,6 +17,7 @@ use Inc\Managers\Course\LessonManager;
 use Inc\Managers\Wp\PostManager;
 use Inc\Managers\Course\WorkManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
+use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Services\Subject\PostTypeResolver;
 
 /**
@@ -40,6 +41,7 @@ class ContentCloneService {
 		private readonly CourseManager         $courses,
 		private readonly AssessmentManager     $assessments,
 		private readonly GroupLessonRepository $groupLessons,
+		private readonly SubjectRepository     $subjects,
 	) {}
 
 	/**
@@ -262,6 +264,12 @@ class ContentCloneService {
 				id             : 0,
 				subjectKey     : $course->subjectKey,
 				title          : $course->title . ' (копия)',
+				selfPacedEnabled: false,
+				serviceGroupId : 0,
+				audienceSubjectKeys: array_values( array_filter(
+					$course->audienceSubjectKeys,
+					fn ( mixed $key ): bool => is_string( $key ) && null !== $this->subjects->getByKey( $key ),
+				) ),
 				descriptionHtml: $course->descriptionHtml,
 				modules        : $modules,
 				authorId       : get_current_user_id(),

@@ -32,6 +32,9 @@ class StudentSummaryServiceTest extends TestCase {
 	private GradebookService&\PHPUnit\Framework\MockObject\Stub $gradebook;
 	private EffectiveWorksResolver&\PHPUnit\Framework\MockObject\Stub $resolver;
 	private StudentSummaryService $service;
+	private bool $selfPaced = false;
+	private LessonProgressService $progress;
+	private int $attendanceReads = 0;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -40,10 +43,11 @@ class StudentSummaryServiceTest extends TestCase {
 		$this->resolver     = $this->createStub( EffectiveWorksResolver::class );
 
 		$groups = $this->createStub( GroupsRepository::class );
-		$groups->method( 'findById' )->willReturn( (object) array( 'access_mode' => 'scheduled' ) );
+		$groups->method( 'findById' )->willReturnCallback( fn() => (object) array( 'access_mode' => $this->selfPaced ? 'open' : 'scheduled', 'self_paced_course_id' => $this->selfPaced ? 77 : null ) );
 
 		$attendance = $this->createStub( AttendanceService::class );
-		$attendance->method( 'matrixForGroup' )->willReturn( array() );
+		$attendance->method( 'matrixForGroup' )->willReturnCallback( function(): array { ++$this->attendanceReads; return array(); } );
+		$this->progress = $this->createStub( LessonProgressService::class );
 
 		$marks = $this->createStub( WorkMarksService::class );
 		$marks->method( 'marksFor' )->willReturn( array( 'correct' ) );
@@ -60,7 +64,7 @@ $visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::c
 			$attendance,
 			$this->gradebook,
 			$groups,
-			$this->createStub( LessonProgressService::class ),
+			$this->progress,
 			$marks,
 			new HomeworkDeadlineService( $this->resolver, $visibility, $this->groupLessons ),
 			$clock,
@@ -191,5 +195,19 @@ $visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::c
 			title: 'ДЗ ' . $workId, category: 'homework', score: 2.0, maxScore: 3.0, gradedAt: null,
 			displayType: 'fraction', groupLessonId: $groupLessonId, groupKey: 'work:' . $workId,
 		);
+	}
+
+	public function test_self_paced_summary_keeps_undated_lesson_progress_and_work_but_never_reads_attendance(): void {
+		$this->selfPaced = true;
+		$this->progress->method( 'getStepStatuses' )->willReturn( array( 'one' => \Inc\Enums\Course\ProgressStatus::Completed, 'two' => \Inc\Enums\Course\ProgressStatus::Failed ) );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array( GroupLessonDTO::fromArray( array( 'id' => 10, 'group_id' => 5, 'lesson_id' => 77, 'position' => 1, 'scheduled_at' => null ) ) ) );
+		$this->gradebook->method( 'forGroup' )->willReturn( array( $this->entry( 10, 100 ) ) );
+		$data = $this->service->forStudent( 5, self::STUDENT );
+		self::assertCount( 1, $data['lessons'] );
+		self::assertSame( array( 'total' => 2, 'done' => 1, 'failed' => 1, 'open' => 0 ), $data['lessons'][0]['progress'] );
+		self::assertSame( 'none', $data['lessons'][0]['attendance'] );
+		self::assertSame( '', $data['lessons'][0]['date'] );
+		self::assertCount( 1, $data['lessons'][0]['works'] );
+		self::assertSame( 0, $this->attendanceReads );
 	}
 }

@@ -49,7 +49,7 @@ class JournalCallbacks extends BaseController {
 		$groupId = $this->requireInt( 'group_id' );
 		$userId  = get_current_user_id();
 
-		if ( ! $this->guard->canManage( $groupId, $userId ) ) {
+		if ( $this->guard->isSelfPacedGroup( $groupId ) || ! $this->guard->canManage( $groupId, $userId ) ) {
 			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
 		}
 

@@ -77,6 +77,13 @@ $base_url  = add_query_arg( array( 'page' => $page_slug, 'period_filter' => $sel
 			<?php endforeach; ?>
 		</select>
 
+		<select name="group_type" aria-label="Тип группы">
+			<option value="">Все типы групп</option>
+			<?php foreach ( \Inc\Enums\Course\GroupType::cases() as $type ) : ?>
+				<option value="<?php echo esc_attr( $type->value ); ?>" <?php selected( $groups_filters['group_type'] ?? '', $type->value ); ?>><?php echo esc_html( $type->label() ); ?></option>
+			<?php endforeach; ?>
+		</select>
+
 		<select name="room_id">
 			<option value="">Все кабинеты</option>
 			<?php foreach ( $rooms ?? [] as $room ) : ?>
@@ -135,9 +142,8 @@ $base_url  = add_query_arg( array( 'page' => $page_slug, 'period_filter' => $sel
 					data-is-shared="<?php echo $group['is_shared'] ? '1' : '0'; ?>">
 					<td class="column-title">
 						<strong><?php echo esc_html( $group['title'] ); ?></strong>
-						<?php if ( $group['is_shared'] ) : ?>
-							<span class="fs-badge is-blue fs-group-shared-badge" title="Общая группа: курс и расписание поверх основной группы ученика. Не считается «группой ученика» в экзаменах и карточках.">Общая</span>
-						<?php endif; ?>
+						<?php $type = \Inc\Enums\Course\GroupType::fromStorage( $group['access_mode'], $group['is_shared'] ); ?>
+						<span class="fs-badge is-blue"><?php echo esc_html( $type->label() ); ?></span>
 					</td>
 					<td><?php echo esc_html( $group['period_name'] ); ?></td>
 					<td><?php echo esc_html( $group['subject_name'] ); ?></td>

@@ -328,6 +328,7 @@ enum AjaxHook: string {
 	case GetTaughtCourseProgram = 'get_taught_course_program'; // params: course_id — модули и уроки курса для страницы курса преподавателя (Tasks.md З4)
 
 	// ==== ЛК учащегося/родителя (Эпик 7) ====
+	case StartSelfPacedCourse = 'start_self_paced_course';
 	case GetLearnerProfile       = 'get_learner_profile';      // [student_person_id] — родитель выбирает ребёнка; ученик игнорит
 	case SaveHomeLayout          = 'save_home_layout';         // layout (JSON: sections[], tiles[]|null) — «Кастомизация» главной ученика/родителя, настройка самого смотрящего
 	case LogLearnerActivity      = 'log_learner_activity';     // type=page|recording; page | group_lesson_id; [student_person_id] — открытие экрана кабинета / записи занятия (лента «Активность»)

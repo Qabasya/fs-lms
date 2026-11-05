@@ -40,7 +40,7 @@ trait ProgramAccess {
 	 * @return void
 	 */
 	protected function requireGroupAccess( int $groupId ): void {
-		if ( ! $this->accessGuard()->canManage( $groupId, get_current_user_id() ) ) {
+		if ( $this->accessGuard()->isSelfPacedGroup( $groupId ) || ! $this->accessGuard()->canManage( $groupId, get_current_user_id() ) ) {
 			$this->error( __( 'Нет доступа к группе.', 'fs-lms' ) );
 		}
 	}
@@ -56,7 +56,7 @@ trait ProgramAccess {
 	protected function requireProgramRow( int $groupLessonId, ?string $message = null ): GroupLessonDTO {
 		$row = $this->programService()->getProgramRow( $groupLessonId );
 
-		if ( null === $row || ! $this->accessGuard()->canManage( $row->groupId, get_current_user_id() ) ) {
+		if ( null === $row || $this->accessGuard()->isSelfPacedGroup( $row->groupId ) || ! $this->accessGuard()->canManage( $row->groupId, get_current_user_id() ) ) {
 			$this->error( $message ?? __( 'Нет доступа к группе.', 'fs-lms' ) );
 		}
 

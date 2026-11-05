@@ -93,6 +93,7 @@ class ExamReportPageTest extends TestCase {
 			$this->createMock( \Inc\Services\Exam\GuestResultViewService::class ),
 			$this->createMock( \Inc\Services\Exam\GuestResultSidebarService::class ),
 			$this->view,
+			$this->createMock( \Inc\Services\Exam\ExamReportCsvExport::class ),
 			$this->createMock( \Inc\Services\Exam\GuestPageResponder::class ),
 			$this->createMock( \Inc\Managers\Wp\PostManager::class )
 		);
@@ -197,8 +198,35 @@ class ExamReportPageTest extends TestCase {
 	private function pageData(): array {
 		return array(
 			'title' => 'Школа 5', 'event' => 'Пробный ЕГЭ', 'expires_at' => '2026-06-08 07:00:00', 'review' => null,
-			'rows' => array( array( 'n' => 1, 'name' => 'Иванов Пётр', 'primary' => '37 из 56', 'secondary' => '84 из 100', 'units' => array( array( 'number' => '1', 'status' => 'correct' ), array( 'number' => '2', 'status' => 'partial' ), array( 'number' => '3', 'status' => 'incorrect' ) ), 'open' => true ), array( 'n' => 2, 'name' => ExamReportViewService::PLACEHOLDER, 'primary' => '', 'secondary' => '', 'units' => array(), 'open' => false ) ),
+			'rows' => array( array( 'n' => 1, 'name' => 'Иванов Пётр', 'short_name' => 'Иванов П.', 'primary' => '37 из 56', 'secondary' => '84 из 100', 'units' => array( array( 'number' => '1', 'status' => 'correct' ), array( 'number' => '2', 'status' => 'partial' ), array( 'number' => '3', 'status' => 'incorrect' ) ), 'open' => true ), array( 'n' => 2, 'name' => ExamReportViewService::PLACEHOLDER, 'short_name' => ExamReportViewService::PLACEHOLDER, 'primary' => '', 'secondary' => '', 'units' => array(), 'open' => false ) ),
 			'stats' => array( 'participants' => 2, 'average' => '84', 'best' => '90', 'worst' => '78' ),
+			'table' => array(
+				'columns'      => array( '1', '2', '3' ),
+				'participants' => 2,
+				'rows'         => array(
+					array(
+						'n' => 1, 'name' => 'Иванов Пётр', 'short_name' => 'Иванов П.', 'open' => true, 'final' => true,
+						'primary' => '37', 'secondary' => '84',
+						'cells' => array(
+							'1' => array( 'status' => 'correct', 'score' => '1', 'class' => 'is-ok' ),
+							'2' => array( 'status' => 'incorrect', 'score' => '0', 'class' => 'is-zero' ),
+							'3' => array( 'status' => 'unanswered', 'score' => '', 'class' => '' ),
+						),
+					),
+					array(
+						'n' => 2, 'name' => ExamReportViewService::PLACEHOLDER, 'short_name' => ExamReportViewService::PLACEHOLDER,
+						'open' => false, 'final' => false, 'primary' => '', 'secondary' => '', 'cells' => array(),
+					),
+				),
+				'footer'       => array(
+					'average_primary'   => '37',
+					'average_secondary' => '84',
+					'attempts'          => array( '1', '0', '0' ),
+					'correct'           => array( '1', '0', '0' ),
+					'attempts_share'    => array( '50', '0', '0' ),
+					'correct_share'     => array( '100', '', '' ),
+				),
+			),
 		);
 	}
 
@@ -216,13 +244,24 @@ class ExamReportPageTest extends TestCase {
 	public function test_html_has_no_contacts_tokens_or_internal_ids(): void {
 		$html = $this->renderTemplate( $this->pageData() );
 
-		foreach ( array( 'phone', 'messenger', 'телефон', 'мессенджер', '/exam-entry/', '/exam-result/', 'attempt', 'participation', 'k=', 'csv', 'Оценить', 'печать' ) as $needle ) {
+		foreach ( array( 'phone', 'messenger', 'телефон', 'мессенджер', '/exam-entry/', '/exam-result/', 'attempt', 'participation', 'k=', 'Оценить', 'печать' ) as $needle ) {
 			self::assertStringNotContainsStringIgnoringCase( $needle, $html, $needle );
 		}
-		// Ссылка раскрытия — только порядковый номер.
+		// Ссылка раскрытия — только порядковый номер; выгрузка CSV — штатная кнопка в ряду мета-строки.
 		self::assertStringContainsString( 'row=1', $html );
 		self::assertStringNotContainsString( 'row=2', $html, 'У заглушки кнопки раскрытия нет.' );
 		self::assertStringContainsString( ExamReportViewService::PLACEHOLDER, $html );
+		self::assertStringContainsString( 'Скачать отчёт', $html );
+		self::assertStringContainsString( 'csv=1', $html );
+		self::assertStringContainsString( 'prof-btn prof-btn-sm fs-exam-report__csv', $html, 'кнопка выгрузки — в стиле кабинета' );
+		self::assertMatchesRegularExpression( '/<header class="fs-exam-result__head">((?!<\/header>).)*Скачать отчёт/s', $html, 'кнопка живёт в шапке отчёта' );
+		self::assertStringContainsString( 'Иванов П.', $html, 'в таблице — фамилия и инициалы' );
+		self::assertStringNotContainsString( 'Иванов Пётр', $html, 'полное имя в таблице не показывается' );
+		self::assertStringContainsString( 'Нажмите на строку ученика', $html, 'подсказка про клик по строке' );
+		self::assertStringContainsString( 'data-row-url', $html, 'строка кликабельна' );
+		self::assertStringContainsString( 'fs-exam-report__cell is-ok', $html, 'ячейка с баллом зелёная' );
+		self::assertStringContainsString( 'fs-exam-report__cell is-zero', $html, 'ячейка с нулём красная' );
+		self::assertStringContainsString( '% попыток', $html, 'сводный подвал как в статистике' );
 	}
 
 
@@ -332,12 +371,55 @@ class ExamReportPageTest extends TestCase {
 		self::assertSame( array( array( 'number' => '1', 'status' => 'correct' ), array( 'number' => '2', 'status' => 'incorrect' ) ), $data['rows'][0]['units'] );
 	}
 
-	public function test_template_draws_status_chips_under_student(): void {
+	public function test_row_carries_short_name_but_full_name_stays_for_csv(): void {
+		$service = $this->viewService( $this->createMock( ExamReportService::class ), $this->participant() );
+
+		$data = $service->build( $this->report(), null );
+
+		self::assertSame( 'Иванов П.', $data['rows'][0]['short_name'] );
+		self::assertSame( 'Иванов Пётр', $data['rows'][0]['name'], 'полное имя остаётся — CSV пишет его' );
+		self::assertArrayNotHasKey( 'scored_units', $data['rows'][0], 'баллы за задания странице не нужны' );
+	}
+
+	public function test_matrix_carries_full_name_scored_cells_and_summary(): void {
+		$stats = $this->createMock( \Inc\Services\Exam\ExamStatsService::class );
+		$stats->method( 'scoredAttemptUnits' )->willReturn( array(
+			array( 'number' => '1', 'status' => 'correct', 'score' => 1.0, 'max' => 1.0 ),
+			array( 'number' => '2', 'status' => 'unanswered', 'score' => 0.0, 'max' => 2.0 ),
+		) );
+		$service = $this->viewService( $this->createMock( ExamReportService::class ), $this->participant(), null, array( 80, 81 ), $stats );
+
+		$table = $service->matrix( $this->report() );
+
+		self::assertSame( array( '1', '2' ), $table['columns'] );
+		self::assertSame( 2, $table['participants'] );
+		$row = $table['rows'][0];
+		self::assertSame( 'Иванов Пётр', $row['name'], 'полное ФИО — для CSV' );
+		self::assertSame( '37', $row['primary'] );
+		self::assertSame( '84', $row['secondary'] );
+		self::assertTrue( $row['final'] );
+		self::assertSame(
+			array( 'status' => 'correct', 'score' => '1', 'class' => 'is-ok' ),
+			$row['cells']['1'],
+			'балл за задание с классом заливки'
+		);
+		self::assertSame( array( 'status' => 'unanswered', 'score' => '', 'class' => '' ), $row['cells']['2'] );
+		self::assertSame( array( '2', '0' ), $table['footer']['attempts'], 'оба участника решали задание 1' );
+		self::assertSame( array( '2', '0' ), $table['footer']['correct'] );
+		self::assertSame( array( '100', '0' ), $table['footer']['attempts_share'] );
+		self::assertSame( array( '100', '' ), $table['footer']['correct_share'] );
+		self::assertSame( '37', $table['footer']['average_primary'] );
+		self::assertSame( '84', $table['footer']['average_secondary'] );
+	}
+
+	public function test_matrix_cells_are_colored_by_verdict_and_footer_mirrors_statistics(): void {
 		$html = $this->renderTemplate( $this->pageData() );
 
-		self::assertStringContainsString( 'fs-exam-result__chip is-correct', $html );
-		self::assertStringContainsString( 'fs-exam-result__chip is-partial', $html );
-		self::assertStringContainsString( 'fs-exam-result__chip is-incorrect', $html );
+		self::assertStringContainsString( '<th class="fs-exam-report__name">ФИО</th>', $html );
+		self::assertStringContainsString( '<th class="fs-exam-report__task">3</th>', $html );
+		self::assertStringContainsString( 'Средний', $html );
+		self::assertStringContainsString( 'Верные решения', $html );
+		self::assertStringNotContainsString( 'fs-exam-report__chips', $html, 'чипсы под строкой заменены матрицей баллов' );
 		self::assertStringNotContainsString( 'Лучше всего решили', $html );
 	}
 

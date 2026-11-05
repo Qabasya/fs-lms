@@ -100,7 +100,7 @@ export function openGroupPicker(anchor, groups, currentId, onPick, extra = []) {
     if (!anchor) return;
     const items = groups.map(g => ({
         v: String(g.id),
-        label: g.name,
+        label: g.self_paced_course_id ? `Курс: ${g.name}` : g.name,
         active: g.id === currentId,
         swatchClass: groupChipBg(g),
         swatchImg: avatarUrl(g.subject_key || groupSubjectKey(g.id), g.id, g.avatar),

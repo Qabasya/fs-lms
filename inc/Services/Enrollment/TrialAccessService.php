@@ -117,6 +117,9 @@ readonly class TrialAccessService {
 		if ( null === $group ) {
 			throw new InvalidArgumentException( 'Группа не найдена.' );
 		}
+		if ( (int) ( $group->self_paced_course_id ?? 0 ) > 0 ) {
+			throw new DomainException( 'Пробный доступ к самостоятельному курсу недоступен.' );
+		}
 
 		if ( null !== $app->studentPersonId && array() !== $this->records->findTrialByStudent( $app->studentPersonId ) ) {
 			throw new DomainException( 'Временный доступ по этой заявке уже выдан.' );
@@ -125,6 +128,11 @@ readonly class TrialAccessService {
 		$student = $this->studentData( $app );
 
 		[ $personId, $recordId, $owner ] = $this->inTransaction( function () use ( $app, $student, $groupId ): array {
+			$this->groups->lockForUpdate( $groupId );
+			$currentGroup = $this->groups->findById( $groupId );
+			if ( ! $currentGroup || (int) ( $currentGroup->self_paced_course_id ?? 0 ) > 0 ) {
+				throw new DomainException( 'Пробный доступ к этой группе недоступен.' );
+			}
 			[ $personId, $owner ] = $this->resolvePerson( $app, $student );
 
 			if ( $this->records->existsActive( $personId, $groupId ) ) {

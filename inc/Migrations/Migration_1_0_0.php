@@ -126,6 +126,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			program_locked_at  datetime          DEFAULT NULL,
 			access_mode        enum('scheduled','open','individual') NOT NULL DEFAULT 'scheduled',
 			is_shared          tinyint(1)        NOT NULL DEFAULT 0,
+			self_paced_course_id bigint(20) unsigned DEFAULT NULL,
 			created_at         datetime          NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at         datetime          NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			deleted_at         datetime          DEFAULT NULL,
@@ -135,6 +136,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			PRIMARY KEY  (id),
 			KEY subject_key (subject_key),
 			KEY academic_period_id (academic_period_id),
+			UNIQUE KEY self_paced_course (self_paced_course_id),
 			KEY teacher_id (teacher_id)
 		) $cc;"
 		);
@@ -193,6 +195,7 @@ class Migration_1_0_0 implements MigrationInterface {
 			order_date          date                DEFAULT NULL,
 			status              enum('active','finished','expelled','transferred') NOT NULL DEFAULT 'active',
 			is_trial            tinyint(1)          NOT NULL DEFAULT 0,
+			self_paced_basis_subject varchar(191) DEFAULT NULL,
 			enrolled_at        datetime            NOT NULL,
 			enrolled_by_user_id bigint(20) unsigned DEFAULT NULL,
 			expelled_at         datetime            DEFAULT NULL,

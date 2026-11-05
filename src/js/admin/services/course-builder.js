@@ -5,6 +5,7 @@ import { openPicker } from '../modules/picker.js';
 import { createStepEditor } from './step-editor.js';
 import { ajax, tmpKey } from './step-ajax.js';
 import { createPersistence } from './course-persistence.js';
+import { CourseAccess } from './course-access.js';
 import { showToast } from '../modules/toast.js';
 import { ConfirmModal } from '../modals/confirm-modal.js';
 import { BulkPickModal } from '../modals/bulk-pick-modal.js';
@@ -123,6 +124,7 @@ function createApp( mount ) {
 	function renderShell() {
 		mount.innerHTML = `
 			${ renderCourseStrip() }
+			${ CourseAccess.markup( state.course, fs_lms_vars.subjects || [] ) }
 			${ state.course.open_warning ? `
 			<div class="notice notice-warning inline fs-cb-open-warning">
 				<p>${ esc( state.course.open_warning ) }</p>
@@ -217,6 +219,11 @@ function createApp( mount ) {
 		// Strip: аватар курса — картинка из медиатеки (используется чипом курса в кабинетах)
 		mount.querySelector( '[data-strip-thumb]' )?.addEventListener( 'click', pickCourseAvatar );
 		mount.querySelector( '[data-strip-thumb-clear]' )?.addEventListener( 'click', () => setCourseAvatar( 0, '' ) );
+
+		CourseAccess.bind( mount, {
+			state,
+			save: ( patch ) => ajax( acts().saveCourseMeta, { course_id: courseId, ...patch } ),
+		} );
 
 		// Strip title: click-to-edit inline
 		bindStripTitleEdit();
@@ -331,6 +338,7 @@ function createApp( mount ) {
 					</div>
 				</div>
 				<div class="course-strip-actions">
+					<button type="button" class="button" data-strip-access aria-expanded="false" aria-controls="fs-course-access">Доступ</button>
 					${ 'publish' === c.status ? '' : '<button type="button" class="button button-green" data-strip-publish>Опубликовать курс</button>' }
 				</div>
 			</div>`;

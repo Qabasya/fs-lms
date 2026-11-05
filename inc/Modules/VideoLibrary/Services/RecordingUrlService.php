@@ -31,12 +31,14 @@ class RecordingUrlService {
 			return $url;
 		}
 		$this->accessLog->logPresign( $matches[1], $matches[2], $groupLessonId );
-		$key    = self::URL_CACHE_PREFIX . md5( get_current_user_id() . '|' . $matches[1] . '|' . $matches[2] );
+		$ttl = $this->config->presignTtl();
+		// Смена провайдера, реквизитов или TTL немедленно исключает старые ссылки.
+		$scope  = hash( 'sha256', (string) wp_json_encode( array( $this->config->s3(), $ttl ) ) );
+		$key    = self::URL_CACHE_PREFIX . md5( get_current_user_id() . '|' . $matches[1] . '|' . $matches[2] . '|' . $scope );
 		$cached = get_transient( $key );
 		if ( is_string( $cached ) && '' !== $cached ) {
 			return $cached;
 		}
-		$ttl    = $this->config->presignTtl();
 		$signed = $this->signer->presign( $matches[1], $matches[2], $ttl );
 		// Cache must never outlive the signature, including short configured lifetimes.
 		set_transient( $key, $signed, max( 1, $ttl - min( 300, intdiv( $ttl, 2 ) ) ) );

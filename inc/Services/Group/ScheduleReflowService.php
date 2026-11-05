@@ -88,6 +88,7 @@ readonly class ScheduleReflowService {
 	 * @return ScheduleReflowResultDTO Конфликты кабинета + укомплектованность периода
 	 */
 	public function reflow( int $groupId, int $actorUserId ): ScheduleReflowResultDTO {
+		$this->assertOrdinaryGroup( $groupId );
 		$this->assertNotIndividual( $groupId, 'Автораспределения в индивидуальной группе нет — занятия ставятся вручную.' );
 
 		$result = $this->calendar->reflow( $groupId );
@@ -106,6 +107,7 @@ readonly class ScheduleReflowService {
 	 * @return int Количество затронутых строк.
 	 */
 	public function unschedule( int $groupId, int $actorUserId ): int {
+		$this->assertOrdinaryGroup( $groupId );
 		$this->assertNotIndividual( $groupId, 'В индивидуальной группе занятия ставятся вручную — снимать распределение нечего.' );
 
 		$affected = $this->groupLessons->unscheduleAll( $groupId );
@@ -533,6 +535,13 @@ readonly class ScheduleReflowService {
 			throw new \InvalidArgumentException( 'Строка программы не найдена.' );
 		}
 
+		$this->assertOrdinaryGroup( $row->groupId );
 		return $row;
+	}
+
+	private function assertOrdinaryGroup( int $groupId ): void {
+		if ( (int) ( $this->groups->findById( $groupId )->self_paced_course_id ?? 0 ) > 0 ) {
+			throw new \InvalidArgumentException( 'Самостоятельный курс не имеет расписания группы.' );
+		}
 	}
 }

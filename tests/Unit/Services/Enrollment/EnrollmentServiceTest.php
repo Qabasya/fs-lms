@@ -48,6 +48,7 @@ class EnrollmentServiceTest extends TestCase {
 	private ClockInterface $clock;
 	private LogEventDispatcherInterface $logEvents;
 	private EnrollmentService $service;
+	private GroupsRepository $groups;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -71,6 +72,7 @@ class EnrollmentServiceTest extends TestCase {
 		$this->joinCodeService->method( 'generate' )->willReturn( 'JOIN-ABCD-EFGH-1234' );
 		$this->joinCodeService->method( 'hash' )->willReturn( 'code_hash' );
 
+		$this->groups = $this->createMock( GroupsRepository::class );
 		$consentService = $this->createMock( ConsentService::class );
 
 		$this->service = new EnrollmentService(
@@ -79,7 +81,7 @@ class EnrollmentServiceTest extends TestCase {
 			$this->personRepo,
 			$this->docsRepo,
 			$this->personService,
-			$this->createMock( GroupsRepository::class ),
+			$this->groups,
 			$this->joinCodeService,
 			$consentService,
 			$this->userManager,
@@ -90,7 +92,7 @@ class EnrollmentServiceTest extends TestCase {
 			// Соавторы зачисления собираются из тех же дублей: тесты проверяют
 			// поведение всего потока, а не изоляцию EnrollmentService.
 			new EnrollmentPersonResolver( $this->personRepo, $this->personService, $this->crypto ),
-			new EnrollmentTransaction( $this->studentRecordRepo, $this->personService, $consentService, $this->clock ),
+			new EnrollmentTransaction( $this->studentRecordRepo, $this->personService, $consentService, $this->clock, $this->groups ),
 			new \Inc\Services\Enrollment\EnrollmentAccountsService(
 				new AccountProvisioningService( $this->userManager, $this->passwordGenerator, $this->personRepo, $this->logEvents ),
 				$this->passwordGenerator
@@ -491,4 +493,34 @@ class EnrollmentServiceTest extends TestCase {
 
 		self::assertStringContainsString( 'JOIN-ABCD-EFGH-1234', $result->joinUrl );
 	}
+	public function test_crafted_service_group_rejects_before_app_data_or_provisioning(): void {
+		$this->groups->method( 'findById' )->willReturn( (object) array( 'self_paced_course_id' => 15 ) );
+		$this->appRepo->expects( self::never() )->method( 'find' );
+		$this->personService->expects( self::never() )->method( 'createOrFindBy' );
+		$this->userManager->expects( self::never() )->method( 'create' );
+		$this->studentRecordRepo->expects( self::never() )->method( 'create' );
+		$this->logEvents->expects( self::never() )->method( 'dispatch' );
+		$this->expectException( \DomainException::class );
+		$this->service->enroll( $this->makeInput() );
+	}
+	public function test_service_record_cannot_restore_accounts_through_archive_endpoint(): void {
+		$this->groups->method( 'findById' )->willReturn( (object) array( 'self_paced_course_id' => 15 ) );
+		$this->studentRecordRepo->method( 'find' )->willReturn( \Inc\DTO\Enrollment\StudentRecordDTO::fromArray( array( 'id' => 77, 'group_id' => 5 ) ) );
+		$this->personRepo->expects( self::never() )->method( 'findIncludingDeleted' );
+		$this->userManager->expects( self::never() )->method( 'create' );
+		$this->expectException( \DomainException::class );
+		$this->service->restoreFromArchive( 77 );
+	}
+
+	public function test_transaction_checks_locked_group_before_creating_people(): void {
+		$this->groups->expects( self::once() )->method( 'lockForUpdate' )->with( 5 );
+		$this->groups->method( 'findById' )->willReturn( (object) array( 'self_paced_course_id' => 15 ) );
+		$this->personService->expects( self::never() )->method( 'createOrFindBy' );
+		$this->studentRecordRepo->expects( self::never() )->method( 'deleteTrialByStudent' );
+		$this->studentRecordRepo->expects( self::never() )->method( 'create' );
+		$transaction = new EnrollmentTransaction( $this->studentRecordRepo, $this->personService, $this->createMock( ConsentService::class ), $this->clock, $this->groups );
+		$this->expectException( DomainException::class );
+		$transaction->run( $this->makeEnrollingApp(), $this->makeInput(), \Inc\DTO\Enrollment\StudentDataDTO::fromArray( array() ), \Inc\DTO\Person\ParentDataDTO::fromArray( array() ), null, null );
+	}
+
 }

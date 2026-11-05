@@ -245,7 +245,9 @@ class DashboardService {
 	private function collectGroups( int $userId, bool $allGroups, string $today ): array {
 		$groups = array();
 		foreach ( $allGroups ? $this->groups->findAll() : $this->groups->findByTeacherId( $userId ) as $g ) {
-			$groups[ (int) $g->id ] = $g;
+			if ( (int) ( $g->self_paced_course_id ?? 0 ) <= 0 ) {
+				$groups[ (int) $g->id ] = $g;
+			}
 		}
 
 		$covering = array();
@@ -256,13 +258,13 @@ class DashboardService {
 			);
 			if ( ! isset( $groups[ $sub->groupId ] ) ) {
 				$g = $this->groups->findById( $sub->groupId );
-				if ( $g ) {
+				if ( $g && (int) ( $g->self_paced_course_id ?? 0 ) <= 0 ) {
 					$groups[ $sub->groupId ] = $g;
 				}
 			}
 		}
 
-		return array( $groups, $covering );
+		return array( $groups, array_intersect_key( $covering, $groups ) );
 	}
 
 	/** @return array<int, string> id кабинета → название */

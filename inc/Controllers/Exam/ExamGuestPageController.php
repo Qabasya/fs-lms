@@ -21,6 +21,8 @@ use Inc\Services\Exam\GuestEntryViewService;
 use Inc\Services\Exam\GuestResultViewService;
 use Inc\Services\Exam\GuestResultSidebarService;
 use Inc\Services\Exam\ExamReportViewService;
+use Inc\Services\Exam\ExamReportCsvExport;
+use Inc\DTO\Exam\ExamReportDTO;
 use Inc\Shared\Traits\Sanitizer;
 use Inc\Shared\Traits\RequestContextProvider;
 use Inc\Shared\Traits\TemplateRenderer;
@@ -46,6 +48,7 @@ class ExamGuestPageController extends BaseController implements ServiceInterface
 		private readonly GuestResultViewService $result,
 		private readonly GuestResultSidebarService $sidebar,
 		private readonly ExamReportViewService $reportView,
+		private readonly ExamReportCsvExport $csv,
 		private readonly GuestPageResponder $responder,
 		private readonly PostManager $posts,
 	) {
@@ -116,7 +119,29 @@ class ExamGuestPageController extends BaseController implements ServiceInterface
 		}
 
 		$this->responder->sendHeaders();
-		$this->responder->apply( $this->access->reportPage( strtolower( trim( $this->sanitizeGetText( 'k' ) ) ), $this->requestContext()->ip ) );
+		$handled = $this->responder->apply( $this->access->reportPage( strtolower( trim( $this->sanitizeGetText( 'k' ) ) ), $this->requestContext()->ip ) );
+		if ( $handled ) {
+			return; // Редирект/сообщение responder уже завершил выполнение скрипта.
+		}
+
+		// Допуск есть: с флагом csv отдаём выгрузку тем же сеансом, без флага — страницу рисует шорткод.
+		if ( $this->hasParam( 'csv', 'GET' ) ) {
+			$report = $this->access->currentReport();
+			if ( null !== $report ) {
+				$this->downloadReportCsv( $report );
+			}
+		}
+	}
+
+	/** Отдаёт CSV школьного отчёта и завершает запрос. */
+	private function downloadReportCsv( ExamReportDTO $report ): void {
+		nocache_headers();
+		header( 'Content-Type: text/csv; charset=utf-8' );
+		header( 'Content-Disposition: attachment; filename="exam-report-' . $report->id . '.csv"' );
+
+		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- сервис собирает CSV из экранированных полей.
+		echo $this->csv->build( $this->reportView->matrix( $report ) );
+		exit;
 	}
 
 	/** Шорткод формы записи. */
@@ -203,6 +228,7 @@ class ExamGuestPageController extends BaseController implements ServiceInterface
 
 		$row              = $this->hasParam( 'row', 'GET' ) ? $this->sanitizeGetInt( 'row' ) : 0;
 		$data             = $this->reportView->build( $report, $row > 0 ? $row : null );
+		$data['table']    = $this->reportView->matrix( $report );
 		$data['crumbs']   = array(
 			array(
 				'label' => __( 'Главная', 'fs-lms' ),

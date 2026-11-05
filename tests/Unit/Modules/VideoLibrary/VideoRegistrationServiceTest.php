@@ -56,7 +56,7 @@ class VideoRegistrationServiceTest extends TestCase {
 
 	private function input( array $over = array() ): VideoRecordingInputDTO {
 		return new VideoRecordingInputDTO(
-			s3Bucket:        'test-bucket',
+			s3Bucket:        $over['s3_bucket'] ?? 'test-bucket',
 			s3Key:           $over['s3_key'] ?? 'videos/kege-1/rec.webm',
 			manifestKey:     null,
 			groupSlug:       'kege-1',
@@ -93,20 +93,21 @@ class VideoRegistrationServiceTest extends TestCase {
 		);
 	}
 
-	private function lesson( int $id, string $status = 'scheduled' ): GroupLessonDTO {
+	private function lesson( int $id, string $status = 'scheduled', ?string $url = 's3://test-bucket/videos/kege-1/rec.webm' ): GroupLessonDTO {
 		return new GroupLessonDTO(
 			id: $id, groupId: 3, lessonId: 10, position: 0,
 			workIdsSnapshot: null, extraWorkIds: array(),
 			scheduledAt: '2026-07-08 15:00:00', endsAt: null, isPinned: false,
 			teacherUserId: null, visibility: 'open', openedAt: null,
 			homeworkDueAt: null, allowLate: true,
-			recordingUrl: 's3://test-bucket/videos/kege-1/rec.webm',
+			recordingUrl: $url,
 			createdByUserId: null, updatedByUserId: null,
 			status: $status,
 		);
 	}
 
 	private function upsertReturns( int $id, bool $isNew, ?VideoRecordingDTO $existing = null ): void {
+		$this->recordings->method( 'findByS3Key' )->willReturn( $existing );
 		$this->recordings->method( 'upsertByS3Key' )->willReturn( array(
 			'id'       => $id,
 			'isNew'    => $isNew,
@@ -212,6 +213,62 @@ class VideoRegistrationServiceTest extends TestCase {
 
 		self::assertTrue( $result['matched'] );
 		self::assertSame( 55, $result['group_lesson_id'] );
+	}
+
+	public function test_bucket_change_refreshes_only_pointers_to_the_existing_recording(): void {
+		$this->upsertReturns( 10, false, $this->recording( array( 'status' => 'matched', 'group_lesson_id' => 55 ) ) );
+		$lessons = array(
+			55 => $this->lesson( 55 ),
+			56 => $this->lesson( 56, 'cancelled' ),
+			57 => $this->lesson( 57, 'held', 'https://example.com/manual.mp4' ),
+			58 => $this->lesson( 58, 'held', null ),
+		);
+		$this->groupLessons->method( 'find' )->willReturnCallback( static fn( int $id ) => $lessons[ $id ] ?? null );
+		$this->groupLessons->method( 'extraSiblingIds' )->willReturn( array( 55, 56, 57, 58, 59 ) );
+		$this->resolver->expects( self::never() )->method( 'resolve' );
+		$this->recordings->expects( self::never() )->method( 'attach' );
+		$this->groupLessons->expects( self::never() )->method( 'setStatus' );
+		$pointers = array();
+		$this->groupLessons->expects( self::exactly( 2 ) )->method( 'setRecordingUrl' )
+			->willReturnCallback( static function ( int $id, ?string $url ) use ( &$pointers ): bool {
+				$pointers[ $id ] = $url;
+				return true;
+			} );
+
+		$result = $this->service->register( $this->input( array( 's3_bucket' => 'new-bucket' ) ) );
+
+		self::assertSame( array( 55 => 's3://new-bucket/videos/kege-1/rec.webm', 56 => 's3://new-bucket/videos/kege-1/rec.webm' ), $pointers );
+		self::assertSame( array( 'recording_id' => 10, 'matched' => true, 'group_lesson_id' => 55 ), $result );
+		self::assertNotContains( 'fs_lms_recording_attached', array_column( $GLOBALS['_fs_test_actions'], 'hook' ) );
+	}
+
+	public function test_bucket_change_can_resume_after_a_partial_pointer_update(): void {
+		$this->upsertReturns( 10, false, $this->recording( array( 'status' => 'matched', 'group_lesson_id' => 55 ) ) );
+		$this->groupLessons->method( 'extraSiblingIds' )->willReturn( array( 55, 56 ) );
+		$urls = array( 55 => 's3://test-bucket/videos/kege-1/rec.webm', 56 => 's3://test-bucket/videos/kege-1/rec.webm' );
+		$this->groupLessons->method( 'find' )->willReturnCallback( function ( int $id ) use ( &$urls ): GroupLessonDTO {
+			return $this->lesson( $id, 'scheduled', $urls[ $id ] );
+		} );
+		$fail = true;
+		$this->groupLessons->method( 'setRecordingUrl' )->willReturnCallback( static function ( int $id, ?string $url ) use ( &$urls, &$fail ): bool {
+			if ( 56 === $id && $fail ) {
+				return false;
+			}
+			$urls[ $id ] = $url;
+			return true;
+		} );
+		$this->recordings->expects( self::once() )->method( 'upsertByS3Key' );
+		$this->groupLessons->expects( self::never() )->method( 'setStatus' );
+		$input = $this->input( array( 's3_bucket' => 'new-bucket' ) );
+		try {
+			$this->service->register( $input );
+			self::fail( 'Failed pointer update must prevent metadata update.' );
+		} catch ( \RuntimeException $e ) {
+			self::assertStringContainsString( '56', $e->getMessage() );
+		}
+		$fail = false;
+		$this->service->register( $input );
+		self::assertSame( array_fill_keys( array( 55, 56 ), 's3://new-bucket/videos/kege-1/rec.webm' ), $urls );
 	}
 
 	public function test_repeat_of_unmatched_recording_is_reresolved(): void {

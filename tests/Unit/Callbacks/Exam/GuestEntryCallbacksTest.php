@@ -280,6 +280,7 @@ class GuestEntryCallbacksTest extends TestCase {
 			$this->createMock( \Inc\Services\Exam\GuestResultViewService::class ),
 			$this->createMock( \Inc\Services\Exam\GuestResultSidebarService::class ),
 			$this->createMock( \Inc\Services\Exam\ExamReportViewService::class ),
+			$this->createMock( \Inc\Services\Exam\ExamReportCsvExport::class ),
 			$this->createMock( \Inc\Services\Exam\GuestPageResponder::class ),
 			$this->createMock( \Inc\Managers\Wp\PostManager::class )
 		) )->renderResultPage() );
@@ -290,7 +291,7 @@ class GuestEntryCallbacksTest extends TestCase {
 		$result = $this->createMock( \Inc\Services\Exam\GuestResultViewService::class );
 		$result->method( 'build' )->willReturn( array(
 			'revealed' => true, 'guest_name' => 'Иванов Пётр', 'event_title' => 'Пробный ЕГЭ', 'title' => 'Пробный ЕГЭ', 'submitted' => '',
-			'caption' => '10 баллов', 'preliminary' => false, 'units' => array(), 'counts' => array( 'correct' => 0, 'partial' => 0, 'wrong' => 0, 'pending' => 0 ),
+			'caption' => '10 баллов', 'preliminary' => false, 'units' => array(), 'counts' => array( 'correct' => 0, 'incorrect' => 0, 'unanswered' => 0, 'pending' => 0 ),
 			'tasks' => array(), 'contacts' => array(),
 		) );
 		$sidebar = $this->createMock( \Inc\Services\Exam\GuestResultSidebarService::class );
@@ -304,6 +305,7 @@ class GuestEntryCallbacksTest extends TestCase {
 			$result,
 			$sidebar,
 			$this->createMock( \Inc\Services\Exam\ExamReportViewService::class ),
+			$this->createMock( \Inc\Services\Exam\ExamReportCsvExport::class ),
 			$this->createMock( \Inc\Services\Exam\GuestPageResponder::class ),
 			$this->createMock( \Inc\Managers\Wp\PostManager::class )
 		) )->renderResultPage();

@@ -14,6 +14,7 @@ import { createApi } from './api.js';
 import { workCardHtml, workChipHtml, workStatusText } from './work-card.js';
 import { learnerLayout, learnerFlat } from './program-window.js';
 import { courseTabsShell, syncCourseTabs } from './course-tabs.js';
+import { courseKey, isCourseOffer, canStartCourse, initialCourseKey, previewLessons, createCourseStarter } from './learner-course-state.js';
 import { isParent, getChildId, childBar, childPickHtml, wireChild, onChildChange } from './learner-child.js';
 import { initSchedule, todayRowsHtml, scheduleCardHtml } from './schedule-view.js';
 
@@ -161,6 +162,16 @@ function renderHome(root, d) {
    (LearnerService::buildCourses). Состояние (активный курс/раскрытие/поиск) —
    scState, переживает re-render экрана. ── */
 let scState = null;
+let scRoot = null;
+let scCourses = [];
+let scRenderEpoch = 0;
+const scStarter = createCourseStarter({
+    start: courseId => api('startCourse', { course_id: courseId }),
+    reload: () => load(true),
+    select: key => { scState = { active: key, expand: {}, query: '' }; },
+    render: profile => renderLessons(scRoot, profile),
+    current: () => scState?.active,
+});
 let scExamLock = null; // активная запирающая контрольная (см. examLockBanner / scRenderHero)
 
 function scPlural(n, forms) {
@@ -176,7 +187,10 @@ const SC_PILL = {
 };
 
 function renderLessons(root, d) {
+    scRoot = root;
+    scRenderEpoch++;
     const courses = Array.isArray(d.courses) ? d.courses : [];
+    scCourses = courses;
     scExamLock = d.exam_lock || null;
     root.innerHTML = `
     <div class="prof-dash sc">
@@ -205,10 +219,9 @@ function renderLessons(root, d) {
     wireChild(root);
     if (!courses.length) { return; }
 
-    if (!scState || !courses.some(c => c.id === scState.active)) {
-        // «К курсу» из плеера урока ведёт сюда с ?group= — открываем тот же курс.
-        const wanted = Number(new URLSearchParams(window.location.search).get('group'));
-        const initial = courses.some(c => c.id === wanted) ? wanted : courses[0].id;
+    const wanted = Number(new URLSearchParams(window.location.search).get('group'));
+    const initial = initialCourseKey(courses, scState?.active, wanted);
+    if (!scState || scState.active !== initial) {
         scState = { active: initial, expand: {}, query: '' };
     }
     scRenderAll(courses);
@@ -219,7 +232,7 @@ function renderLessons(root, d) {
     });
 }
 
-const scCourse = (courses) => courses.find(c => c.id === scState.active) || courses[0];
+const scCourse = (courses) => courses.find(c => courseKey(c) === scState.active) || courses[0];
 
 function scRenderAll(courses) { scRenderTabs(courses); scRenderHero(courses); scRenderProgram(courses); }
 
@@ -227,17 +240,17 @@ function scRenderTabs(courses) {
     const wrap = document.getElementById('scTabs');
     wrap.innerHTML = courses.map(c => {
         const pct = c.total ? Math.round(c.passed / c.total * 100) : 0;
-        const sub = c.not_started
+        const sub = isCourseOffer(c) ? 'Можно приступить' : c.not_started
             ? (c.open ? 'свободное прохождение' : (c.start ? 'старт ' + fmtDayMonth(c.start) : 'скоро'))
             : `${c.code ? esc(c.code) + ' · ' : ''}${c.passed} из ${c.total} ${scPlural(c.total, ['урок', 'урока', 'уроков'])}`;
-        return `<button class="sc-tab${c.id === scState.active ? ' on' : ''}" data-id="${c.id}">
+        return `<button class="sc-tab${courseKey(c) === scState.active ? ' on' : ''}" data-key="${esc(courseKey(c))}">
             ${chipHtml('sc-chip', c.subject_key, c.title, c.id, c.avatar)}
             <span class="sc-tb"><span class="sc-tname">${esc(c.title)}</span><span class="sc-tsub">${esc(sub)}</span></span>
             <span class="sc-tbar"><span class="${chipBg(c.subject_key)}" data-progress="${pct}"></span></span>
         </button>`;
     }).join('');
     wrap.querySelectorAll('.sc-tab').forEach(b => b.addEventListener('click', () => {
-        scState.active = +b.dataset.id;
+        scState.active = b.dataset.key;
         scState.query = '';
         scRenderAll(courses);
     }));
@@ -254,6 +267,13 @@ function scRenderHero(courses) {
         // Контент недоступен не по дате, а потому что идёт контрольная.
         actions = `<a class="prof-btn prof-btn-primary sc-hbtn" href="${esc(scExamLock.url)}">${scExamLock.is_exam ? 'Вернуться к экзамену' : 'Вернуться к контрольной'}</a>
             <div class="sc-hint">курс недоступен, пока идёт ${examLockKind(scExamLock)}</div>`;
+    } else if (c.access_paused) {
+        actions = '<span class="prof-btn sc-hbtn sc-dis">Доступ приостановлен</span><div class="sc-hint">Ваш прогресс сохранён</div>';
+    } else if (isCourseOffer(c)) {
+        const canStart = canStartCourse(c, { parent: isParent(), examLock: scExamLock });
+        actions = `${isParent() ? '' : `<button type="button" class="prof-btn prof-btn-primary sc-hbtn" data-start-course ${!canStart || scStarter.isBusy() ? 'disabled' : ''}>${scStarter.isBusy() ? 'Записываем…' : 'Приступить'}</button>`}
+            <div class="sc-hint">${isParent() ? 'Ученик может начать курс в своём кабинете' : canStart ? 'Самостоятельное прохождение' : 'Сейчас запись недоступна'}</div>
+            <div class="sc-hint" data-start-error role="alert"></div>`;
     } else if (c.not_started) {
         actions = `<span class="prof-btn sc-hbtn sc-dis">Старт ${c.start ? fmtDayMonth(c.start) : 'скоро'}</span>
             <div class="sc-hint">курс откроется после первого занятия</div>`;
@@ -272,18 +292,45 @@ function scRenderHero(courses) {
             <div class="sc-hinfo">
                 ${c.code ? `<span class="sc-code ${chipSoft(c.subject_key)}">${esc(c.code)}</span>` : ''}
                 <div class="sc-htitle">${esc(c.title)}</div>
+                ${c.description ? `<p class="sc-hmeta">${esc(c.description)}</p>` : ''}
                 ${meta ? `<div class="sc-hmeta">${meta}</div>` : ''}
-                <div class="sc-hprog">
+                ${isCourseOffer(c) ? `<div class="sc-hmeta">${c.total} ${scPlural(c.total, ['урок', 'урока', 'уроков'])}</div>` : `<div class="sc-hprog">
                     <div class="sc-hpl">
                         <span class="sc-hpt">Пройдено ${c.passed} из ${c.total} ${scPlural(c.total, ['урока', 'уроков', 'уроков'])}</span>
                         <span class="sc-hpct ${chipText(c.subject_key)}">${pct}%</span>
                     </div>
                     <div class="sc-hpbar"><span class="${chipBg(c.subject_key)}" data-progress="${pct}"></span></div>
-                </div>
+                </div>`}
             </div>
             <div class="sc-hact">${actions}</div>
         </div>`;
-    applyProgress(document.getElementById('scHero'));
+    const hero = document.getElementById('scHero');
+    applyProgress(hero);
+    hero.querySelector('[data-start-course]')?.addEventListener('click', async (event) => {
+        const button = event.currentTarget;
+        if (!canStartCourse(c, { parent: isParent(), examLock: scExamLock }) || scStarter.isBusy()) { return; }
+        const contextRoot = scRoot;
+        const epoch = scRenderEpoch;
+        const child = getChildId();
+        const isCurrent = () => contextRoot === scRoot && contextRoot.isConnected && epoch === scRenderEpoch && child === getChildId()
+            && (!contextRoot.matches('.prof-screen') || contextRoot.classList.contains('active'));
+        button.disabled = true;
+        button.textContent = 'Записываем…';
+        try {
+            await scStarter.run(c, { parent: isParent(), examLock: scExamLock, isCurrent });
+        } catch (error) {
+            if (isCurrent() && courseKey(scCourse(courses)) === courseKey(c)) {
+                const errorBox = hero.querySelector('[data-start-error]');
+                if (errorBox) { errorBox.textContent = error.message || 'Не удалось начать курс. Попробуйте ещё раз.'; }
+            }
+        } finally {
+            const currentButton = document.getElementById('scHero')?.querySelector('[data-start-course]');
+            if (currentButton && scCourses.length) {
+                currentButton.disabled = !canStartCourse(scCourse(scCourses), { parent: isParent(), examLock: scExamLock });
+                currentButton.textContent = 'Приступить';
+            }
+        }
+    });
 }
 
 function scRowHtml(l) {
@@ -319,6 +366,18 @@ function scRenderProgram(courses) {
 
     const searchWrap = document.getElementById('scSearchWrap');
     const expandBtn = document.getElementById('scExpand');
+
+    if (isCourseOffer(c)) {
+        toggleVisible(searchWrap, true);
+        toggleVisible(expandBtn, false);
+        const modules = c.modules || [{ name: '', lessons: c.lessons || [] }];
+        body.innerHTML = '<div class="sc-notice">Программа доступна для ознакомления. Уроки откроются после записи на курс.</div>' + modules.map((module, mi) => {
+            const rows = previewLessons(module.lessons).filter(match);
+            if (!rows.length) { return ''; }
+            return `<div class="sc-mod open"><div class="sc-mhead static"><span class="sc-mnum">Модуль ${mi + 1}</span><span class="sc-mname">${esc(module.name)}</span></div>${rows.map(scRowHtml).join('')}</div>`;
+        }).join('');
+        return;
+    }
 
     // Курс ещё не начался — превью модулей без раскрытия.
     if (c.not_started && c.modules) {
@@ -359,7 +418,7 @@ function scRenderProgram(courses) {
     if (q) { mods = mods.filter(x => x.found.length); }
 
     body.innerHTML = mods.map(({ m, mi, done, hasOpen, found, first, rows: unlockedRows }) => {
-        const open = q ? true : scDefaultOpen(c.id, mi, hasOpen, first && !anyOpen);
+        const open = q ? true : scDefaultOpen(courseKey(c), mi, hasOpen, first && !anyOpen);
         const allDone = m.lessons.length > 0 && done === m.lessons.length;
         const rows = q ? found : unlockedRows;
         const pct = m.lessons.length ? Math.round(done / m.lessons.length * 100) : 0;
@@ -381,7 +440,7 @@ function scRenderProgram(courses) {
         const mi = +mod.dataset.mi;
         const nowOpen = !mod.classList.contains('open');
         mod.classList.toggle('open', nowOpen);
-        (scState.expand[c.id] = scState.expand[c.id] || {})[mi] = nowOpen;
+        (scState.expand[courseKey(c)] = scState.expand[courseKey(c)] || {})[mi] = nowOpen;
         scSyncExpand(courses);
     }));
     scBindRows(body);
@@ -403,7 +462,7 @@ function scSyncExpand(courses) {
     const anyClosed = mods.some(m => !m.classList.contains('open'));
     btn.textContent = anyClosed ? 'Развернуть все' : 'Свернуть все';
     btn.onclick = () => {
-        const exp = (scState.expand[c.id] = scState.expand[c.id] || {});
+        const exp = (scState.expand[courseKey(c)] = scState.expand[courseKey(c)] || {});
         // Классом, а не перерисовкой — чтобы модули раскрылись/свернулись анимацией.
         mods.forEach(m => { exp[+m.dataset.mi] = anyClosed; m.classList.toggle('open', anyClosed); });
         scSyncExpand(courses);

@@ -40,6 +40,17 @@ class ExamAudienceResolverTest extends TestCase {
 		);
 	}
 
+	public function test_service_course_group_never_grants_subject_or_exam_audience(): void {
+		$group = (object) array( 'id' => '9', 'subject_key' => 'inf_ege', 'deleted_at' => null, 'is_shared' => '0', 'self_paced_course_id' => '123' );
+		$this->groups->method( 'findBySubjectKey' )->willReturn( array( $group ) );
+		$this->groups->method( 'findById' )->with( 9 )->willReturn( $group );
+		$this->records->method( 'findActiveByStudent' )->with( 10 )->willReturn( array( $this->createStudentRecord( 1, 10, 20, 9 ) ) );
+		$this->records->expects( self::never() )->method( 'findActiveByGroupId' );
+		self::assertSame( array(), $this->resolver->studentPersonIds( 'inf_ege' ) );
+		self::assertSame( array(), $this->resolver->subjectKeysForStudent( 10 ) );
+		self::assertSame( array(), $this->resolver->groupIdsForStudent( 10 ) );
+	}
+
 	public function test_student_in_two_groups_of_subject_listed_once(): void {
 		$group1 = (object) array( 'id' => '1', 'teacher_id' => 1, 'name' => 'G1', 'subject_key' => 'inf_ege', 'deleted_at' => null );
 		$group2 = (object) array( 'id' => '2', 'teacher_id' => 1, 'name' => 'G2', 'subject_key' => 'inf_ege', 'deleted_at' => null );

@@ -91,7 +91,7 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax($exam-result-stat-min-width, 1fr));
     gap: $spacing-md;
-    margin: 0 0 $spacing-lg;
+    margin: $spacing-lg 0;
   }
 
   &__stat {
@@ -114,8 +114,8 @@
     }
 
     &.is-correct dd { color: $color-ok; }
-    &.is-partial dd { color: $color-wait; }
-    &.is-wrong dd { color: $color-err; }
+    &.is-incorrect dd { color: $color-err; }
+    &.is-unanswered dd { color: $color-wait; }
     &.is-pending dd { color: $color-muted; }
   }
 
@@ -140,10 +140,12 @@
     border-radius: $border-radius-sm;
 
     &.is-correct { background: $color-ok-soft; border-color: $color-ok-line; }
-    &.is-partial { background: $color-wait-soft; border-color: $color-wait-line; }
 
-    &.is-incorrect,
-    &.is-unanswered { background: $color-err-soft; border-color: $color-err-line; }
+    // Частичный балл считается в «Неверно» (плитки) — тот же красный, янтарный у «Не решено».
+    &.is-partial { background: $color-err-soft; border-color: $color-err-line; }
+
+    &.is-incorrect { background: $color-err-soft; border-color: $color-err-line; }
+    &.is-unanswered { background: $color-wait-soft; border-color: $color-wait-line; }
     &.is-pending { background: $color-bg-subtle; }
   }
 
@@ -183,10 +185,10 @@
 
   &.is-correct &__verdict,
   &.is-corrected &__verdict { color: $color-ok; background: $color-ok-soft; }
-  &.is-partial &__verdict { color: $color-wait; background: $color-wait-soft; }
+  &.is-partial &__verdict { color: $color-err; background: $color-err-soft; }
 
-  &.is-incorrect &__verdict,
-  &.is-unanswered &__verdict { color: $color-err; background: $color-err-soft; }
+  &.is-incorrect &__verdict { color: $color-err; background: $color-err-soft; }
+  &.is-unanswered &__verdict { color: $color-wait; background: $color-wait-soft; }
 
   // Время ответа: подсказка при наведении объясняет, что считается от начала экзамена.
   &__time {
@@ -278,83 +280,165 @@
 
 // Школьный отчёт (этап 12.3): таблица результатов и разбор выбранной строки под ней.
 .fs-exam-report {
-  // Скруглённые углы — как у плиток показателей: `separate`, иначе у схлопнутых границ радиус не рисуется.
-  &__table {
-    width: 100%;
-    margin-bottom: $spacing-xl;
-    border-collapse: separate;
-    border-spacing: 0;
+  // Контейнер отчёта — 1200 px даже когда колонка темы уже: выход за constrained-обёртку
+  // (margin от центра родителя на половину нужной ширины; на узких экранах — во всю ширину).
+  // Паддинги базового .fs-exam-result снимаем полностью — ширина контента ровно 1200.
+  width: 100%;
+  max-width: $exam-report-width;
+  margin-inline: calc(50% - min(50vw, #{$exam-report-width} / 2));
+  padding: 0;
+
+  // Шапка: кнопка выгрузки живёт в заголовке — справа, на всю его высоту.
+  .fs-exam-result__title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: $spacing-md;
+  }
+
+  // «Скачать отчёт» — кнопка кабинета (разметка `.prof-btn.prof-btn-sm`). profile.min.css на гостевой
+  // странице не подключён, поэтому вид кнопки повторяем здесь фронтовыми токенами; высотой тянется
+  // до высоты строки заголовка, кегль — под неё.
+  .fs-exam-report__csv {
+    align-self: stretch;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 $exam-report-btn-padding-x;
+    border: 1px solid $color-border;
+    border-radius: $border-radius-sm;
+    background: $color-white;
+    color: $color-text;
+    font-size: $exam-report-btn-font-size;
+    font-weight: $font-semibold;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 0.12s ease, border-color 0.12s ease;
+
+    &:hover {
+      background: $color-bg-subtle;
+      border-color: $color-border-light;
+    }
+  }
+
+  // Плитки показателей сверху — ровно 4 в ряд с тем же шагом, края совпадают с таблицей.
+  > .fs-exam-result__stats {
+    grid-template-columns: repeat(4, 1fr);
+    gap: $exam-report-stats-gap;
+  }
+
+  // Навигация заданиями в разборе — сетка в одну полосу с колонками таблицы:
+  // отступ слева под колонку ФИО, справа — под обе балльные.
+  .fs-exam-report__review .fs-exam-result__nav {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    gap: $exam-report-nav-gap;
+    margin-inline: $exam-report-name-width $exam-report-sums-width;
+  }
+
+  .fs-exam-report__review .fs-exam-result__chip {
+    min-width: 0;
+  }
+
+  // Матрица «ученики × задания» — как таблица экрана «Статистика» (prof-card exam-stats-table):
+  // полная сетка, шапка-полоса, липкая колонка ФИО, баллы в ячейках цветом вердикта, сводный подвал.
+  &__scroll {
+    margin-bottom: $spacing-md;
+    overflow-x: auto;
     border: 1px solid $color-border-light;
     border-radius: $border-radius-md;
-    overflow: hidden;
-    font-size: $font-size-base;
+    background: $color-white;
+  }
+
+  &__table {
+    width: 100%;
+    margin: 0;
+    border-collapse: separate;
+    border-spacing: 0;
+
+    // Фиксированная раскладка: колонки без ширины (задания) делят остаток поровну — 890/27 ≈ 33 px.
+    table-layout: fixed;
+    font-size: $font-size-sm;
+    font-variant-numeric: tabular-nums;
 
     th,
     td {
-      padding: $spacing-sm $spacing-md;
-      text-align: left;
+      box-sizing: border-box;
+      min-width: $exam-report-cell-min;
+      height: $exam-report-cell-height;
+      padding: $exam-report-cell-padding-y $exam-report-cell-padding-x;
+      text-align: center;
+      font-weight: $font-regular;
+      border-right: 1px solid $color-border-light;
       border-bottom: 1px solid $color-border-light;
     }
 
-    // Строки белые; выбранная (раскрытая ниже) — на ступень темнее.
-    td { background: $color-white; }
-
-    tbody tr:last-child td { border-bottom: 0; }
-
-    // Строка ученика и строка его заданий — одна запись: линия только под второй.
-    .has-units td { border-bottom: 0; }
-
-    // Запись ученика — две строки (имя и квадратики): добавка к вертикальному отступу — сверху у имени и снизу у квадратиков;
-    // строка-заглушка одна, добавка с обеих сторон. Квадратики отстоят от имени заметнее, чем строки друг от друга.
-    .has-units td { padding-top: $spacing-sm + $exam-report-row-extra; }
-
-    .fs-exam-report__units td {
-      padding-top: $spacing-md;
-      padding-bottom: $spacing-sm + $exam-report-row-extra;
+    // Липкая колонка ФИО (при прокрутке широких форматов).
+    .fs-exam-report__name {
+      position: sticky;
+      left: 0;
+      z-index: 1;
+      width: $exam-report-name-width;
+      padding-inline: $spacing-sm;
+      overflow: hidden;
+      text-align: left;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      font-weight: $font-semibold;
+      background: $color-white;
     }
 
-    .is-placeholder td { padding-block: $spacing-sm + $exam-report-row-extra; }
-
-    // Все столбцы по центру, кроме первого (имя ученика — по левому краю).
-    th,
-    td { text-align: center; }
-
-    th:first-child,
-    td:first-child { text-align: left; }
-
-    th {
-      font-size: $font-size-sm;
-      font-weight: $font-medium;
+    thead th {
       color: $color-muted;
+      font-weight: $font-medium;
       background: $color-bg-subtle;
     }
 
+    thead .fs-exam-report__name { z-index: 2; background: $color-bg-subtle; }
+
+    // Балльные колонки — фиксированные, подпись переносится («балл» — второй строкой).
+    .fs-exam-report__sum {
+      width: $exam-report-sum-width;
+      padding-inline: $spacing-xs;
+      font-weight: $font-semibold;
+      white-space: nowrap;
+    }
+
+    // Баллы за задания цветом вердикта: есть балл — зелёный, ответ без балла — красный.
+    .fs-exam-report__cell.is-ok { color: $color-ok; background: $color-ok-soft; }
+    .fs-exam-report__cell.is-zero { color: $color-err; background: $color-err-soft; }
+    .fs-exam-report__cell.is-share { color: $color-wait-ink; font-weight: $font-semibold; }
+
+    // Строки белые; открытая строка кликабельна; выбранная (разбор ниже) — на ступень темнее.
+    tbody td { background: $color-white; }
+
+    .has-units { cursor: pointer; }
+
+    .has-units:hover td { background: $color-bg-subtle; }
+    .has-units:hover .fs-exam-report__name { background: $color-bg-subtle; }
+
+    .is-placeholder th,
     .is-placeholder td { color: $color-muted; }
-    .is-current td { background: $color-bg-subtle; }
+
+    .is-current td,
+    .is-current .fs-exam-report__name { background: $color-bg-subtle; }
+
+    // Подвал: полоса сверху, приглушённый фон.
+    .fs-exam-report__foot th,
+    .fs-exam-report__foot td {
+      background: $color-bg-subtle;
+      border-bottom: 0;
+    }
+
+    thead tr:last-child th,
+    tbody tr:last-child td { border-bottom: 1px solid $color-border-light; }
   }
 
-  // Квадратики заданий — и под строкой ученика, и в навигации разбора: белый фон, граница и цифра цвета вердикта.
-  &__chips {
-    justify-content: center;
-    margin-bottom: 0;
-  }
-
-  .fs-exam-result__chip {
-    background: $color-white;
-    border-color: $color-border;
-    color: $color-muted;
-
-    &.is-correct { border-color: $color-ok; color: $color-ok; }
-    &.is-partial { border-color: $color-wait; color: $color-wait; }
-
-    &.is-incorrect,
-    &.is-unanswered { border-color: $color-err; color: $color-err; }
-  }
-
-  &__open {
-    color: $color-accent;
-    white-space: nowrap;
-  }
+  // Подсказка над таблицей — тем же мелким серым стилем, что и мета-строка шапки.
+  &__hint { margin: 0 0 $spacing-md; }
 
   &__review {
     scroll-margin-top: $spacing-xl;
@@ -372,12 +456,5 @@
 
     > .fs-exam-result__aside,
     > .fs-exam-result__body { grid-column: 1; grid-row: auto; }
-  }
-}
-
-@media (max-width: $exam-mobile-breakpoint) {
-  .fs-exam-report__table {
-    display: block;
-    overflow-x: auto;
   }
 }

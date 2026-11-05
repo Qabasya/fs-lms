@@ -43,6 +43,7 @@ readonly class EnrollmentTransaction {
 		private PersonService           $people,
 		private ConsentService          $consents,
 		private ClockInterface          $clock,
+		private \Inc\Repositories\WPDBRepositories\GroupsRepository $groups,
 	) {}
 
 	/**
@@ -66,6 +67,11 @@ readonly class EnrollmentTransaction {
 		?PersonDTO         $existingParent
 	): array {
 		return $this->inTransaction( function () use ( $app, $input, $student, $parent, $existingStudent, $existingParent ): array {
+			$this->groups->lockForUpdate( $input->groupId );
+			$group = $this->groups->findById( $input->groupId );
+			if ( $group && (int) ( $group->self_paced_course_id ?? 0 ) > 0 ) {
+				throw new \DomainException( 'Самостоятельный курс не поддерживает обычное зачисление.' );
+			}
 			$now = $this->clock->now( 'mysql', true );
 
 			$studentPersonId  = $existingStudent?->id ?? $this->people->createOrFindBy( $this->studentInput( $student ) );

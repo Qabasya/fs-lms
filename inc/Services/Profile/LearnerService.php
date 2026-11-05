@@ -47,7 +47,7 @@ class LearnerService {
 	 *
 	 * @param int $personId Физлицо ученика
 	 */
-	public function build( int $personId ): LearnerDashboardDTO {
+	public function build( int $personId, bool $canStartCourses = false ): LearnerDashboardDTO {
 		$ctx = $this->contextBuilder->build( $personId );
 
 		// №2 (D17.2): открытые группы существуют только как курсы в «Мои курсы» —
@@ -56,11 +56,11 @@ class LearnerService {
 		$visibleGroups = array_values(
 			array_filter(
 				$ctx->groups,
-				static fn( $g ) => empty( $g['is_shared'] ) && 'open' !== ( $g['access_mode'] ?? 'scheduled' )
+				static fn( $g ) => empty( $g['is_shared'] ) && empty( $g['self_paced_course_id'] ) && 'open' !== ( $g['access_mode'] ?? 'scheduled' )
 			)
 		);
 
-		$mainGroups = array_filter( $ctx->groups, static fn( $g ) => empty( $g['is_shared'] ) );
+		$mainGroups = array_filter( $ctx->groups, static fn( $g ) => empty( $g['is_shared'] ) && empty( $g['self_paced_course_id'] ) );
 		$grades = $this->performance->grades( $ctx, $personId );
 
 		// События экзаменов сливаются с занятиями и сортируются по дате и времени до обрезки до 6.
@@ -76,11 +76,11 @@ class LearnerService {
 		return new LearnerDashboardDTO(
 			examLock:   $this->coursesSection->examLock( $personId ),
 			groups:     $visibleGroups,
-			courses:    $this->coursesSection->buildCourses( $ctx->groups, $ctx->rawRows, $ctx->lessonMap, $ctx->roomNames, $personId ),
+			courses:    $this->coursesSection->buildCourses( $ctx->groups, $ctx->rawRows, $ctx->lessonMap, $ctx->roomNames, $personId, $canStartCourses ),
 			upcoming:   array_slice( $upcomingEvents, 0, 6 ),
 			deadlines:  array_slice( $deadlines, 0, 6 ),
 			recent:     array_slice( $this->performance->recentGrades( $grades ), 0, 5 ),
-			lessons:    $ctx->allLessons,
+			lessons:    array_values( array_filter( $ctx->allLessons, static fn( array $lesson ): bool => empty( $ctx->groups[ $lesson['group_id'] ?? 0 ]['self_paced_course_id'] ) ) ),
 			grades:     $grades,
 			attendance: $attendance,
 			examCountdown: $this->examCountdown->forGroups( $mainGroups, $ctx->now ),

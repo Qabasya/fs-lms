@@ -4,6 +4,8 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Assessment;
 
+use Inc\Services\Enrollment\SelfPacedAccessPolicy;
+
 use Inc\Contracts\ClockInterface;
 use Inc\Contracts\LogEventDispatcherInterface;
 use Inc\DTO\Assessment\AttemptAnswerDTO;
@@ -29,6 +31,7 @@ class AttemptService {
 		private readonly AssessmentAccessPolicy      $access,
 		private readonly AttemptRevealPolicy         $revealPolicy,
 		private readonly PersonRepository            $persons,
+		private readonly SelfPacedAccessPolicy $selfPacedAccess,
 	) {}
 
 	/** В ленту пишется WP-пользователь, а не персона (actor_user_id резолвится через get_userdata()). */
@@ -237,6 +240,7 @@ class AttemptService {
 			throw new \InvalidArgumentException( 'Попытка не найдена.' );
 		}
 
+		$this->requireCourseAccess( $attempt );
 		return $this->resultOf( $attemptId );
 	}
 
@@ -301,12 +305,22 @@ class AttemptService {
 		return null !== $assessment && $this->revealPolicy->isRevealed( $assessment, $attempt );
 	}
 
+	/** Recheck admission for old browser tabs before any learner read or mutation. */
+	private function requireCourseAccess( AttemptDTO $attempt ): void {
+		if ( ! $attempt->isExam() && (int) $attempt->groupId > 0
+			&& ! $this->selfPacedAccess->canAccessGroup( (int) $attempt->groupId, (int) $attempt->studentPersonId ) ) {
+			throw new \InvalidArgumentException( 'Прохождение этого курса сейчас недоступно.' );
+		}
+	}
+
 	/** Валидирует, что попытка активна и принадлежит студенту. */
 	private function requireActiveAttempt( int $attemptId, int $studentPersonId ): AttemptDTO {
 		$attempt = $this->attempts->find( $attemptId );
 		if ( ! $attempt || $attempt->studentPersonId !== $studentPersonId ) {
 			throw new \InvalidArgumentException( 'Попытка не найдена.' );
 		}
+
+		$this->requireCourseAccess( $attempt );
 
 		// Официальную попытку экзамена ведёт только ExamAttemptService: здесь нет ни блокировки участия,
 		// ни проверки дедлайна (`expireIfOverdue()` экзамен пропускает) — по этому пути её можно было бы

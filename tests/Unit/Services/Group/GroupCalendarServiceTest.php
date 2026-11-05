@@ -33,6 +33,13 @@ class GroupCalendarServiceTest extends TestCase {
 	private GroupCalendarService $service;
 	private \Inc\Managers\Course\CourseManager $courses;
 
+	public function test_service_group_calendar_is_rejected_before_reading_program(): void {
+		$this->groups->method( 'findById' )->willReturn( (object) array( 'self_paced_course_id' => 100 ) );
+		$this->groupLessons->expects( self::never() )->method( 'listByGroup' );
+		$this->expectException( \InvalidArgumentException::class );
+		$this->service->getCalendar( 5 );
+	}
+
 	protected function setUp(): void {
 		parent::setUp();
 		$this->groupLessons  = $this->createMock( GroupLessonRepository::class );

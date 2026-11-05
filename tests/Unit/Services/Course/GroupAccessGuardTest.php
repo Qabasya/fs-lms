@@ -12,6 +12,8 @@ use PHPUnit\Framework\TestCase;
 
 class GroupAccessGuardTest extends TestCase {
 
+	private \Inc\Services\Enrollment\SelfPacedAccessPolicy $selfPacedAccess;
+
 	private GroupsRepository&\PHPUnit\Framework\MockObject\MockObject $groups;
 	private StudentRecordRepository&\PHPUnit\Framework\MockObject\MockObject $studentRecords;
 	private SubstitutionRepository&\PHPUnit\Framework\MockObject\MockObject $substitutions;
@@ -19,11 +21,26 @@ class GroupAccessGuardTest extends TestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
+		$this->selfPacedAccess = $this->createMock( \Inc\Services\Enrollment\SelfPacedAccessPolicy::class );
+		$this->selfPacedAccess->method( 'canContinue' )->willReturn( true );
+		$this->selfPacedAccess->method( 'canAccessGroup' )->willReturn( true );
+		$this->selfPacedAccess->method( 'canParentAccessGroup' )->willReturn( true );
 		$this->groups         = $this->createMock( GroupsRepository::class );
 		$this->studentRecords = $this->createMock( StudentRecordRepository::class );
 		$this->substitutions  = $this->createMock( SubstitutionRepository::class );
-		$this->guard          = new GroupAccessGuard( $this->groups, $this->studentRecords, $this->substitutions );
+		$this->guard          = new GroupAccessGuard( $this->groups, $this->studentRecords, $this->substitutions, $this->selfPacedAccess );
 		$GLOBALS['_test_user_can'] = [];
+	}
+
+	public function test_paused_self_paced_membership_cannot_authorize_direct_player_or_ajax(): void {
+		$access = $this->createMock( \Inc\Services\Enrollment\SelfPacedAccessPolicy::class );
+		$access->method( 'canAccessGroup' )->with( 7, 42 )->willReturn( false );
+		$access->method( 'canParentAccessGroup' )->with( 7, 99 )->willReturn( false );
+		$this->studentRecords->expects( self::never() )->method( 'countByGroupAndPerson' );
+		$this->studentRecords->expects( self::never() )->method( 'countByGroupAndParent' );
+		$guard = new GroupAccessGuard( $this->groups, $this->studentRecords, $this->substitutions, $access );
+		self::assertFalse( $guard->isMemberEver( 7, 42 ) );
+		self::assertFalse( $guard->isParentOf( 7, 99 ) );
 	}
 
 	public function test_can_manage_active_substitute_grant(): void {
@@ -82,16 +99,23 @@ class GroupAccessGuardTest extends TestCase {
 
 	/* ── canWriteJournal (T5.7: read-only оригинала в период замены) ─────── */
 
+	public function test_service_group_denies_journal_even_for_admin_but_preserves_management(): void {
+		$GLOBALS['_test_user_can'][1]['manage_options'] = true;
+		$this->groups->method( 'findById' )->willReturn( (object) array( 'self_paced_course_id' => 100 ) );
+		self::assertFalse( $this->guard->canWriteJournal( 7, 1 ) );
+		self::assertTrue( $this->guard->canManage( 7, 1 ) );
+	}
+
 	public function test_can_write_journal_admin_bypasses_group_check(): void {
 		$GLOBALS['_test_user_can'][1]['manage_options'] = true;
-		$this->groups->expects( self::never() )->method( 'findById' );
+		$this->groups->expects( self::once() )->method( 'findById' );
 
 		self::assertTrue( $this->guard->canWriteJournal( 5, 1 ) );
 	}
 
 	public function test_can_write_journal_substitute_during_grant(): void {
 		$this->substitutions->method( 'hasActiveGrant' )->with( 99, 7 )->willReturn( true );
-		$this->groups->expects( self::never() )->method( 'findById' );
+		$this->groups->expects( self::once() )->method( 'findById' );
 
 		self::assertTrue( $this->guard->canWriteJournal( 7, 99 ) );
 	}

@@ -73,6 +73,7 @@ readonly class ProgramCompositionService {
 			return 0;
 		}
 
+		$this->assertOrdinaryGroup( $row->groupId );
 		$position = $row->position + 1;
 		$this->groupLessons->shiftPositions( $row->groupId, $position );
 
@@ -115,6 +116,7 @@ readonly class ProgramCompositionService {
 			throw new \InvalidArgumentException( 'Занятие не найдено.' );
 		}
 
+		$this->assertOrdinaryGroup( $row->groupId );
 		if ( null === $row->continuedFromId ) {
 			throw new \InvalidArgumentException( 'Это не продолжение темы — убрать можно только вторую дату.' );
 		}
@@ -226,6 +228,7 @@ readonly class ProgramCompositionService {
 		if ( ! $placed || ! $pool || $placed->groupId !== $pool->groupId ) {
 			throw new \InvalidArgumentException( 'Занятие или тема не найдены в этой группе.' );
 		}
+		$this->assertOrdinaryGroup( $placed->groupId );
 		if ( null === $placed->scheduledAt || null !== $pool->scheduledAt || $pool->isFact() ) {
 			throw new \InvalidArgumentException( 'Заменить можно тему занятия на дате темой из пула без даты.' );
 		}
@@ -428,6 +431,7 @@ readonly class ProgramCompositionService {
 	 * @return void
 	 */
 	public function publishProgram( int $groupId, int $actorUserId ): void {
+		$this->assertOrdinaryGroup( $groupId );
 		if ( $this->isIndividualGroup( $groupId ) ) {
 			throw new \InvalidArgumentException( 'В индивидуальной группе КТП не публикуется: занятия видны ученику сразу.' );
 		}
@@ -445,6 +449,7 @@ readonly class ProgramCompositionService {
 	 * @return void
 	 */
 	public function unpublishProgram( int $groupId, int $actorUserId ): void {
+		$this->assertOrdinaryGroup( $groupId );
 		$this->groups->setProgramLocked( $groupId, null );
 		$this->events->groupChanged( $groupId, $actorUserId );
 	}
@@ -457,4 +462,10 @@ readonly class ProgramCompositionService {
 	private function subjectOf( ?int $lessonId ): ?string {
 		return $lessonId ? $this->lessonManager->get( $lessonId )?->subjectKey : null;
 	}
+	private function assertOrdinaryGroup( int $groupId ): void {
+		if ( (int) ( $this->groups->findById( $groupId )->self_paced_course_id ?? 0 ) > 0 ) {
+			throw new \InvalidArgumentException( 'Программа самостоятельного курса изменяется через конструктор курса.' );
+		}
+	}
+
 }

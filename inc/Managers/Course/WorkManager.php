@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Managers\Course;
 
 use Inc\Managers\Wp\PostManager;
+use Inc\Services\Course\SelfPacedContentGuard;
 
 use Inc\DTO\Course\WorkDTO;
 use Inc\Enums\Wp\PostMetaName;
@@ -21,6 +22,7 @@ class WorkManager {
 
 	public function __construct(
 		private readonly PostManager $posts,
+		private readonly ?SelfPacedContentGuard $selfPacedGuard = null,
 	) {}
 
 	public function create( string $subjectKey, WorkDTO $dto ): int {
@@ -41,6 +43,7 @@ class WorkManager {
 	}
 
 	public function update( int $workId, WorkDTO $dto ): bool {
+		$this->selfPacedGuard?->assertMetadata( $workId, PostMetaName::Meta->value, $dto->toArray() );
 		$this->assertTotalPoints( $dto->toArray()['task_points'] );
 		$updated = $this->posts->update( $workId, array(
 			'post_title' => $dto->title,
@@ -124,6 +127,7 @@ class WorkManager {
 		$meta['item_ids']    = $ids;
 		$meta['task_points'] = $normalized;
 
+		$this->selfPacedGuard?->assertMetadata( $workId, PostMetaName::Meta->value, $meta );
 		$this->posts->updateMeta( $workId, PostMetaName::Meta->value, $meta );
 		return true;
 	}

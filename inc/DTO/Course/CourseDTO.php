@@ -27,16 +27,19 @@ readonly class CourseDTO {
 	 * @param string      $status
 	 */
 	public function __construct(
-		public int    $id,
+		public int $id,
 		public string $subjectKey,
 		public string $title,
 		public string $descriptionHtml,
-		public array  $modules,
-		public int    $authorId,
+		public array $modules,
+		public int $authorId,
 		public string $status,
+		public bool $selfPacedEnabled = false,
+		public array $audienceSubjectKeys = array(),
+		public int $serviceGroupId = 0,
 	) {}
 
-	public static function fromPost( \WP_Post $post, array $meta ): self {
+	public static function fromPost( \WP_Post $post, array $meta, array $access = array() ): self {
 		return new self(
 			id             : $post->ID,
 			subjectKey     : PostTypeResolver::subjectFromCoursePostType( $post->post_type ),
@@ -45,6 +48,9 @@ readonly class CourseDTO {
 			modules        : ModuleDTO::fromList( is_array( $meta['modules'] ?? null ) ? $meta['modules'] : array() ),
 			authorId       : (int) $post->post_author,
 			status         : $post->post_status,
+			selfPacedEnabled: (bool) ( $access['self_paced_enabled'] ?? false ),
+			audienceSubjectKeys: (array) ( $access['audience_subject_keys'] ?? array() ),
+			serviceGroupId: (int) ( $access['service_group_id'] ?? 0 ),
 		);
 	}
 
@@ -57,18 +63,24 @@ readonly class CourseDTO {
 			modules        : ModuleDTO::fromList( is_array( $data['modules'] ?? null ) ? $data['modules'] : array() ),
 			authorId       : (int) ( $data['author_id'] ?? 0 ),
 			status         : (string) ( $data['status'] ?? 'draft' ),
+			selfPacedEnabled: (bool) ( $data['self_paced_enabled'] ?? false ),
+			audienceSubjectKeys: is_array( $data['audience_subject_keys'] ?? null ) ? array_values( $data['audience_subject_keys'] ) : array(),
+			serviceGroupId: (int) ( $data['service_group_id'] ?? 0 ),
 		);
 	}
 
 	public function toArray(): array {
 		return array(
-			'id'               => $this->id,
-			'subject_key'      => $this->subjectKey,
-			'title'            => $this->title,
-			'description_html' => $this->descriptionHtml,
-			'modules'          => ModuleDTO::toList( $this->modules ),
-			'author_id'        => $this->authorId,
-			'status'           => $this->status,
+			'id'                    => $this->id,
+			'subject_key'           => $this->subjectKey,
+			'title'                 => $this->title,
+			'description_html'      => $this->descriptionHtml,
+			'modules'               => ModuleDTO::toList( $this->modules ),
+			'author_id'             => $this->authorId,
+			'status'                => $this->status,
+			'self_paced_enabled'    => $this->selfPacedEnabled,
+			'audience_subject_keys' => $this->audienceSubjectKeys,
+			'service_group_id'      => $this->serviceGroupId,
 		);
 	}
 
@@ -107,5 +119,4 @@ readonly class CourseDTO {
 		}
 		return $numbers;
 	}
-
 }

@@ -95,6 +95,7 @@ readonly class EnrollmentService {
 	 *                                  с email ученика, ученик уже зачислен в эту группу
 	 */
 	public function enroll( EnrollmentInputDTO $input ): EnrollmentResultDTO {
+		$this->assertOrdinaryGroup( $input->groupId );
 		$app = $this->applicationRepository->find( $input->applicationId );
 
 		if ( null === $app ) {
@@ -210,6 +211,7 @@ readonly class EnrollmentService {
 			throw new InvalidArgumentException( 'Запись не найдена.' );
 		}
 
+		$this->assertOrdinaryGroup( $record->groupId );
 		$studentPerson = $this->personRepository->findIncludingDeleted( $record->studentPersonId );
 
 		$sLastName   = $record->snapshotLastName  !== '' ? $record->snapshotLastName  : ( $studentPerson?->lastName  ?? '' );
@@ -433,4 +435,12 @@ readonly class EnrollmentService {
 
 		return new RemoveParentResultDTO( joinUrl: home_url( '/lms/join/' . $newCode ) );
 	}
+	/** Independent courses cannot provision or restore accounts via enrollment. */
+	private function assertOrdinaryGroup( int $groupId ): void {
+		$group = $this->groupsRepository->findById( $groupId );
+		if ( $group && (int) ( $group->self_paced_course_id ?? 0 ) > 0 ) {
+			throw new DomainException( 'Самостоятельный курс начинается только самим учеником; обычное зачисление недоступно.' );
+		}
+	}
+
 }

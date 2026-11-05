@@ -39,7 +39,17 @@ class CourseBuilderServiceTest extends TestCase {
 			$this->createMock( GroupsRepository::class ),
 			$this->createMock( OpenCourseValidator::class ),
 			$this->usage,
+			$this->selfPacedService(),
+			$this->createMock( \Inc\Services\Course\SelfPacedContentGuard::class ),
 		);
+	}
+
+	private function selfPacedService(): \Inc\Services\Course\SelfPacedCourseService {
+		$service = $this->createMock( \Inc\Services\Course\SelfPacedCourseService::class );
+		$service->method( 'save' )->willReturnCallback(
+			static fn( int $id, ?bool $enabled, ?array $audience, int $actor, callable $save ): bool => $save()
+		);
+		return $service;
 	}
 
 	private function seedCourse( int $id, string $subject, array $modules ): void {
@@ -127,9 +137,21 @@ class CourseBuilderServiceTest extends TestCase {
 			$this->createMock( GroupsRepository::class ),
 			$this->createMock( OpenCourseValidator::class ),
 			$this->usage,
+			$this->selfPacedService(),
+			$this->createMock( \Inc\Services\Course\SelfPacedContentGuard::class ),
 		);
 
 		return array( $service, $posts );
+	}
+
+	public function test_access_only_save_does_not_write_status_read_before_the_lock(): void {
+		$this->seedCourse( 1, 'inf', array() );
+		$posts = $this->getMockBuilder( PostManager::class )->onlyMethods( array( 'updateStatus' ) )->getMock();
+		$posts->expects( self::never() )->method( 'updateStatus' );
+		$service = new CourseBuilderService( new CourseManager( $posts ), new LessonManager( $posts ), $posts,
+			$this->cloneService, $this->createMock( GroupsRepository::class ), $this->createMock( OpenCourseValidator::class ),
+			$this->usage, $this->selfPacedService(), $this->createMock( \Inc\Services\Course\SelfPacedContentGuard::class ) );
+		self::assertTrue( $service->updateCourseMeta( 1, null, null, selfPacedEnabled: false, audienceSubjectKeys: array() ) );
 	}
 
 	public function test_update_course_meta_sets_avatar_when_id_given(): void {

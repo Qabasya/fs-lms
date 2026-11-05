@@ -26,6 +26,7 @@ use PHPUnit\Framework\TestCase;
  */
 class AttemptServiceTest extends TestCase {
 
+	private bool $paused = false;
 	private AssessmentAttemptRepository&MockObject $attempts;
 	private AssessmentAnswerRepository&MockObject  $answers;
 	private AssessmentManager&MockObject           $assessments;
@@ -52,6 +53,8 @@ class AttemptServiceTest extends TestCase {
 		// ученик пришёл по прямому пермалинку без `from_gl`.
 		$this->access->method( 'resolveAccessibleLesson' )->willReturn( $this->accessibleLesson() );
 
+		$selfPaced = $this->createMock( \Inc\Services\Enrollment\SelfPacedAccessPolicy::class );
+		$selfPaced->method( 'canAccessGroup' )->willReturnCallback( fn() => ! $this->paused );
 		$this->service = new AttemptService(
 			$this->attempts,
 			$this->answers,
@@ -62,6 +65,7 @@ class AttemptServiceTest extends TestCase {
 			$this->access,
 			$this->revealPolicy,
 			$this->createMock( \Inc\Repositories\WPDBRepositories\PersonRepository::class ),
+			$selfPaced,
 		);
 	}
 
@@ -72,6 +76,30 @@ class AttemptServiceTest extends TestCase {
 			scoringPolicy: ScoringPolicy::Highest, status: 'publish',
 			kind: $kind, taskPoints: array(), scoreMap: array(),
 		);
+	}
+
+	public function test_paused_course_rejects_save_submit_and_result_without_writing(): void {
+		$this->paused = true;
+		$attempt = AttemptDTO::fromArray( array(
+			'id' => 5, 'assessment_id' => 1, 'student_person_id' => 99,
+			'group_id' => 3, 'attempt_number' => 1,
+			'started_at' => '2026-06-01 10:00:00', 'deadline_at' => '2026-06-01 11:00:00', 'status' => 'in_progress',
+		) );
+		$this->attempts->method( 'find' )->willReturn( $attempt );
+		$this->answers->expects( self::never() )->method( 'saveAnswer' );
+		$this->answers->expects( self::never() )->method( 'listByAttempt' );
+		foreach ( array(
+			fn() => $this->service->saveAnswer( 5, 10, 'answer', 99 ),
+			fn() => $this->service->submit( 5, 99 ),
+			fn() => $this->service->getResult( 5, 99 ),
+		) as $operation ) {
+			try {
+				$operation();
+				self::fail( 'Paused access must reject the operation.' );
+			} catch ( \InvalidArgumentException $error ) {
+				self::assertStringContainsString( 'недоступно', $error->getMessage() );
+			}
+		}
 	}
 
 	private function seededAttempt(): AttemptDTO {

@@ -7,6 +7,7 @@ namespace Inc\Modules\VideoLibrary\Controllers;
 use Inc\Modules\VideoLibrary\DTO\VideoRecordingInputDTO;
 use Inc\Modules\VideoLibrary\Services\VideoHmacAuth;
 use Inc\Modules\VideoLibrary\Services\VideoRegistrationService;
+use Inc\Shared\PluginLogger;
 
 /**
  * Class VideoRestController
@@ -57,6 +58,15 @@ class VideoRestController {
 				: $this->service->register( $input );
 		} catch ( \InvalidArgumentException $e ) {
 			return new \WP_REST_Response( array( 'ok' => false, 'error' => $e->getMessage() ), 400 );
+		} catch ( \RuntimeException $e ) {
+			PluginLogger::exception( 'VideoLibrary', $e, array(), true );
+			return new \WP_REST_Response(
+				array(
+					'ok'    => false,
+					'error' => 'Video registration temporarily failed.',
+				),
+				503
+			);
 		}
 
 		return new \WP_REST_Response( array(

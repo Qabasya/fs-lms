@@ -33,6 +33,9 @@ class TrialAccessServiceTest extends TestCase {
 	private StudentRecordRepository&MockObject $records;
 	private LogEventDispatcherInterface&MockObject $logEvents;
 	private TrialAccessService $service;
+	private GroupsRepository $groups;
+	private PersonService $people;
+	private EnrollmentAccountsService $accounts;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -42,14 +45,17 @@ class TrialAccessServiceTest extends TestCase {
 		$clock              = $this->createMock( ClockInterface::class );
 		$clock->method( 'now' )->willReturn( '2026-10-20 12:00:00' );
 
+		$this->groups = $this->createMock( GroupsRepository::class );
+		$this->people = $this->createMock( PersonService::class );
+		$this->accounts = $this->createMock( EnrollmentAccountsService::class );
 		$this->service = new TrialAccessService(
 			$this->applications,
 			$this->records,
-			$this->createMock( GroupsRepository::class ),
-			$this->createMock( PersonService::class ),
+			$this->groups,
+			$this->people,
 			$this->createMock( PersonRepository::class ),
 			$this->createMock( PersonDocumentsRepository::class ),
-			$this->createMock( EnrollmentAccountsService::class ),
+			$this->accounts,
 			$this->createMock( UserManager::class ),
 			$this->createMock( PasswordGeneratorService::class ),
 			$this->createMock( PiiCryptoService::class ),
@@ -110,4 +116,14 @@ class TrialAccessServiceTest extends TestCase {
 	public function test_notice_key_is_per_person(): void {
 		self::assertSame( 'trial_access:9005', TrialAccessService::noticeKey( 9005 ) );
 	}
+	public function test_service_group_never_grants_trial_or_provisions_persons(): void {
+		$this->applications->method( 'find' )->willReturn( $this->application( 'ready_for_review', null ) );
+		$this->groups->method( 'findById' )->willReturn( (object) array( 'self_paced_course_id' => 15 ) );
+		$this->people->expects( self::never() )->method( 'createOrFindBy' );
+		$this->records->expects( self::never() )->method( 'create' );
+		$this->logEvents->expects( self::never() )->method( 'dispatch' );
+		$this->expectException( DomainException::class );
+		$this->service->grant( 7, 9 );
+	}
+
 }

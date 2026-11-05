@@ -48,10 +48,20 @@ class CourseBuilderCallbacksTest extends TestCase {
 				$this->createMock( GroupsRepository::class ),
 				$this->createMock( OpenCourseValidator::class ),
 				$this->usage,
+			$this->selfPacedService(),
+			$this->createMock( \Inc\Services\Course\SelfPacedContentGuard::class ),
 			),
 			new CoursePublishValidator( $this->courses, $this->lessons ),
 			$this->createMock( CourseAssignmentService::class )
 		);
+	}
+
+	private function selfPacedService(): \Inc\Services\Course\SelfPacedCourseService {
+		$service = $this->createMock( \Inc\Services\Course\SelfPacedCourseService::class );
+		$service->method( 'save' )->willReturnCallback(
+			static fn( int $id, ?bool $enabled, ?array $audience, int $actor, callable $save ): bool => $save()
+		);
+		return $service;
 	}
 
 	private function seedCourse( int $id, string $subject, array $modules ): void {
@@ -66,6 +76,28 @@ class CourseBuilderCallbacksTest extends TestCase {
 			array( 'ID' => $id, 'post_type' => $subject . '_lessons', 'post_title' => '' !== $title ? $title : ( 'Урок ' . $id ), 'post_status' => $status ),
 			array( 'fs_lms_meta' => array( 'steps' => array() ) )
 		);
+	}
+
+	public function test_access_only_json_patch_preserves_omitted_title_and_status(): void {
+		$builder = $this->createMock( CourseBuilderService::class );
+		$builder->expects( self::once() )->method( 'updateCourseMeta' )
+			->with( 15, null, null, 0, null, true, array( 'inf', 'math' ) )->willReturn( true );
+		$callbacks = new CourseBuilderCallbacks( $builder,
+			$this->createMock( CoursePublishValidator::class ), $this->createMock( CourseAssignmentService::class ) );
+		$_POST = array( 'course_id' => '15', 'self_paced_enabled' => '1', 'audience_subject_keys' => '["inf","math"]' );
+		$result = fs_test_capture_json( fn() => $callbacks->ajaxSaveCourseMeta() );
+		self::assertTrue( $result->success );
+	}
+
+	public function test_empty_json_audience_is_an_explicit_empty_patch(): void {
+		$builder = $this->createMock( CourseBuilderService::class );
+		$builder->expects( self::once() )->method( 'updateCourseMeta' )
+			->with( 15, null, null, 0, null, null, array() )->willReturn( true );
+		$callbacks = new CourseBuilderCallbacks( $builder,
+			$this->createMock( CoursePublishValidator::class ), $this->createMock( CourseAssignmentService::class ) );
+		$_POST = array( 'course_id' => '15', 'audience_subject_keys' => '[]' );
+		$result = fs_test_capture_json( fn() => $callbacks->ajaxSaveCourseMeta() );
+		self::assertTrue( $result->success );
 	}
 
 	public function test_create_course_draft_returns_id(): void {

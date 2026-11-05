@@ -85,7 +85,7 @@ readonly class NotificationCronService {
 		$since = $this->shift( $now, '-24 hours' );
 
 		foreach ( $this->groupLessons->listRecentlyOpened( $since, $now ) as $lesson ) {
-			if ( LessonVisibility::Open->value !== $this->visibility->effectiveVisibility( $lesson ) ) {
+			if ( $this->notifications->isSelfPacedGroup( $lesson->groupId ) || LessonVisibility::Open->value !== $this->visibility->effectiveVisibility( $lesson ) ) {
 				continue;
 			}
 
@@ -214,6 +214,9 @@ readonly class NotificationCronService {
 		$now = $this->clock->now();
 
 		foreach ( $this->groupLessons->listStartingBetween( $now, $this->shift( $now, '+24 hours' ) ) as $next ) {
+			if ( $this->notifications->isSelfPacedGroup( $next->groupId ) ) {
+				continue;
+			}
 			if ( $next->kind->isIndividual() ) {
 				continue;
 			}
@@ -239,6 +242,9 @@ readonly class NotificationCronService {
 		$now = $this->clock->now();
 
 		foreach ( $this->groupLessons->listGroupBeganBetween( $this->shift( $now, '-24 hours' ), $now ) as $next ) {
+			if ( $this->notifications->isSelfPacedGroup( $next->groupId ) ) {
+				continue;
+			}
 			$previous = $this->previousLesson( $next );
 			if ( null === $previous ) {
 				continue;
@@ -279,6 +285,9 @@ readonly class NotificationCronService {
 	}
 
 	private function notifyMissedLesson( GroupLessonDTO $lesson, int $personId ): void {
+		if ( $this->notifications->isSelfPacedGroup( $lesson->groupId ) ) {
+			return;
+		}
 		$payload = array(
 			'student_name' => $this->notifications->studentSnapshotName( $personId, $lesson->groupId ),
 			'topic'        => $this->notifications->lessonTopic( $lesson ),
@@ -320,7 +329,7 @@ readonly class NotificationCronService {
 		$now = $this->clock->now();
 
 		foreach ( $this->groupLessons->listGroupEndedBetween( $this->shift( $now, '-25 hours' ), $this->shift( $now, '-1 hour' ) ) as $lesson ) {
-			if ( $lesson->hasAttendance || $this->notifications->isOpenGroup( $lesson->groupId ) ) {
+			if ( $lesson->hasAttendance || ( $this->notifications->isOpenGroup( $lesson->groupId ) || $this->notifications->isSelfPacedGroup( $lesson->groupId ) ) ) {
 				continue;
 			}
 			if ( empty( $this->notifications->lessonStudentPersonIds( $lesson ) ) ) {
@@ -387,7 +396,7 @@ readonly class NotificationCronService {
 		$now = $this->clock->now();
 
 		foreach ( $this->groupLessons->listEndedBetweenWithoutRecording( $this->shift( $now, self::RECORDING_LOOKBACK ), $this->shift( $now, self::RECORDING_GRACE ) ) as $lesson ) {
-			if ( $this->notifications->isOpenGroup( $lesson->groupId ) ) {
+			if ( ( $this->notifications->isOpenGroup( $lesson->groupId ) || $this->notifications->isSelfPacedGroup( $lesson->groupId ) ) ) {
 				continue;
 			}
 			if ( empty( $this->notifications->lessonStudentPersonIds( $lesson ) ) ) {

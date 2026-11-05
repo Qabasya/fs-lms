@@ -21,6 +21,13 @@ class SubstitutionServiceTest extends TestCase {
 	private ClockInterface&\PHPUnit\Framework\MockObject\MockObject $clock;
 	private SubstitutionService $service;
 
+	public function test_service_group_cannot_grant_substitute_teacher_scope(): void {
+		$this->groups->method( 'findById' )->willReturn( (object) array( 'self_paced_course_id' => 100 ) );
+		$this->repo->expects( self::never() )->method( 'create' );
+		$this->expectException( \InvalidArgumentException::class );
+		$this->service->assign( 5, 42, '2026-05-01', '2026-05-02', null, 1 );
+	}
+
 	protected function setUp(): void {
 		parent::setUp();
 		$this->repo          = $this->createMock( SubstitutionRepository::class );

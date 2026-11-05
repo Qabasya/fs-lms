@@ -126,6 +126,7 @@ class ProfileViewResolver {
 				'nonce'   => Nonce::LearnerProfile->create(),
 				'actions' => array(
 					'getProfile'     => AjaxHook::GetLearnerProfile->jsAction(),
+					'startCourse' => AjaxHook::StartSelfPacedCourse->jsAction(),
 					'saveHomeLayout' => AjaxHook::SaveHomeLayout->jsAction(),
 				),
 			);

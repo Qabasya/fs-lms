@@ -40,6 +40,26 @@ class DashboardServiceTest extends TestCase {
 	private $examGuard;
 	private DashboardService $service;
 
+	public function test_schedule_groups_preserve_shared_and_filter_service_group_even_for_office(): void {
+		$this->groups->method( 'findAll' )->willReturn( array(
+			(object) array( 'id' => 1, 'is_shared' => 1, 'self_paced_course_id' => null ),
+			(object) array( 'id' => 2, 'self_paced_course_id' => 100 ),
+		) );
+		$method = new \ReflectionMethod( DashboardService::class, 'collectGroups' );
+		[$groups] = $method->invoke( $this->service, 99, true, '2026-05-01' );
+		self::assertSame( array( 1 ), array_keys( $groups ) );
+	}
+
+	public function test_service_substitution_does_not_reintroduce_hidden_group_or_covering_card(): void {
+		$this->groups->method( 'findByTeacherId' )->willReturn( array() );
+		$this->groups->method( 'findById' )->willReturn( (object) array( 'id' => 7, 'self_paced_course_id' => 100 ) );
+		$this->substitutions->method( 'findUpcomingOrActiveBySubstitute' )->willReturn( array(
+			new \Inc\DTO\Course\SubstitutionDTO( 1, 7, 42, 99, '2026-05-01', '2026-05-31', null, 3, '2026-05-01 00:00:00' ),
+		) );
+		$method = new \ReflectionMethod( DashboardService::class, 'collectGroups' );
+		self::assertSame( array( array(), array() ), $method->invoke( $this->service, 99, false, '2026-05-10' ) );
+	}
+
 	protected function setUp(): void {
 		parent::setUp();
 		$this->groups        = $this->createMock( GroupsRepository::class );

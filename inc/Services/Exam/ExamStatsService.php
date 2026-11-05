@@ -229,6 +229,15 @@ class ExamStatsService {
 	}
 
 	/**
+	 * Баллы по единицам оценивания попытки (номер, статус, балл, максимум) — для выгрузок (школьный отчёт CSV).
+	 *
+	 * @return list<array{number: string, status: string, score: float, max: float}>
+	 */
+	public function scoredAttemptUnits( AttemptDTO $attempt ): array {
+		return $this->unitDetails( $attempt );
+	}
+
+	/**
 	 * Статус каждой единицы оценивания одной попытки по возрастанию номера: для строки школьного отчёта.
 	 * Условия и ответы не собираются — только номер и вердикт (`correct`, `partial`, `incorrect`, `unanswered`, `pending`).
 	 *

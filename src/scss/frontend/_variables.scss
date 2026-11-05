@@ -105,6 +105,7 @@ $color-err-line: #f5c9c9;
 $color-wait: $brand-amber; // только заливки и иконки: текстом на белом не читается
 $color-wait-soft: color.mix($brand-amber, #fff, $tint-soft);
 $color-wait-line: color.mix($brand-amber, #fff, $tint-line);
+$color-wait-ink: color.mix($brand-amber, $color-text, $ink-share); // янтарный текст (проценты в сводных таблицах)
 $color-info: $brand-blue;
 $color-info-soft: color.mix($brand-blue, #fff, $tint-soft);
 $color-success: $color-ok;
@@ -243,4 +244,19 @@ $exam-accent-border-width: rem(3.6);
 $exam-result-stat-min-width: rem(140);
 $exam-result-nav-size: rem(34);
 $exam-report-row-extra: rem(10); // добавка к вертикальному отступу строки таблицы школьного отчёта
+// Кнопка «Скачать отчёт» повторяет размеры кабинетной (shared/cabinet cab-btn-sm) — в тех же пикселях.
+$exam-report-btn-font-size: rem(16);
+$exam-report-btn-padding-x: rem(12);
+
+// Компактная сетка матрицы «ученики × задания»: ФИО и баллы — фиксированные, колонки заданий делят остаток.
+$exam-report-width: rem(1200); // контейнер школьного отчёта
+$exam-report-cell-min: rem(25);
+$exam-report-cell-height: rem(30);
+$exam-report-cell-padding-y: rem(4);
+$exam-report-cell-padding-x: rem(2);
+$exam-report-name-width: rem(150);
+$exam-report-sum-width: rem(80); // на каждую из колонок «Первичный»/«Вторичный»
+$exam-report-sums-width: rem(160); // обе балльные колонки — отступ навигации чипсами
+$exam-report-stats-gap: rem(16);
+$exam-report-nav-gap: rem(6);
 $exam-mobile-breakpoint: 640px;

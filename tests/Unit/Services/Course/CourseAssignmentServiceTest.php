@@ -47,6 +47,7 @@ class CourseAssignmentServiceTest extends TestCase {
 		parent::setUp();
 		$this->courseManager       = $this->createMock( CourseManager::class );
 		$this->groups              = $this->createMock( GroupsRepository::class );
+		$this->groups->method( 'update' )->willReturn( true );
 		$this->groupLessons        = $this->createMock( GroupLessonRepository::class );
 		$this->dispatcher          = $this->createMock( LogEventDispatcherInterface::class );
 		$this->lessonManager       = $this->createMock( LessonManager::class );
@@ -84,6 +85,21 @@ class CourseAssignmentServiceTest extends TestCase {
 		$count = $this->service->assign( 1, 5, 99 );
 
 		self::assertSame( 3, $count );
+	}
+
+	public function test_service_group_rejects_reassignment_to_other_course_before_writes(): void {
+		$this->groups->method( 'findById' )->willReturn( (object) array( 'id' => 1, 'subject_key' => 'inf', 'access_mode' => 'open', 'self_paced_course_id' => 99 ) );
+		$this->courseManager->method( 'get' )->willReturn( $this->makeCourse() );
+		$this->groups->expects( self::never() )->method( 'update' );
+		$this->groupLessons->expects( self::never() )->method( 'add' );
+		$this->expectException( \InvalidArgumentException::class );
+		$this->service->assign( 1, 5, 99 );
+	}
+
+	public function test_service_group_allows_same_course_sync_without_replacing_identity(): void {
+		$this->groups->method( 'findById' )->willReturn( (object) array( 'id' => 1, 'subject_key' => 'inf', 'access_mode' => 'open', 'self_paced_course_id' => 5 ) );
+		$this->courseManager->method( 'get' )->willReturn( $this->makeCourse( lessonIds: array() ) );
+		self::assertSame( 0, $this->service->assign( 1, 5, 99, recordAssignment: false ) );
 	}
 
 	public function test_assign_writes_course_id_to_group(): void {

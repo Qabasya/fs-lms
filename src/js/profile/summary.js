@@ -177,8 +177,9 @@ function render() {
                     ${subjectPickerBtnHtml(subject, 'sumSubjectBtn')}
                 </div>` : ''}
                 ${group ? `<div class="prof-ktp-pick">
-                    <span class="kp-label">Группа</span>
+                    <span class="kp-label">${group.self_paced_course_id ? 'Самостоятельный курс' : 'Группа'}</span>
                     ${groupPickerBtnHtml(group, 'sumGroupBtn')}
+                    ${group.self_paced_course_id ? `<span class="kp-label">Начали: ${Number(group.participants_count || 0)}</span>` : ''}
                 </div>` : ''}
                 <div class="prof-ktp-pick">
                     <span class="kp-label">Ученик</span>

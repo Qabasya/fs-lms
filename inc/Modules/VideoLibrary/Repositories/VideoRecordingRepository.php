@@ -69,7 +69,9 @@ class VideoRecordingRepository {
 
 		$existing = $this->findByS3Key( $input->s3Key );
 		if ( null !== $existing ) {
-			$this->wpdb->update( $this->table, $data, array( 'id' => $existing->id ) );
+			if ( false === $this->wpdb->update( $this->table, $data, array( 'id' => $existing->id ) ) ) {
+				throw new \RuntimeException( 'Could not update video registry.' );
+			}
 			return array(
 				'id'       => $existing->id,
 				'isNew'    => false,
@@ -77,13 +79,16 @@ class VideoRecordingRepository {
 			);
 		}
 
-		$this->wpdb->insert(
+		$inserted = $this->wpdb->insert(
 			$this->table,
 			$data + array(
 				's3_key' => $input->s3Key,
 				'status' => VideoRecordingStatus::Unmatched->value,
 			)
 		);
+		if ( false === $inserted || (int) $this->wpdb->insert_id <= 0 ) {
+			throw new \RuntimeException( 'Could not insert video registry entry.' );
+		}
 
 		return array(
 			'id'       => (int) $this->wpdb->insert_id,

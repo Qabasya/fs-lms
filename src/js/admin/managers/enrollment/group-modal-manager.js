@@ -83,8 +83,7 @@ export const GroupModalManager = {
             teacher_id:    formData.teacher_id,
             broadcast_url: formData.broadcast_url,
             schedule_json: formData.schedule_json,
-            access_mode:   formData.access_mode, // «открытая» фиксируется при создании (Эпик 15); «индивидуальную» можно сменить
-            is_shared:     formData.is_shared,   // «общая (дополнительная)» — признак поверх режима
+            group_type:    formData.group_type,
         };
 
         if (isEdit) {

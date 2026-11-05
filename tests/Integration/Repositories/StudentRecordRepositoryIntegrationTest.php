@@ -128,4 +128,17 @@ class StudentRecordRepositoryIntegrationTest extends TestCase {
 		self::assertCount( 1, $this->wpdb->inserts );
 		self::assertStringNotContainsString( 'FOR UPDATE', $this->wpdb->lastQuery() );
 	}
+	public function test_primary_queries_exclude_service_groups_but_all_records_keep_them(): void {
+		$this->repo->findByStudent( 10, false );
+		self::assertStringContainsString( 'is_shared = 1 OR self_paced_course_id IS NOT NULL', $this->wpdb->lastQuery() );
+		$this->repo->findActiveByStudent( 10, false );
+		self::assertStringContainsString( 'is_shared = 1 OR self_paced_course_id IS NOT NULL', $this->wpdb->lastQuery() );
+		$this->repo->findActiveByStudentFirst( 10 );
+		self::assertStringContainsString( 'is_shared = 1 OR self_paced_course_id IS NOT NULL', $this->wpdb->lastQuery() );
+		$this->repo->findByStudent( 10 );
+		self::assertStringNotContainsString( 'self_paced_course_id', $this->wpdb->lastQuery() );
+		$this->repo->findActiveByStudent( 10 );
+		self::assertStringNotContainsString( 'self_paced_course_id', $this->wpdb->lastQuery() );
+	}
+
 }

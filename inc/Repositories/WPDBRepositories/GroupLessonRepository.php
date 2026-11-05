@@ -169,7 +169,9 @@ class GroupLessonRepository {
 	}
 
 	public function add( GroupLessonInputDTO $dto ): int {
-		$this->wpdb->insert( $this->table, $dto->toArray() );
+		if ( false === $this->wpdb->insert( $this->table, $dto->toArray() ) ) {
+			throw new \RuntimeException( 'Не удалось создать строку программы группы.' );
+		}
 		return (int) $this->wpdb->insert_id;
 	}
 

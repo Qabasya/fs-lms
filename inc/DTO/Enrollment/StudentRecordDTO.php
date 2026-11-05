@@ -31,6 +31,7 @@ readonly class StudentRecordDTO {
 		public string         $createdAt,
 		public string         $updatedAt,
 		public bool           $isTrial = false,
+		public ?string        $selfPacedBasisSubject = null,
 	) {}
 
 	public function isActive(): bool {
@@ -65,6 +66,7 @@ readonly class StudentRecordDTO {
 			createdAt:        (string) ( $data['created_at'] ?? '' ),
 			updatedAt:        (string) ( $data['updated_at'] ?? '' ),
 			isTrial:          ! empty( $data['is_trial'] ),
+			selfPacedBasisSubject: isset( $data['self_paced_basis_subject'] ) ? (string) $data['self_paced_basis_subject'] : null,
 		);
 	}
 }

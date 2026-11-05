@@ -6,6 +6,7 @@ namespace Inc\Services\Course;
 
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Enrollment\StudentRecordDTO;
+use Inc\Services\Enrollment\SelfPacedAccessPolicy;
 use Inc\Enums\Access\AccessLevel;
 use Inc\Enums\Course\AccessMode;
 use Inc\Enums\Enrollment\EnrollmentStatus;
@@ -26,6 +27,7 @@ class LessonAccessPolicy {
 		private readonly ExpulsionPolicyRepository $expulsionPolicy,
 		private readonly LessonVisibilityService $visibility,
 		private readonly GroupsRepository $groups,
+		private readonly SelfPacedAccessPolicy $selfPacedAccess,
 	) {}
 
 	/**
@@ -33,6 +35,15 @@ class LessonAccessPolicy {
 	 * Полная матрица: видимость × статус × даты × политика ретеншна.
 	 */
 	public function resolve( StudentRecordDTO $record, GroupLessonDTO $lesson ): AccessLevel {
+		return $this->resolveWithEligibility( $record, $lesson, $this->selfPacedAccess->canContinue( $record ) );
+	}
+
+	/** Resolve using an eligibility decision scoped to the caller's current batch. */
+	private function resolveWithEligibility( StudentRecordDTO $record, GroupLessonDTO $lesson, bool $eligible ): AccessLevel {
+		if ( ! $eligible ) {
+			return AccessLevel::None;
+		}
+
 		// #13 (T2.34): скрытый урок с наступившей датой занятия авто-открывается —
 		// все прошедшие уроки доступны сразу, без ручной публикации.
 		$effectiveVisibility = $this->visibility->effectiveVisibility( $lesson );
@@ -96,14 +107,18 @@ class LessonAccessPolicy {
 	 */
 	public function readabilityForLessons( int $studentPersonId, array $lessons ): array {
 		$records = array();
+		$eligibility = array();
 		$result  = array();
 		foreach ( $lessons as $lesson ) {
 			if ( ! array_key_exists( $lesson->groupId, $records ) ) {
 				$records[ $lesson->groupId ] = $this->studentRecords->findAllByStudentAndGroup( $studentPersonId, $lesson->groupId );
+				foreach ( $records[ $lesson->groupId ] as $record ) {
+					$eligibility[ $record->id ] = $this->selfPacedAccess->canContinue( $record );
+				}
 			}
 			$result[ $lesson->id ] = false;
 			foreach ( $records[ $lesson->groupId ] as $record ) {
-				if ( $this->resolve( $record, $lesson ) !== AccessLevel::None ) {
+				if ( $this->resolveWithEligibility( $record, $lesson, $eligibility[ $record->id ] ) !== AccessLevel::None ) {
 					$result[ $lesson->id ] = true;
 					break;
 				}
@@ -143,9 +158,13 @@ class LessonAccessPolicy {
 		$records = $this->studentRecords->findAllByStudentAndGroup( $studentPersonId, $groupId );
 		$lessons = $this->groupLessons->listOpenByGroup( $groupId );
 		$visible = array();
+		$eligibility = array();
+		foreach ( $records as $record ) {
+			$eligibility[ $record->id ] = $this->selfPacedAccess->canContinue( $record );
+		}
 		foreach ( $lessons as $lesson ) {
 			foreach ( $records as $record ) {
-				if ( $this->resolve( $record, $lesson ) !== AccessLevel::None ) {
+				if ( $this->resolveWithEligibility( $record, $lesson, $eligibility[ $record->id ] ) !== AccessLevel::None ) {
 					$visible[] = $lesson;
 					break;
 				}

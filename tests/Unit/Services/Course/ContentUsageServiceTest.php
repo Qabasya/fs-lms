@@ -181,4 +181,12 @@ class ContentUsageServiceTest extends TestCase {
 
 		self::assertSame( 1, $usage->usageCount( 'lesson', 500 ) );
 	}
+	public function test_hidden_service_group_still_blocks_course_deletion(): void {
+		fs_test_seed_post( array( 'ID' => 15, 'post_type' => 'inf_courses', 'post_title' => 'Independent', 'post_status' => 'publish' ) );
+		$groups = $this->createMock( GroupsRepository::class );
+		$groups->expects( self::once() )->method( 'findByFilters' )->with( '' )->willReturn( array( (object) array( 'id' => 27, 'course_id' => 15, 'self_paced_course_id' => 15 ) ) );
+		$usage = new ContentUsageService( new PostManager(), new SubjectRepository(), null, $groups );
+		self::assertSame( 1, $usage->usageCount( 'course', 15 ) );
+	}
+
 }

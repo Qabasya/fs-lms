@@ -65,7 +65,7 @@ class RoomCallbacks extends BaseController {
 				'room_id'   => isset( $g->room_id ) && '' !== $g->room_id ? (int) $g->room_id : null,
 				'room_name' => isset( $g->room_id ) && $g->room_id ? ( $roomNames[ (int) $g->room_id ] ?? '' ) : '',
 			),
-			$this->groups->findAll()
+			array_values( array_filter( $this->groups->findAll(), static fn( object $group ): bool => (int) ( $group->self_paced_course_id ?? 0 ) <= 0 ) )
 		);
 
 		$subjects = array();

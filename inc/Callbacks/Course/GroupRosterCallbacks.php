@@ -49,6 +49,12 @@ class GroupRosterCallbacks extends BaseController {
 		$this->authorize( Nonce::SaveSchedule, Capability::ManageLmsTeaching );
 		$groupId = $this->requireInt( 'group_id' );
 
+		// Ordinary group roster is a scheduling surface, not course participant access.
+		if ( $this->guard->isSelfPacedGroup( $groupId ) ) {
+			$this->error( __( 'Состав самостоятельного курса доступен через сводку по ученику.', 'fs-lms' ) );
+			return;
+		}
+
 		$this->requireGroupAccess( $groupId );
 
 		$this->success( $this->roster->forGroup( $groupId ) );
@@ -65,6 +71,11 @@ class GroupRosterCallbacks extends BaseController {
 
 		$this->requireGroupAccess( $groupId );
 
+		$userId = get_current_user_id();
+		if ( ! $this->directory->canViewStudentSummary( $groupId, $personId, $userId, $this->isOffice( $userId ) ) ) {
+			$this->error( __( 'Нет доступа к сводке ученика.', 'fs-lms' ) );
+			return;
+		}
 		$this->success( $this->summary->forStudent( $groupId, $personId ) );
 	}
 

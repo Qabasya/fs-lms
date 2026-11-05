@@ -118,6 +118,11 @@ readonly class ExpulsionService {
 			$record = $records[0];
 		}
 
+		$group = $this->groupsRepository->findById( $record->groupId );
+		if ( $group && (int) ( $group->self_paced_course_id ?? 0 ) > 0 ) {
+			throw new RuntimeException( 'Участие в самостоятельном курсе нельзя отчислить как основное зачисление. Доступ приостанавливается по основному направлению.' );
+		}
+
 		// Временный доступ — не обучение: в архив отчисленных ему не место, снимается в заявке.
 		if ( $record->isTrial ) {
 			throw new RuntimeException( 'У ученика временный доступ до зачисления — снимите его в таблице заявок.' );

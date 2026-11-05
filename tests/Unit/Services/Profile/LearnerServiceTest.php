@@ -112,6 +112,8 @@ $visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::c
 			new \Inc\Services\Profile\Learner\LearnerPerformanceSection( $this->gradebook, $this->attendance, $this->submissions, $this->attempts, new \Inc\Services\Course\LessonWorkLink( $this->lessons ), $homework, $this->createStub( \Inc\Services\Course\WorkMarksService::class ), $this->createStub( \Inc\Managers\Assessment\AssessmentManager::class ), new \Inc\Services\Assessment\AttemptRevealPolicy( $this->createStub( \Inc\Repositories\WPDBRepositories\ExamParticipationRepository::class ), $this->createStub( \Inc\Repositories\WPDBRepositories\ExamAccessTokenRepository::class ) ) ),
 			new \Inc\Services\Profile\Learner\LearnerCoursesSection(
 				$this->courses, $this->lessons, $this->progress, $this->examLock, $contextBuilder, $this->createStub( \Inc\Managers\Assessment\AssessmentManager::class ),
+				$this->createStub( \Inc\Services\Profile\Learner\SelfPacedCourseCatalog::class ),
+				$this->createStub( \Inc\Services\Enrollment\SelfPacedAccessPolicy::class ),
 			),
 			$this->examsService,
 			new \Inc\Services\Profile\Learner\ExamCountdownSection( $this->examConfig ),
@@ -607,5 +609,42 @@ $visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::c
 		$this->effectiveTeacher->expects( $this->once() )->method( 'forLessons' )->with( array( $row ) )->willReturn( array( 10 => null ) );
 		$this->effectiveTeacher->expects( $this->never() )->method( 'forLesson' );
 		self::assertIsArray( $this->service->build( 9001 )->toArray() );
+	}
+
+	public function test_service_membership_keeps_course_context_but_never_replaces_primary_widgets_or_schedule(): void {
+		$groups = array(
+			1 => array( 'id' => 1, 'subject_key' => 'inf_ege', 'subject' => 'Информатика', 'access_mode' => 'scheduled' ),
+			2 => array( 'id' => 2, 'subject_key' => 'python', 'subject' => 'Курс', 'access_mode' => 'open', 'self_paced_course_id' => 77 ),
+			3 => array( 'id' => 3, 'subject_key' => 'shared', 'subject' => 'Общая', 'access_mode' => 'scheduled', 'is_shared' => true ),
+		);
+		$lessons = array( array( 'group_id' => 1, 'scheduled_at' => '2026-11-06 12:00:00' ), array( 'group_id' => 2, 'scheduled_at' => '2026-11-06 12:00:00' ), array( 'group_id' => 3, 'scheduled_at' => '2026-11-06 12:00:00' ) );
+		$context = $this->createStub( \Inc\Services\Profile\Learner\LearnerContextBuilder::class );
+		$context->method( 'build' )->willReturn( new \Inc\DTO\Profile\LearnerContextDTO( $groups, array(), $lessons, array(), array(), '2026-11-05 12:00:00' ) );
+		$countdown = $this->createMock( \Inc\Services\Profile\Learner\ExamCountdownSection::class );
+		$countdown->expects( self::once() )->method( 'forGroups' )->with( array( 1 => $groups[1] ), '2026-11-05 12:00:00' )->willReturn( array() );
+		$ranking = $this->createMock( \Inc\Services\Profile\Learner\LearnerRankingSection::class );
+		$ranking->expects( self::once() )->method( 'forGroups' )->with( 9001, array( 1 => $groups[1] ), '2026-11-05 12:00:00' )->willReturn( array() );
+		$courses = $this->createMock( \Inc\Services\Profile\Learner\LearnerCoursesSection::class );
+		$courses->expects( self::once() )->method( 'buildCourses' )->with( $groups, array(), array(), array(), 9001, false )->willReturn( array() );
+		$schedule = new \Inc\Services\Profile\Learner\LearnerScheduleSection( $this->submissions, $this->worksResolver, new \Inc\Services\Course\LessonWorkLink( $this->lessons ), new \Inc\Services\Course\HomeworkDeadlineService( $this->worksResolver, $this->createStub( \Inc\Services\Course\LessonVisibilityService::class ), $this->groupLessons ) );
+		$performance = $this->createStub( \Inc\Services\Profile\Learner\LearnerPerformanceSection::class );
+		$performance->method( 'attendance' )->willReturn( array( 'rows' => array() ) );
+		$service = new LearnerService( $context, $schedule, $performance, $courses, $this->examsService, $countdown, new \Inc\Services\Profile\Learner\LearnerHighlightsSection(), $ranking );
+		$data = $service->build( 9001 )->toArray();
+		self::assertSame( array( 1 ), array_column( $data['groups'], 'id' ) );
+		self::assertSame( array( 'inf_ege' ), array_column( $data['home_subjects'], 'key' ) );
+		self::assertSame( array( 1, 3 ), array_column( $data['lessons'], 'group_id' ) );
+		self::assertSame( array( 1, 3 ), array_column( $data['upcoming'], 'group_id' ) );
+	}
+
+	public function test_service_attendance_does_not_change_learner_attendance_totals(): void {
+		$this->records->method( 'findActiveByStudent' )->willReturn( array( (object) array( 'groupId' => 1 ), (object) array( 'groupId' => 2 ) ) );
+		$this->groups->method( 'findById' )->willReturnCallback( static fn( int $id ): object => (object) array( 'id' => $id, 'name' => 'Группа', 'subject_key' => 'inf', 'self_paced_course_id' => 2 === $id ? 77 : null ) );
+		$this->groupLessons->method( 'listByGroup' )->willReturnCallback( static fn( int $id ): array => array( GroupLessonDTO::fromArray( array( 'id' => $id, 'group_id' => $id, 'position' => 1, 'scheduled_at' => '2026-05-10 12:00:00' ) ) ) );
+		$this->attendance->method( 'listByStudent' )->willReturn( array( $this->att( 1, true ), $this->att( 2, false ) ) );
+		$data = $this->service->build( 9001 )->toArray();
+		self::assertSame( 1, $data['attendance']['total'] );
+		self::assertSame( 100, $data['attendance']['percent'] );
+		self::assertCount( 1, $data['attendance']['rows'] );
 	}
 }

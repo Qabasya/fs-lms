@@ -17,6 +17,7 @@ use PHPUnit\Framework\TestCase;
 
 class AttendanceServiceTest extends TestCase {
 
+	private \Inc\Repositories\WPDBRepositories\GroupsRepository $groups;
 	private AttendanceRepository&\PHPUnit\Framework\MockObject\MockObject    $attendance;
 	private GroupLessonRepository&\PHPUnit\Framework\MockObject\MockObject   $groupLessons;
 	private StudentRecordRepository&\PHPUnit\Framework\MockObject\MockObject $records;
@@ -30,12 +31,29 @@ class AttendanceServiceTest extends TestCase {
 		$this->records       = $this->createMock( StudentRecordRepository::class );
 		$this->notifications = $this->createMock( NotificationService::class );
 
+		$this->groups = $this->createMock( \Inc\Repositories\WPDBRepositories\GroupsRepository::class );
 		$this->service = new AttendanceService(
 			$this->attendance,
 			$this->groupLessons,
 			$this->records,
 			$this->notifications,
+			$this->groups,
 		);
+	}
+
+	public function test_service_group_attendance_mutations_never_write(): void {
+		$this->groups->method( 'findById' )->willReturn( (object) array( 'self_paced_course_id' => 100 ) );
+		$this->groupLessons->method( 'find' )->willReturn( $this->lesson() );
+		$this->attendance->expects( self::never() )->method( 'upsert' );
+		$this->attendance->expects( self::never() )->method( 'delete' );
+		foreach ( array( fn() => $this->service->mark( 100, 42, true, 1 ), fn() => $this->service->clear( 100, 42 ), fn() => $this->service->markAll( 100, true, 1 ) ) as $operation ) {
+			try {
+				$operation();
+				self::fail( 'Service group attendance must be rejected.' );
+			} catch ( \InvalidArgumentException $error ) {
+				self::assertStringContainsString( 'посещаемость', $error->getMessage() );
+			}
+		}
 	}
 
 	private function lesson( array $overrides = array() ): GroupLessonDTO {

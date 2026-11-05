@@ -31,6 +31,8 @@ class LearnerCoursesSection {
 		private readonly ExamLockService       $examLock,
 		private readonly LearnerContextBuilder $contextBuilder,
 		private readonly AssessmentManager     $assessments,
+		private readonly SelfPacedCourseCatalog $catalog,
+		private readonly \Inc\Services\Enrollment\SelfPacedAccessPolicy $selfPacedAccess,
 	) {}
 
 	/**
@@ -74,7 +76,7 @@ class LearnerCoursesSection {
 	 * @param array<int, string>              $roomNames id → имя кабинета
 	 * @return array<int, array<string, mixed>>
 	 */
-	public function buildCourses( array $groups, array $rawRows, array $lessonMap, array $roomNames, int $personId ): array {
+	public function buildCourses( array $groups, array $rawRows, array $lessonMap, array $roomNames, int $personId, bool $canStart = false ): array {
 		// lessonId → item ученика, по группе (групповые занятия с контентом).
 		// Тема может стоять в программе дважды (занятие на дате и копия в пуле): датированная строка не затирается копией без даты.
 		$byLesson = array();
@@ -149,6 +151,13 @@ class LearnerCoursesSection {
 
 			$result[] = array(
 				'id'           => $gid,
+				'key' => 'group:' . $gid,
+				'group_id' => $gid,
+				'course_id' => (int) $g['course_id'],
+				'enrolled' => true,
+				'can_start' => false,
+				'access_paused' => false,
+				'description' => $course && 'publish' === $course->status ? $this->catalog->description( $course ) : '',
 				'code'         => $g['name'],
 				'open'         => 'open' === ( $g['access_mode'] ?? 'scheduled' ), // Эпик 15: бейдж «свободное прохождение»
 				'title'        => $this->contextBuilder->courseTitleForGroup( $g ),
@@ -179,7 +188,27 @@ class LearnerCoursesSection {
 			return strcmp( $tb, $ta );
 		} );
 
-		return $result;
+		foreach ( $result as &$card ) {
+			if ( ! empty( $groups[ $card['group_id'] ]['self_paced_course_id'] )
+				&& ! $this->selfPacedAccess->canAccessGroup( $card['group_id'], $personId ) ) {
+				$card['access_paused'] = true;
+				$card['continue_url'] = '';
+				$card['continue_num'] = 0;
+				$card['not_started'] = false;
+				foreach ( $card['modules'] ?? array() as $index => $module ) {
+					foreach ( $module['lessons'] as $li => $lesson ) {
+						$card['modules'][ $index ]['lessons'][ $li ]['player_url'] = '';
+						$card['modules'][ $index ]['lessons'][ $li ]['status'] = 'locked';
+					}
+				}
+				foreach ( $card['lessons'] ?? array() as $index => $lesson ) {
+					$card['lessons'][ $index ]['player_url'] = '';
+					$card['lessons'][ $index ]['status'] = 'locked';
+				}
+			}
+		}
+		unset( $card );
+		return array_merge( $result, $this->catalog->offers( $personId, $groups, $canStart && null === $this->examLock( $personId ) ) );
 	}
 
 	/**

@@ -50,6 +50,10 @@ class GroupDeletionHandler {
 	public function handle( DeleteGroupEvent $event ): void {
 		$groupId = $event->groupId;
 		$actorId = $event->actorId;
+		$group = $this->groups->findById( $groupId );
+		if ( $group && (int) ( $group->self_paced_course_id ?? 0 ) > 0 ) {
+			throw new \DomainException( 'Служебную группу самостоятельного курса нельзя удалить отдельно: это уничтожит историю прохождения.' );
+		}
 
 		$affected = $this->inTransaction( function () use ( $groupId ) {
 			// Реальных FK в схеме нет — осиротевшие group_lessons/attendance/submissions/

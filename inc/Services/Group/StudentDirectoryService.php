@@ -26,6 +26,7 @@ class StudentDirectoryService {
 		private readonly StudentRecordRepository $records,
 		private readonly GroupsRepository $groups,
 		private readonly SubjectRepository $subjects,
+		private readonly \Inc\Managers\Course\CourseManager $courses,
 	) {}
 
 	/**
@@ -40,8 +41,11 @@ class StudentDirectoryService {
 		$groups   = array();
 		$students = array();
 		foreach ( $this->teacherGroups->idsFor( $userId, $allGroups ) as $groupId ) {
-			$records = $this->records->findActiveByGroupId( $groupId );
-			$group   = empty( $records ) ? null : $this->groups->findById( $groupId );
+			$group = $this->groups->findById( $groupId );
+			$records = ! empty( $group->self_paced_course_id )
+				? $this->records->findAllByGroup( $groupId )
+				: $this->records->findActiveByGroupId( $groupId );
+			$group = empty( $records ) ? null : $group;
 			if ( null === $group ) {
 				continue;
 			}
@@ -49,7 +53,11 @@ class StudentDirectoryService {
 			$subjectKey = (string) $group->subject_key;
 			$groups[]   = array(
 				'id'          => $groupId,
-				'name'        => (string) $group->name,
+				'name'        => ! empty( $group->self_paced_course_id ) ? ( $this->courses->get( (int) $group->self_paced_course_id )?->title ?? 'Самостоятельный курс' ) : (string) $group->name,
+				'self_paced_course_id' => ! empty( $group->self_paced_course_id ) ? (int) $group->self_paced_course_id : null,
+				'course_id' => (int) ( $group->course_id ?? 0 ),
+				'active_participants_count' => count( array_filter( $records, static fn( $record ): bool => $record->isActive() ) ),
+				'participants_count' => count( array_unique( array_map( static fn( $record ): int => $record->studentPersonId, $records ) ) ),
 				'subject_key' => $subjectKey,
 				'subject'     => $this->subjects->getByKey( $subjectKey )?->name ?? $subjectKey,
 			);
@@ -72,5 +80,20 @@ class StudentDirectoryService {
 			'groups'   => $groups,
 			'students' => array_values( $students ),
 		);
+	}
+
+	/** Keep the historical content-author guard for ordinary groups; independent reports need roster scope. */
+	public function canViewStudentSummary( int $groupId, int $personId, int $userId, bool $allGroups ): bool {
+		$group = $this->groups->findById( $groupId );
+		if ( ! $group ) {
+			return false;
+		}
+		if ( empty( $group->self_paced_course_id ) ) {
+			return true;
+		}
+		if ( ! in_array( $groupId, $this->teacherGroups->idsFor( $userId, $allGroups ), true ) ) {
+			return false;
+		}
+		return array() !== $this->records->findAllByStudentAndGroup( $personId, $groupId );
 	}
 }

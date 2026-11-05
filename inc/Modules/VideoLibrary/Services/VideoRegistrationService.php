@@ -18,7 +18,7 @@ use Inc\Shared\PluginLogger;
  * Регистрация записи занятия (V6): upsert реестра по `s3_key` → резолв занятия →
  * привязка (`group_lesson_id` + `recording_url` занятия + `status='held'`).
  *
- * Идемпотентность: повторная отправка обновляет только метаданные; существующую
+ * Идемпотентность: повторная отправка обновляет метаданные и S3-указатели при смене бакета; существующую
  * привязку (в т.ч. ручную) НЕ перерезолвливает — пере-резолв только для строк `unmatched`.
  * «Занятие не найдено» — не ошибка (matched:false), запись ждёт ручной привязки (V9).
  *
@@ -62,6 +62,21 @@ class VideoRegistrationService {
 		$recordedAt    = $this->normalizeRecordedAt( $input->recordedAt );
 		$teacherUserId = $this->resolveTeacherUserId( $input );
 		$this->crossCheckGroup( $input );
+
+		// Сначала обновляем указатели: при сбое старый бакет остаётся в реестре,
+		// поэтому повтор регистрации сможет продолжить перенос связанных строк.
+		$previous = $this->recordings->findByS3Key( $input->s3Key );
+		if ( null !== $previous
+			&& VideoRecordingStatus::Matched->value === $previous->status
+			&& null !== $previous->groupLessonId
+			&& $previous->s3Bucket !== $input->s3Bucket
+		) {
+			$this->refreshStoragePointers(
+				$previous->groupLessonId,
+				$this->s3Pointer( $previous->s3Bucket, $previous->s3Key ),
+				$this->s3Pointer( $input->s3Bucket, $input->s3Key )
+			);
+		}
 
 		$upsert = $this->recordings->upsertByS3Key(
 			$input,
@@ -141,6 +156,26 @@ class VideoRegistrationService {
 		}
 
 		return $this->recordings->detach( $recordingId );
+	}
+
+	/**
+	 * Меняет только прежние S3-указатели, сохраняя ручные ссылки и статусы занятий.
+	 *
+	 * @param int    $groupLessonId Существующая привязка записи.
+	 * @param string $oldPointer Указатель до смены хранилища.
+	 * @param string $newPointer Указатель в новом хранилище.
+	 * @throws \RuntimeException Если обновить указатель не удалось.
+	 */
+	private function refreshStoragePointers( int $groupLessonId, string $oldPointer, string $newPointer ): void {
+		foreach ( $this->lessonIds( $groupLessonId ) as $id ) {
+			$lesson = $this->groupLessons->find( $id );
+			if ( null === $lesson || $lesson->recordingUrl !== $oldPointer ) {
+				continue;
+			}
+			if ( ! $this->groupLessons->setRecordingUrl( $id, $newPointer ) ) {
+				throw new \RuntimeException( esc_html( sprintf( 'Не удалось обновить ссылку записи занятия %d.', $id ) ) );
+			}
+		}
 	}
 
 	/**

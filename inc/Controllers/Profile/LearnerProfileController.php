@@ -18,6 +18,7 @@ class LearnerProfileController extends AjaxController {
 
 	public function __construct(
 		private readonly LearnerCallbacks         $callbacks,
+		private readonly \Inc\Callbacks\Profile\SelfPacedEnrollmentCallbacks $selfEnrollment,
 		private readonly LearnerActivityCallbacks $activityCallbacks,
 	) {
 		parent::__construct();
@@ -26,6 +27,7 @@ class LearnerProfileController extends AjaxController {
 	protected function ajaxActions(): array {
 		return array(
 			array( AjaxHook::GetLearnerProfile, $this->callbacks ),
+			array( AjaxHook::StartSelfPacedCourse, $this->selfEnrollment ),
 			array( AjaxHook::SaveHomeLayout, $this->callbacks ),
 			array( AjaxHook::LogLearnerActivity, $this->activityCallbacks ),
 		);

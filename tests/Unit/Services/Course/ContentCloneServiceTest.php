@@ -45,6 +45,7 @@ class ContentCloneServiceTest extends TestCase {
 			$this->courses,
 			$this->assessments,
 			$this->groupLessons,
+			new \Inc\Repositories\OptionsRepositories\SubjectRepository(),
 		);
 	}
 
@@ -485,5 +486,16 @@ class ContentCloneServiceTest extends TestCase {
 		self::assertNotNull( $this->lessons->get( 1 ) ); // мастер жив
 		self::assertNull( $this->lessons->get( 2 ) );    // форк группы удалён
 		self::assertNotNull( $this->lessons->get( 3 ) ); // чужой форк не тронут
+	}
+
+	public function test_clone_course_does_not_reuse_service_group_or_enable_access(): void {
+		$courseId = $this->courses->create( 'inf', new \Inc\DTO\Course\CourseDTO(
+			0, 'inf', 'Самостоятельный', '', array(), 1, 'publish', true, array( 'deleted' ), 123,
+		) );
+		$clone = $this->courses->get( $this->service->cloneCourse( $courseId ) );
+		self::assertNotNull( $clone );
+		self::assertFalse( $clone->selfPacedEnabled );
+		self::assertSame( 0, $clone->serviceGroupId );
+		self::assertSame( array(), $clone->audienceSubjectKeys );
 	}
 }

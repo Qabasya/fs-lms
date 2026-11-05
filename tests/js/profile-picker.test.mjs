@@ -20,7 +20,8 @@ test('невыбранная группа показывается без чип
     assert.match(empty, /<span class="kp-txt">Выберите группу<\/span>/);
     const selected = groupPickerBtnHtml(groups[0], 'group');
     assert.match(selected, /kp-chip/);
-    assert.match(selected, /КОГЭ-1 · Информатика/);
+    assert.match(selected, /<span class="kp-txt">КОГЭ-1<\/span>/);
+    assert.doesNotMatch(selected, / · Информатика/);
 });
 
 test('общая группа доступна в списке преподавателя', () => {
@@ -87,4 +88,13 @@ test('без якоря меню не открывается', () => {
     openOptionPicker(null, [{ value: 'a', label: 'A' }], '', () => {});
 
     assert.equal(menu.isOpen(), false);
+});
+
+test('самостоятельный курс обозначен отдельно и сохраняет настоящий ID группы для отчётов', () => {
+    const menu = installCtxMenu();
+    const picked = [];
+    openGroupPicker(anchor, [...groups, { id: 8, name: 'Python', subject_key: 'inf', self_paced_course_id: 77 }], 1, id => picked.push(id));
+    assert.deepEqual(menu.labels(), ['КОГЭ-1', 'КОГЭ-2', 'Курс: Python']);
+    menu.pick('8');
+    assert.deepEqual(picked, [8]);
 });

@@ -183,7 +183,14 @@ class SubjectCrudCallbacks extends BaseController {
 		// Защита от случайного удаления: предмет с группами без явного подтверждения удалять нельзя —
 		// стёрлись бы когорты и история; предлагаем архив. С force=1 (после усиленного подтверждения
 		// в UI) выполняем полный каскад: группы, ученики, контент, таксономии.
-		$groupCount = count( $this->groups->findBySubjectKey( $key ) );
+		$dbGroups = $this->groups->findBySubjectKey( $key );
+		foreach ( $dbGroups as $group ) {
+			if ( (int) ( $group->self_paced_course_id ?? 0 ) > 0 ) {
+				$this->error( 'Нельзя удалить предмет: самостоятельные курсы содержат историю прохождения.' );
+				return;
+			}
+		}
+		$groupCount = count( $dbGroups );
 		$force      = $this->sanitizeBool( 'force' );
 		if ( $groupCount > 0 && ! $force ) {
 			$this->error( sprintf(
@@ -192,7 +199,12 @@ class SubjectCrudCallbacks extends BaseController {
 			) );
 		}
 
-		$this->dispatcher->dispatch( new DeleteSubjectEvent( $key, get_current_user_id() ) );
+		try {
+			$this->dispatcher->dispatch( new DeleteSubjectEvent( $key, get_current_user_id() ) );
+		} catch ( \DomainException $error ) {
+			$this->error( $error->getMessage() );
+			return;
+		}
 
 		$this->success( array( 'message' => 'Предмет удалён' ) );
 	}

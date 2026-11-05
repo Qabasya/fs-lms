@@ -15,6 +15,7 @@ import { icoCheck, icoCross, icoInfo, icoJournal } from '../common/icons.js';
 import { createApi } from './api.js';
 import { MONTHS_RU } from './constants.js';
 import { readNav, saveNav } from './nav-state.js';
+import { ordinaryGroups } from './ordinary-groups.js';
 import { groupPickerBtnHtml, openGroupPicker } from './picker.js';
 
 let root = null;
@@ -27,7 +28,7 @@ export function renderJournal(r, handlers = {}) {
     const p = window.fsProfile || {};
     // Группа и месяц из адреса (nav-state.js): «Назад» из плеера возвращает в тот же журнал.
     const nav = readNav('journal');
-    const groups = Array.isArray(p.groups) ? p.groups : [];
+    const groups = ordinaryGroups(p.groups);
     state = {
         groups,
         cfg:     p.journal || null,

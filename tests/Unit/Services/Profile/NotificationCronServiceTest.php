@@ -478,4 +478,12 @@ class NotificationCronServiceTest extends TestCase {
 
 		$this->service->tick();
 	}
+
+	public function test_self_paced_program_opening_does_not_send_notifications(): void {
+		$this->stubLessons( recentlyOpened: array( $this->lesson() ) );
+		$this->notifications->method( 'isSelfPacedGroup' )->willReturn( true );
+		$this->notifications->expects( self::never() )->method( 'push' );
+		$this->notifications->expects( self::never() )->method( 'lessonStudentUserIds' );
+		$this->service->tick();
+	}
 }

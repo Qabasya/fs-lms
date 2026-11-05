@@ -141,7 +141,7 @@ class VideoLibrarySettingsController extends BaseController {
 		$modules[] = array(
 			'id'           => 'video_library',
 			'title'        => 'Видеозаписи занятий (S3)',
-			'description'  => 'Приём записей занятий от сервиса fs-video-uploader (push в REST), привязка к занятиям и выдача ученикам временными presigned-ссылками из приватного S3 Beget. При отключении исчезает секция «Видеозаписи занятий» в Конфигурации, записи в плеере не показываются.',
+			'description'  => 'Приём записей занятий от сервиса fs-video-uploader (push в REST), привязка к занятиям и выдача ученикам временными presigned-ссылками из приватного S3. При отключении исчезает секция «Видеозаписи занятий» в Конфигурации, записи в плеере не показываются.',
 			'enabled'      => $this->config->isEnabled(),
 			'const_locked' => defined( 'FS_LMS_VIDEO_LIBRARY' ),
 			'const_key'    => 'FS_LMS_VIDEO_LIBRARY',

@@ -252,8 +252,12 @@ class LearnerPerformanceSection {
 			}
 		}
 
-		foreach ( $this->attendance->listByStudent( $personId ) as $a ) {
+		foreach ( $this->attendance->listByStudent( $personId, false ) as $a ) {
 			$lesson = $ctx->lessonMap[ $a->groupLessonId ] ?? null;
+			$groupId = $ctx->rawRows[ $a->groupLessonId ]->groupId ?? ( $lesson['group_id'] ?? 0 );
+			if ( ! empty( $ctx->groups[ $groupId ]['self_paced_course_id'] ) ) {
+				continue;
+			}
 			$rows[] = array(
 				'date'       => $lesson ? $lesson['date'] : substr( $a->markedAt, 0, 10 ),
 				'topic'      => $lesson ? $lesson['topic'] : '—',

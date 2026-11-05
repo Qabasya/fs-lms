@@ -10,6 +10,7 @@ use Inc\Enums\Profile\NotificationType;
 use Inc\Enums\Wp\PageRoutes;
 use Inc\Repositories\WPDBRepositories\AttendanceRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
+use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\Profile\NotificationService;
 
@@ -27,6 +28,7 @@ class AttendanceService {
 		private readonly GroupLessonRepository   $groupLessons,
 		private readonly StudentRecordRepository $records,
 		private readonly NotificationService     $notifications,
+		private readonly GroupsRepository $groups,
 	) {}
 
 	/**
@@ -38,6 +40,7 @@ class AttendanceService {
 	public function mark( int $groupLessonId, int $studentPersonId, bool $present, int $actorUserId ): void {
 		$lesson = $this->groupLessons->find( $groupLessonId );
 		if ( null !== $lesson ) {
+			$this->assertOrdinaryGroup( $lesson->groupId );
 			$lesson = $this->ownRow( $lesson, $studentPersonId );
 			$groupLessonId = $lesson->id;
 		}
@@ -63,6 +66,7 @@ class AttendanceService {
 	public function clear( int $groupLessonId, int $studentPersonId ): void {
 		$lesson = $this->groupLessons->find( $groupLessonId );
 		if ( null !== $lesson ) {
+			$this->assertOrdinaryGroup( $lesson->groupId );
 			$groupLessonId = $this->ownRow( $lesson, $studentPersonId )->id;
 		}
 
@@ -78,6 +82,7 @@ class AttendanceService {
 		if ( ! $row ) {
 			return;
 		}
+		$this->assertOrdinaryGroup( $row->groupId );
 		if ( $this->isExtra( $row ) ) {
 			// Дополнительное занятие: отмечаются только его ученики, каждый — на своей строке.
 			foreach ( $this->extraUnit( $row ) as $member ) {
@@ -114,6 +119,9 @@ class AttendanceService {
 	public function autoMarkIndividualGroups( string $now ): int {
 		$marked = 0;
 		foreach ( $this->groupLessons->listEndedInIndividualGroupsWithoutAttendance( $now ) as $lesson ) {
+			if ( (int) ( $this->groups->findById( $lesson->groupId )->self_paced_course_id ?? 0 ) > 0 ) {
+				continue;
+			}
 			foreach ( $this->notifications->lessonStudentPersonIds( $lesson ) as $studentPersonId ) {
 				if ( $this->attendance->insertPresentIfMissing( $lesson->id, $studentPersonId, self::SYSTEM_USER ) ) {
 					++$marked;
@@ -310,4 +318,12 @@ class AttendanceService {
 		return ExtraLessonUnits::rowOf( $this->extraUnit( $lesson ), $studentPersonId )
 			?? throw new \InvalidArgumentException( 'Ученик не участвует в этом дополнительном занятии.' );
 	}
+
+	/** Attendance belongs only to ordinary groups, including shared scheduled groups. */
+	private function assertOrdinaryGroup( int $groupId ): void {
+		if ( (int) ( $this->groups->findById( $groupId )->self_paced_course_id ?? 0 ) > 0 ) {
+			throw new \InvalidArgumentException( 'В самостоятельном курсе посещаемость не ведётся.' );
+		}
+	}
+
 }

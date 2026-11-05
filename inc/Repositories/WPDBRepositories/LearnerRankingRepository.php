@@ -45,7 +45,7 @@ class LearnerRankingRepository {
 			'intval',
 			$this->wpdb->get_col(
 				$this->wpdb->prepare(
-					'SELECT DISTINCT r.student_person_id FROM %i r JOIN %i g ON g.id = r.group_id WHERE r.status = %s AND g.subject_key = %s AND g.is_shared = 0',
+					'SELECT DISTINCT r.student_person_id FROM %i r JOIN %i g ON g.id = r.group_id WHERE r.status = %s AND g.subject_key = %s AND g.is_shared = 0 AND g.self_paced_course_id IS NULL',
 					TableName::StudentRecords->prefixed(),
 					TableName::Groups->prefixed(),
 					EnrollmentStatus::Active->value,
@@ -173,7 +173,7 @@ class LearnerRankingRepository {
 				'SELECT DISTINCT r.student_person_id, l.id AS group_lesson_id, l.scheduled_at, COALESCE(a.is_present, 0) AS present
 				FROM %i r JOIN %i g ON g.id = r.group_id JOIN %i l ON l.group_id = g.id
 				LEFT JOIN %i a ON a.group_lesson_id = l.id AND a.student_person_id = r.student_person_id
-				WHERE g.subject_key = %s AND l.status = %s AND l.scheduled_at >= %s AND l.scheduled_at < %s AND l.scheduled_at <= %s
+				WHERE g.subject_key = %s AND g.self_paced_course_id IS NULL AND l.status = %s AND l.scheduled_at >= %s AND l.scheduled_at < %s AND l.scheduled_at <= %s
 				AND r.enrolled_at <= l.scheduled_at AND (r.expelled_at IS NULL OR r.expelled_at > l.scheduled_at)
 				AND (l.student_person_id IS NULL OR l.student_person_id = r.student_person_id)
 				ORDER BY r.student_person_id ASC, l.scheduled_at ASC, l.id ASC',
@@ -195,7 +195,7 @@ class LearnerRankingRepository {
 		return $this->wpdb->get_results(
 			$this->wpdb->prepare(
 				'SELECT r.student_person_id, r.group_id, r.snapshot_last_name, r.snapshot_first_name, r.snapshot_middle_name, g.name AS group_name
-			FROM %i r JOIN %i g ON g.id = r.group_id WHERE r.status = %s AND g.subject_key = %s AND g.is_shared = 0 ORDER BY r.id DESC',
+			FROM %i r JOIN %i g ON g.id = r.group_id WHERE r.status = %s AND g.subject_key = %s AND g.is_shared = 0 AND g.self_paced_course_id IS NULL ORDER BY r.id DESC',
 				TableName::StudentRecords->prefixed(),
 				TableName::Groups->prefixed(),
 				EnrollmentStatus::Active->value,

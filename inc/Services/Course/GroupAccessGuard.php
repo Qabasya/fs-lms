@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Course;
 
+use Inc\Services\Enrollment\SelfPacedAccessPolicy;
 use Inc\Enums\Access\Capability;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
@@ -15,6 +16,7 @@ class GroupAccessGuard {
 		private readonly GroupsRepository        $groups,
 		private readonly StudentRecordRepository $studentRecords,
 		private readonly SubstitutionRepository  $substitutions,
+		private readonly SelfPacedAccessPolicy $selfPacedAccess,
 	) {}
 
 	/** Может ли пользователь управлять группой (teacher_id || Admin || автор курсов || активная замена). */
@@ -44,6 +46,10 @@ class GroupAccessGuard {
 	 * только замещающий (активный grant) + админ. По истечении замены — снова препод.
 	 */
 	public function canWriteJournal( int $groupId, int $userId ): bool {
+		if ( $this->isSelfPacedGroup( $groupId ) ) {
+			return false;
+		}
+
 		if (
 			user_can( $userId, Capability::Admin->value ) ||
 			user_can( $userId, Capability::ManageLmsPlatform->value )
@@ -62,13 +68,20 @@ class GroupAccessGuard {
 		return false;
 	}
 
+	/** Service groups have no ordinary scheduling, KTP or attendance surface. */
+	public function isSelfPacedGroup( int $groupId ): bool {
+		return (int) ( $this->groups->findById( $groupId )->self_paced_course_id ?? 0 ) > 0;
+	}
+
 	/** Есть ли у person хоть одна запись в группе (включая архивированные). */
 	public function isMemberEver( int $groupId, int $personId ): bool {
-		return (bool) $this->studentRecords->countByGroupAndPerson( $groupId, $personId );
+		return $this->selfPacedAccess->canAccessGroup( $groupId, $personId )
+			&& (bool) $this->studentRecords->countByGroupAndPerson( $groupId, $personId );
 	}
 
 	/** Есть ли у person запись как у родителя члена группы. */
 	public function isParentOf( int $groupId, int $parentPersonId ): bool {
-		return (bool) $this->studentRecords->countByGroupAndParent( $groupId, $parentPersonId );
+		return $this->selfPacedAccess->canParentAccessGroup( $groupId, $parentPersonId )
+			&& (bool) $this->studentRecords->countByGroupAndParent( $groupId, $parentPersonId );
 	}
 }

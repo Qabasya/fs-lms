@@ -48,6 +48,9 @@ class SubstitutionService {
 		if ( ! $group ) {
 			throw new \InvalidArgumentException( 'Группа не найдена.' );
 		}
+		if ( (int) ( $group->self_paced_course_id ?? 0 ) > 0 ) {
+			throw new \InvalidArgumentException( 'Самостоятельный курс не имеет замен преподавателя.' );
+		}
 		if ( $substituteTeacherId <= 0 ) {
 			throw new \InvalidArgumentException( 'Не указан замещающий преподаватель.' );
 		}

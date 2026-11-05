@@ -54,7 +54,7 @@ class LearnerCallbacks extends BaseController {
 		}
 
 		// Раскладка главной — настройка смотрящего (родитель настраивает свою главную, а не ребёнка).
-		$this->success( $this->service->build( $personId )->toArray() + array( 'home_layout' => $this->layouts->get( get_current_user_id(), $ctx->role ) ) );
+		$this->success( $this->service->build( $personId, ! $ctx->readOnly && UserRole::FSStudent === $ctx->role && $ctx->personId === $personId )->toArray() + array( 'home_layout' => $this->layouts->get( get_current_user_id(), $ctx->role ) ) );
 	}
 
 	/**

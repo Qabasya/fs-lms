@@ -32,6 +32,7 @@ class ExamGuestResultTitleTest extends TestCase {
 			$this->names,
 			$this->createMock( \Inc\Services\Exam\GuestResultSidebarService::class ),
 			$this->createMock( \Inc\Services\Exam\ExamReportViewService::class ),
+			$this->createMock( \Inc\Services\Exam\ExamReportCsvExport::class ),
 			$this->createMock( \Inc\Services\Exam\GuestPageResponder::class ),
 			$this->createMock( \Inc\Managers\Wp\PostManager::class )
 		);

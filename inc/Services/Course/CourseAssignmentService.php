@@ -67,12 +67,15 @@ class CourseAssignmentService {
 	 * @param AssignmentPolicy $policy Append — дописать; Replace — заменить (удаляет текущие строки без данных учеников).
 	 * @return int  Число добавленных строк.
 	 */
-	public function assign( int $groupId, int $courseId, int $actorUserId, AssignmentPolicy $policy = AssignmentPolicy::Append ): int {
+	public function assign( int $groupId, int $courseId, int $actorUserId, AssignmentPolicy $policy = AssignmentPolicy::Append, bool $recordAssignment = true ): int {
 		$group  = $this->groups->findById( $groupId );
 		$course = $this->courseManager->get( $courseId );
 
 		if ( ! $group || ! $course ) {
 			throw new \InvalidArgumentException( 'Группа или курс не найдены.' );
+		}
+		if ( (int) ( $group->self_paced_course_id ?? 0 ) > 0 && (int) $group->self_paced_course_id !== $courseId ) {
+			throw new \InvalidArgumentException( 'Служебная группа закреплена за своим самостоятельным курсом.' );
 		}
 		if ( $course->subjectKey !== $group->subject_key ) {
 			throw new \InvalidArgumentException( 'Курс принадлежит другому предмету.' );
@@ -104,8 +107,11 @@ class CourseAssignmentService {
 
 		$this->program->removeDuplicateTopics( $groupId );
 
-		$this->groups->update( $groupId, array( 'course_id' => $courseId ) );
+		if ( ! $this->groups->update( $groupId, array( 'course_id' => $courseId ) ) ) {
+			throw new \RuntimeException( 'Не удалось связать курс с группой.' );
+		}
 
+		if ( $recordAssignment ) {
 		$this->dispatcher->dispatch(
 			LogEvent::CourseAssigned,
 			new LearningEvent(
@@ -118,6 +124,7 @@ class CourseAssignmentService {
 			)
 		);
 
+		}
 		return $added;
 	}
 

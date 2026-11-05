@@ -28,8 +28,8 @@ class CourseBuilderCallbacks extends BaseController {
 	use Sanitizer;
 
 	public function __construct(
-		private readonly CourseBuilderService    $builder,
-		private readonly CoursePublishValidator  $publishValidator,
+		private readonly CourseBuilderService $builder,
+		private readonly CoursePublishValidator $publishValidator,
 		private readonly CourseAssignmentService $assignment,
 	) {
 		parent::__construct();
@@ -147,11 +147,11 @@ class CourseBuilderCallbacks extends BaseController {
 	public function ajaxImportLessonsFromSubject(): void {
 		$this->authorize( Nonce::AuthorCourse, Capability::AuthorLmsCourses );
 
-		$course_id = $this->requireInt( 'course_id' );
-		$module_id = $this->requireKey( 'module_id' );
+		$course_id  = $this->requireInt( 'course_id' );
+		$module_id  = $this->requireKey( 'module_id' );
 		$lesson_ids = $this->sanitizeIntList( 'lesson_ids' );
-		$after_id  = $this->sanitizeInt( 'after_lesson_id' );
-		$force     = $this->sanitizeBool( 'force' );
+		$after_id   = $this->sanitizeInt( 'after_lesson_id' );
+		$force      = $this->sanitizeBool( 'force' );
 
 		$result = $this->builder->importLessonsFromSubject( $course_id, $module_id, $lesson_ids, $after_id, $force );
 		if ( null === $result ) {
@@ -195,10 +195,10 @@ class CourseBuilderCallbacks extends BaseController {
 	public function ajaxSaveCourseMeta(): void {
 		$this->authorize( Nonce::AuthorCourse, Capability::AuthorLmsCourses );
 
-		$course_id    = $this->requireInt( 'course_id' );
-		$title        = $this->sanitizeText( 'title' );
-		$status       = $this->sanitizeKey( 'status' );
-		$author_id    = $this->sanitizeInt( 'author_id' );
+		$course_id = $this->requireInt( 'course_id' );
+		$title     = $this->hasParam( 'title' ) ? $this->sanitizeText( 'title' ) : null;
+		$status    = $this->hasParam( 'status' ) ? $this->sanitizeKey( 'status' ) : null;
+		$author_id = $this->sanitizeInt( 'author_id' );
 		// Не прислан — аватар не меняется; 0 — снять (аватар курса, Конструктор курса).
 		$thumbnail_id = $this->hasParam( 'thumbnail_id' ) ? $this->sanitizeInt( 'thumbnail_id' ) : null;
 
@@ -212,15 +212,33 @@ class CourseBuilderCallbacks extends BaseController {
 			}
 		}
 
-		if ( $this->builder->updateCourseMeta( $course_id, $title, $status, $author_id, $thumbnail_id ) ) {
-			// Публикация курса публикует все его уроки — открытые группы их получают.
-			if ( 'publish' === $status ) {
-				$this->syncCourseToGroups( $course_id );
+		try {
+			$enabled  = $this->hasParam( 'self_paced_enabled' ) ? $this->sanitizeBool( 'self_paced_enabled' ) : null;
+			$audience = null;
+			if ( $this->hasParam( 'audience_subject_keys' ) ) {
+				$text = $this->sanitizeText( 'audience_subject_keys' );
+				$raw  = $this->unslashArray( 'audience_subject_keys' );
+				if ( '' !== $text ) {
+					$raw = json_decode( $text, true, 512, JSON_THROW_ON_ERROR );
+				}
+				if ( ! is_array( $raw ) || ! array_is_list( $raw ) ) {
+					throw new \InvalidArgumentException( 'Некорректный список направлений.' );
+				}
+				$audience = array_map( fn( $key ): string => $this->sanitizeKeyValue( $key ), $raw );
 			}
-			$this->success( array( 'saved' => true ) );
-		} else {
-			$this->error( 'Курс не найден.' );
+			$saved = $this->builder->updateCourseMeta( $course_id, $title, $status, $author_id, $thumbnail_id, $enabled, $audience );
+		} catch ( \Throwable $error ) {
+			$this->error( $error->getMessage() );
+			return;
 		}
+		if ( ! $saved ) {
+			$this->error( 'Курс не найден.' );
+			return;
+		}
+		if ( 'publish' === $status ) {
+			$this->syncCourseToGroups( $course_id );
+		}
+		$this->success( array( 'saved' => true ) );
 	}
 
 	/**

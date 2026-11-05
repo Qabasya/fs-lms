@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Repositories\WPDBRepositories;
 
 use Inc\Enums\Settings\TableName;
+use Inc\Enums\Course\GroupType;
 use Inc\Services\Group\MeetingsNormalizer;
 use Inc\Shared\PluginLogger;
 
@@ -39,6 +40,66 @@ class GroupsRepository {
 	public function __construct( ?\wpdb $wpdb = null ) {
 		$this->wpdb  = $wpdb ?? $GLOBALS['wpdb'];
 		$this->table = TableName::Groups->prefixed();
+	}
+
+	/** Reentrant only on this repository; serialize preparation with subject/period deletion. */
+	private int $selfPacedLifecycleDepth = 0;
+
+	public function withSelfPacedLifecycleLock( callable $operation ): mixed {
+		if ( $this->selfPacedLifecycleDepth > 0 ) {
+			return $operation();
+		}
+		$database = $this->wpdb->get_var( 'SELECT DATABASE()' );
+		if ( ! is_string( $database ) || '' === $database ) {
+			throw new \RuntimeException( 'Не удалось определить базу для блокировки жизненного цикла курса.' );
+		}
+		$key = 'fs-lms:selfpaced:' . substr( hash( 'sha256', $database . ':' . $this->table ), 0, 40 );
+		$locked = $this->wpdb->get_var( $this->wpdb->prepare( 'SELECT GET_LOCK(%s, 5)', $key ) );
+		if ( '1' !== (string) $locked ) {
+			throw new \DomainException( 'Жизненный цикл самостоятельного курса занят другой операцией. Повторите позже.' );
+		}
+		$this->selfPacedLifecycleDepth = 1;
+		try {
+			return $operation();
+		} finally {
+			$this->selfPacedLifecycleDepth = 0;
+			if ( '1' !== (string) $this->wpdb->get_var( $this->wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $key ) ) ) {
+				throw new \RuntimeException( 'Не удалось освободить блокировку жизненного цикла курса.' );
+			}
+		}
+	}
+
+	/** Serialize service-group preparation on the existing course row. No nested commit. */
+	public function withCourseTransaction( int $courseId, callable $operation ): mixed {
+		$nested = $this->wpdb->get_var( 'SELECT @@in_transaction' );
+		if ( null === $nested || (int) $nested !== 0 ) {
+			throw new \RuntimeException( 'Подготовку курса нельзя запускать внутри другой транзакции.' );
+		}
+		if ( false === $this->wpdb->query( 'START TRANSACTION' ) ) {
+			throw new \RuntimeException( 'Не удалось начать подготовку курса.' );
+		}
+		try {
+			$locked = $this->wpdb->get_var( $this->wpdb->prepare(
+				'SELECT ID FROM %i WHERE ID = %d FOR UPDATE', $this->wpdb->posts, $courseId
+			) );
+			if ( (int) $locked !== $courseId ) {
+				throw new \RuntimeException( 'Курс не найден или не удалось заблокировать запись.' );
+			}
+			$result = $operation();
+			if ( false === $this->wpdb->query( 'COMMIT' ) ) {
+				throw new \RuntimeException( 'Не удалось завершить подготовку курса.' );
+			}
+			return $result;
+		} catch ( \Throwable $error ) {
+			$this->wpdb->query( 'ROLLBACK' );
+			throw $error;
+		}
+	}
+
+	public function findBySelfPacedCourse( int $courseId ): ?object {
+		return $this->wpdb->get_row( $this->wpdb->prepare(
+			'SELECT * FROM %i WHERE self_paced_course_id = %d LIMIT 1', $this->table, $courseId
+		) ) ?: null;
 	}
 
 	/**
@@ -138,7 +199,7 @@ class GroupsRepository {
 		return $this->findByFilters( $periodId );
 	}
 
-	public function findByFilters( string $periodId, string $subjectKey = '', int $teacherId = 0, int $roomId = 0 ): array {
+	public function findByFilters( string $periodId, string $subjectKey = '', int $teacherId = 0, int $roomId = 0, ?GroupType $type = null ): array {
 		$where    = array( 'academic_period_id = %s' );
 		$bindings = array( $this->table, $periodId );
 
@@ -155,6 +216,13 @@ class GroupsRepository {
 		if ( $roomId > 0 ) {
 			$where[]    = 'room_id = %d';
 			$bindings[] = $roomId;
+		}
+
+		if ( null !== $type ) {
+			$where[] = 'access_mode = %s';
+			$bindings[] = $type->accessMode()->value;
+			$where[] = 'is_shared = %d';
+			$bindings[] = $type->isShared() ? 1 : 0;
 		}
 
 		$sql = 'SELECT * FROM %i WHERE ' . implode( ' AND ', $where ) . ' ORDER BY name ASC';

@@ -41,6 +41,9 @@ class LearnerScheduleSection {
 	public function upcoming( LearnerContextDTO $ctx ): array {
 		$upcoming = array();
 		foreach ( $ctx->allLessons as $lesson ) {
+			if ( ! empty( $ctx->groups[ $lesson['group_id'] ?? 0 ]['self_paced_course_id'] ) ) {
+				continue;
+			}
 			// Идущее сейчас занятие остаётся в списке: с него ученик подключается к трансляции.
 			if ( $lesson['scheduled_at'] && ( $lesson['scheduled_at'] >= $ctx->now || ! empty( $lesson['live'] ) ) ) {
 				$upcoming[] = $lesson;

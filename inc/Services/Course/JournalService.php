@@ -49,6 +49,10 @@ class JournalService {
 	 * }
 	 */
 	public function forGroup( int $groupId ): array {
+		if ( (int) ( $this->groups->findById( $groupId )->self_paced_course_id ?? 0 ) > 0 ) {
+			throw new \InvalidArgumentException( 'Самостоятельный курс не имеет журнала посещаемости.' );
+		}
+
 		// Ростер (строки).
 		$students = array();
 		foreach ( $this->records->findActiveByGroupId( $groupId ) as $rec ) {

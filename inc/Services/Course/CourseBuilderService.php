@@ -30,13 +30,15 @@ use Inc\Services\Subject\PostTypeResolver;
 class CourseBuilderService {
 
 	public function __construct(
-		private readonly CourseManager        $courses,
-		private readonly LessonManager        $lessons,
-		private readonly PostManager          $posts,
-		private readonly ContentCloneService  $cloneService,
-		private readonly GroupsRepository     $groups,
-		private readonly OpenCourseValidator  $openCourseValidator,
-		private readonly ContentUsageService  $usage,
+		private readonly CourseManager $courses,
+		private readonly LessonManager $lessons,
+		private readonly PostManager $posts,
+		private readonly ContentCloneService $cloneService,
+		private readonly GroupsRepository $groups,
+		private readonly OpenCourseValidator $openCourseValidator,
+		private readonly ContentUsageService $usage,
+		private readonly SelfPacedCourseService $selfPaced,
+		private readonly SelfPacedContentGuard $selfPacedGuard,
 	) {}
 
 	/**
@@ -48,13 +50,15 @@ class CourseBuilderService {
 	 * @return int ID нового курса (0 — неудача).
 	 */
 	public function createCourse( string $subjectKey, string $title ): int {
-		$dto = CourseDTO::fromArray( array(
-			'subject_key' => $subjectKey,
-			'title'       => '' !== $title ? $title : 'Новый курс',
-			'modules'     => array(),
-			'author_id'   => get_current_user_id(),
-			'status'      => 'draft',
-		) );
+		$dto = CourseDTO::fromArray(
+			array(
+				'subject_key' => $subjectKey,
+				'title'       => '' !== $title ? $title : 'Новый курс',
+				'modules'     => array(),
+				'author_id'   => get_current_user_id(),
+				'status'      => 'draft',
+			)
+		);
 
 		return $this->courses->create( $subjectKey, $dto );
 	}
@@ -96,19 +100,22 @@ class CourseBuilderService {
 		$author_name = $author instanceof \WP_User ? $author->display_name : '';
 
 		return array(
-			'id'           => $course->id,
-			'title'        => $course->title,
-			'subject_key'  => $course->subjectKey,
-			'status'       => $course->status,
-			'author_id'    => $course->authorId,
-			'author_name'  => $author_name,
-			'thumbnail'    => get_the_post_thumbnail_url( $course->id, 'medium' ) ?: '',
-			'thumbnail_id' => (int) get_post_thumbnail_id( $course->id ), // аватар курса: 0 — не задан
-			'modules'      => $modules,
+			'id'                    => $course->id,
+			'title'                 => $course->title,
+			'subject_key'           => $course->subjectKey,
+			'status'                => $course->status,
+			'self_paced_enabled'    => $course->selfPacedEnabled,
+			'audience_subject_keys' => $course->audienceSubjectKeys,
+			'service_group_id'      => $course->serviceGroupId,
+			'author_id'             => $course->authorId,
+			'author_name'           => $author_name,
+			'thumbnail'             => get_the_post_thumbnail_url( $course->id, 'medium' ) ?: '',
+			'thumbnail_id'          => (int) get_post_thumbnail_id( $course->id ), // аватар курса: 0 — не задан
+			'modules'               => $modules,
 			// Эпик 15 (follow-up П6): курс уже ведётся открытой группой, но содержит
 			// контент без автопроверки — предупреждение автору (новые уроки в открытую
 			// группу не дозальются, syncCourseLessons такую группу пропускает).
-			'open_warning' => $this->openGroupWarning( $course ),
+			'open_warning'          => $this->openGroupWarning( $course ),
 		);
 	}
 
@@ -138,7 +145,7 @@ class CourseBuilderService {
 	 * Сохраняет структуру курса (модули: порядок, заголовки, состав/порядок уроков).
 	 * Заголовок/описание/статус курса не трогаются. Чужие уроки отбрасываются.
 	 *
-	 * @param int   $courseId
+	 * @param int                                                                $courseId
 	 * @param array<int, array{id?: string, title?: string, lesson_ids?: array}> $rawModules
 	 *
 	 * @return bool
@@ -154,12 +161,14 @@ class CourseBuilderService {
 			if ( ! is_array( $raw ) ) {
 				continue;
 			}
-			$modules[] = ModuleDTO::fromArray( array(
-				'id'          => (string) ( $raw['id'] ?? '' ) ?: $this->generateId( 'm' ),
-				'title'       => (string) ( $raw['title'] ?? '' ),
-				'description' => (string) ( $raw['description'] ?? '' ),
-				'lesson_ids'  => $this->validateLessonIds( $course->subjectKey, (array) ( $raw['lesson_ids'] ?? array() ) ),
-			) );
+			$modules[] = ModuleDTO::fromArray(
+				array(
+					'id'          => (string) ( $raw['id'] ?? '' ) ?: $this->generateId( 'm' ),
+					'title'       => (string) ( $raw['title'] ?? '' ),
+					'description' => (string) ( $raw['description'] ?? '' ),
+					'lesson_ids'  => $this->validateLessonIds( $course->subjectKey, (array) ( $raw['lesson_ids'] ?? array() ) ),
+				)
+			);
 		}
 
 		return $this->courses->update( $courseId, $this->withModules( $course, $modules ) );
@@ -181,15 +190,24 @@ class CourseBuilderService {
 			return null;
 		}
 
-		$lessonDto = LessonDTO::fromArray( array(
-			'subject_key' => $course->subjectKey,
-			'topic'       => '' !== $title ? $title : 'Новый урок',
-			'steps'       => array(
-				array( 'key' => $this->generateId( 's' ), 'type' => StepType::Text->value, 'payload' => array( 'title' => 'Лекция', 'content' => '' ) ),
-			),
-			'author_id'   => get_current_user_id(),
-			'status'      => 'draft',
-		) );
+		$lessonDto = LessonDTO::fromArray(
+			array(
+				'subject_key' => $course->subjectKey,
+				'topic'       => '' !== $title ? $title : 'Новый урок',
+				'steps'       => array(
+					array(
+						'key'     => $this->generateId( 's' ),
+						'type'    => StepType::Text->value,
+						'payload' => array(
+							'title'   => 'Лекция',
+							'content' => '',
+						),
+					),
+				),
+				'author_id'   => get_current_user_id(),
+				'status'      => 'draft',
+			)
+		);
 
 		$lessonId = $this->lessons->create( $course->subjectKey, $lessonDto );
 		if ( $lessonId <= 0 ) {
@@ -213,7 +231,7 @@ class CourseBuilderService {
 		}
 
 		if ( ! $added && ! empty( $modules ) ) {
-			$last      = $modules[ array_key_last( $modules ) ];
+			$last                                  = $modules[ array_key_last( $modules ) ];
 			$modules[ array_key_last( $modules ) ] = new ModuleDTO( $last->id, $last->title, array_merge( $last->lessonIds, array( $lessonId ) ), $last->description );
 		}
 
@@ -231,11 +249,11 @@ class CourseBuilderService {
 	 * Если какой-то из уроков уже импортировался в предмет курса, без `$force` ничего не создаётся:
 	 * возвращается список таких уроков — интерфейс переспрашивает автора и повторяет вызов с `$force`.
 	 *
-	 * @param int   $courseId
+	 * @param int    $courseId
 	 * @param string $moduleId
-	 * @param int[] $sourceLessonIds Исходные уроки любых предметов (не уроки и групповые форки отбрасываются)
-	 * @param int   $afterLessonId   Урок модуля, после которого вставить; 0 или чужой — в конец
-	 * @param bool  $force           Импортировать, даже если урок уже импортировался
+	 * @param int[]  $sourceLessonIds Исходные уроки любых предметов (не уроки и групповые форки отбрасываются)
+	 * @param int    $afterLessonId   Урок модуля, после которого вставить; 0 или чужой — в конец
+	 * @param bool   $force           Импортировать, даже если урок уже импортировался
 	 *
 	 * @return array{status: string, duplicates?: array<int, array{id: int, title: string}>, nodes?: array<int, array<string, mixed>>, works?: int, assessments?: int}|null
 	 *         null — курса нет или импортировать нечего.
@@ -257,10 +275,15 @@ class CourseBuilderService {
 			if ( array() !== $already ) {
 				return array(
 					'status'     => 'duplicates',
-					'duplicates' => array_values( array_map(
-						static fn( int $id ): array => array( 'id' => $id, 'title' => $sources[ $id ] ),
-						array_intersect( $ids, array_keys( $already ) )
-					) ),
+					'duplicates' => array_values(
+						array_map(
+							static fn( int $id ): array => array(
+								'id'    => $id,
+								'title' => $sources[ $id ],
+							),
+							array_intersect( $ids, array_keys( $already ) )
+						)
+					),
 				);
 			}
 		}
@@ -283,7 +306,7 @@ class CourseBuilderService {
 			$modules[] = new ModuleDTO( $module->id, $module->title, $lessonIds, $module->description );
 		}
 		if ( ! $added && ! empty( $modules ) ) {
-			$last = $modules[ array_key_last( $modules ) ];
+			$last                                  = $modules[ array_key_last( $modules ) ];
 			$modules[ array_key_last( $modules ) ] = new ModuleDTO( $last->id, $last->title, array_merge( $last->lessonIds, $newIds ), $last->description );
 		}
 
@@ -356,32 +379,47 @@ class CourseBuilderService {
 	 *
 	 * @return bool
 	 */
-	public function updateCourseMeta( int $courseId, string $title, string $status, int $authorId = 0, ?int $thumbnailId = null ): bool {
+	public function updateCourseMeta( int $courseId, ?string $title, ?string $status, int $authorId = 0, ?int $thumbnailId = null, ?bool $selfPacedEnabled = null, ?array $audienceSubjectKeys = null ): bool {
 		$post = $this->posts->get( $courseId );
 		if ( null === $post || ! PostTypeResolver::isCoursePostType( $post->post_type ) ) {
 			return false;
 		}
 
 		$allowed_statuses = array( 'draft', 'publish', 'private' );
-		$safe_status      = in_array( $status, $allowed_statuses, true ) ? $status : 'draft';
+		$safe_status      = null === $status ? null : ( in_array( $status, $allowed_statuses, true ) ? $status : 'draft' );
 
-		$this->posts->update( $courseId, array( 'post_title' => '' !== $title ? $title : 'Без названия' ) );
-		$this->posts->updateStatus( $courseId, $safe_status );
+		return $this->selfPaced->save(
+			$courseId,
+			$selfPacedEnabled,
+			$audienceSubjectKeys,
+			get_current_user_id(),
+			function () use ( $courseId, $title, $safe_status, $authorId, $thumbnailId ): bool {
 
-		if ( $authorId > 0 ) {
-			$this->posts->update( $courseId, array( 'post_author' => $authorId ) );
-		}
+				if ( null !== $title && ! $this->posts->update( $courseId, array( 'post_title' => '' !== $title ? $title : 'Без названия' ) ) ) {
+					return false;
+				}
+				if ( null !== $safe_status && ! $this->posts->updateStatus( $courseId, $safe_status ) ) {
+					return false;
+				}
 
-		// null — не трогать, 0 — снять, >0 — задать (не картинка игнорируется менеджером).
-		if ( null !== $thumbnailId ) {
-			$this->posts->setThumbnail( $courseId, $thumbnailId );
-		}
+				if ( $authorId > 0 ) {
+					if ( ! $this->posts->update( $courseId, array( 'post_author' => $authorId ) ) ) {
+						return false;
+					}
+				}
 
-		if ( 'publish' === $safe_status ) {
-			$this->publishCourseLessons( $courseId );
-		}
+				// null — не трогать, 0 — снять, >0 — задать (не картинка игнорируется менеджером).
+				if ( null !== $thumbnailId ) {
+					$this->posts->setThumbnail( $courseId, $thumbnailId );
+				}
 
-		return true;
+				if ( 'publish' === $safe_status ) {
+					$this->publishCourseLessons( $courseId );
+				}
+
+				return true;
+			}
+		);
 	}
 
 	/**
@@ -397,7 +435,9 @@ class CourseBuilderService {
 			foreach ( $module->lessonIds as $lessonId ) {
 				$post = $this->posts->get( $lessonId );
 				if ( null !== $post && 'publish' !== $post->post_status ) {
-					$this->posts->updateStatus( $lessonId, 'publish' );
+					if ( ! $this->posts->updateStatus( $lessonId, 'publish' ) ) {
+						throw new \RuntimeException( 'Не удалось опубликовать урок курса.' );
+					}
 				}
 			}
 		}
@@ -498,13 +538,13 @@ class CourseBuilderService {
 	/**
 	 * Копия CourseDTO с заменёнными модулями (DTO неизменяем).
 	 *
-	 * @param CourseDTO  $course
+	 * @param CourseDTO   $course
 	 * @param ModuleDTO[] $modules
 	 *
 	 * @return CourseDTO
 	 */
 	private function withModules( CourseDTO $course, array $modules ): CourseDTO {
-		return new CourseDTO(
+		$candidate = new CourseDTO(
 			id             : $course->id,
 			subjectKey     : $course->subjectKey,
 			title          : $course->title,
@@ -512,7 +552,12 @@ class CourseBuilderService {
 			modules        : $modules,
 			authorId       : $course->authorId,
 			status         : $course->status,
+			selfPacedEnabled: $course->selfPacedEnabled,
+			audienceSubjectKeys: $course->audienceSubjectKeys,
+			serviceGroupId: $course->serviceGroupId,
 		);
+		$this->selfPacedGuard->assertCourse( $candidate );
+		return $candidate;
 	}
 
 	/**

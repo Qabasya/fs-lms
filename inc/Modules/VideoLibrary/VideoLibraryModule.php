@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Modules\VideoLibrary;
 
 use Inc\Contracts\ServiceInterface;
+use Inc\Modules\VideoLibrary\Cli\VideoInventoryCommand;
 use Inc\Modules\VideoLibrary\Config\VideoLibraryConfig;
 use Inc\Modules\VideoLibrary\Controllers\VideoLibraryController;
 use Inc\Modules\VideoLibrary\Controllers\VideoLibrarySettingsController;
@@ -14,7 +15,7 @@ use Inc\Modules\VideoLibrary\Schema\VideoSchema;
 /**
  * Class VideoLibraryModule
  *
- * Bootstrap изолируемого модуля VideoLibrary (видеозаписи занятий: S3 Beget + push-REST
+ * Bootstrap изолируемого модуля VideoLibrary (видеозаписи занятий: S3 + push-REST
  * от сервиса fs-video-uploader + presigned-выдача в плеер). Единственная точка входа модуля;
  * регистрируется одной строкой в `Init::getServices()`. Ядро о внутренностях модуля не знает —
  * связь только через generic-швы (`fs_lms_recording_url`, публичный GroupLessonRepository).
@@ -34,11 +35,13 @@ class VideoLibraryModule implements ServiceInterface {
 		private readonly VideoRestController            $rest,
 		private readonly VideoSchema                    $schema,
 		private readonly VideoLibraryConfig             $config,
+		private readonly VideoInventoryCommand          $inventory,
 	) {}
 
 	public function register(): void {
 		// Admin-настройки (UI + Dashboard-тумблер) — всегда: чтобы модуль можно было включить.
 		$this->settings->register();
+		$this->inventory->register();
 
 		if ( ! $this->config->isEnabled() ) {
 			return;

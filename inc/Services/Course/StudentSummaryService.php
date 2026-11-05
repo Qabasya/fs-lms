@@ -58,6 +58,7 @@ class StudentSummaryService {
 		// (порядок программы), посещаемость не показывается.
 		$group  = $this->groups->findById( $groupId );
 		$now    = $this->clock->now();
+		$isSelfPaced = ! empty( $group->self_paced_course_id );
 		$isOpen = $group && AccessMode::Open === AccessMode::fromValueOrDefault( (string) ( $group->access_mode ?? '' ) );
 
 		// Занятия: групповые датированные + личные индивидуальные этого ученика.
@@ -80,14 +81,14 @@ class StudentSummaryService {
 				'topic'           => $lesson?->topic ?? ( $gl->label ?? '' ),
 				'kind'            => $gl->kind->value,
 				'attendance'      => 'none',
-				// Открытые группы (D8) и label-занятия без lessonId — прогресс не считаем.
-				'progress'        => ( ! $isOpen && $gl->lessonId ) ? $this->lessonProgress( $personId, $gl->id ) : null,
+				// В служебном курсе сохраняем прогресс; прежние открытые группы и label-занятия не меняем.
+				'progress'        => ( ( ! $isOpen || $isSelfPaced ) && $gl->lessonId ) ? $this->lessonProgress( $personId, $gl->id ) : null,
 				'works'           => array(),
 			);
 		}
 
 		// Посещаемость (+/−) по матрице группы.
-		$matrix = $this->attendance->matrixForGroup( $groupId );
+		$matrix = $isSelfPaced ? array() : $this->attendance->matrixForGroup( $groupId );
 		foreach ( $lessons as $glid => &$row ) {
 			if ( isset( $matrix[ $glid ][ $personId ] ) ) {
 				$row['attendance'] = $matrix[ $glid ][ $personId ] ? 'present' : 'absent';

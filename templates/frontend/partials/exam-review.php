@@ -14,7 +14,7 @@ use Inc\Enums\Ui\Icon;
  * @package FS LMS
  *
  * @var list<array<string, mixed>> $units
- * @var array{correct: int, partial: int, wrong: int, pending: int} $counts
+ * @var array{correct: int, incorrect: int, unanswered: int, pending: int} $counts
  * @var list<array<string, mixed>> $tasks
  * @var string|null $duration_text Время, затраченное на работу («ЧЧ:ММ:СС»); пусто — не показывать.
  * @var string|null $answer_label Подпись ответа участника; по умолчанию «Ваш ответ:» (отчёт школе задаёт «Ответ ученика:»).
@@ -28,8 +28,8 @@ $answer_label = $answer_label ?? __( 'Ваш ответ:', 'fs-lms' );
 ?>
 	<dl class="fs-exam-result__stats">
 		<div class="fs-exam-result__stat is-correct"><dt><?php esc_html_e( 'Верно', 'fs-lms' ); ?></dt><dd><?php echo (int) $counts['correct']; ?></dd></div>
-		<div class="fs-exam-result__stat is-partial"><dt><?php esc_html_e( 'Частично', 'fs-lms' ); ?></dt><dd><?php echo (int) $counts['partial']; ?></dd></div>
-		<div class="fs-exam-result__stat is-wrong"><dt><?php esc_html_e( 'Неверно и не решено', 'fs-lms' ); ?></dt><dd><?php echo (int) $counts['wrong']; ?></dd></div>
+		<div class="fs-exam-result__stat is-incorrect"><dt><?php esc_html_e( 'Неверно', 'fs-lms' ); ?></dt><dd><?php echo (int) $counts['incorrect']; ?></dd></div>
+		<div class="fs-exam-result__stat is-unanswered"><dt><?php esc_html_e( 'Не решено', 'fs-lms' ); ?></dt><dd><?php echo (int) $counts['unanswered']; ?></dd></div>
 		<?php if ( '' !== (string) ( $duration_text ?? '' ) ) : ?>
 			<div class="fs-exam-result__stat"><dt><?php esc_html_e( 'Затрачено времени', 'fs-lms' ); ?></dt><dd><?php echo esc_html( (string) $duration_text ); ?></dd></div>
 		<?php endif; ?>

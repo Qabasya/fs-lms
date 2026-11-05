@@ -57,6 +57,8 @@ class AttemptPageServiceReviewTest extends TestCase {
 		$clock          = $this->createMock( ClockInterface::class );
 		$clock->method( 'now' )->willReturn( '2026-10-01 10:00:00' );
 
+		$selfPaced = $this->createMock( \Inc\Services\Enrollment\SelfPacedAccessPolicy::class );
+		$selfPaced->method( 'canAccessGroup' )->willReturnCallback( fn() => ! $this->paused );
 		$this->service = new AttemptPageService(
 			$this->attempts,
 			$this->persons,
@@ -68,7 +70,17 @@ class AttemptPageServiceReviewTest extends TestCase {
 			$this->guard,
 			$this->attemptService,
 			$this->examAttempts,
+			$selfPaced,
 		);
+	}
+
+	private bool $paused = false;
+
+	public function test_owner_cannot_open_paused_course_attempt_by_direct_url(): void {
+		$this->paused = true;
+		$this->attempts->method( 'find' )->willReturn( $this->attempt() );
+		$this->persons->method( 'findByWpUserId' )->willReturn( $this->person( 11 ) );
+		self::assertNull( $this->service->buildReview( $this->assessment(), 5, 11 ) );
 	}
 
 	private function person( int $id ): PersonDTO {

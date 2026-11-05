@@ -142,7 +142,7 @@ class AdminAlertCronService {
 		$now = $this->clock->now();
 
 		foreach ( $this->groupLessons->listStartingBetween( $this->shift( $now, '-24 hours' ), $this->shift( $now, self::ABSENT_GRACE ) ) as $lesson ) {
-			if ( null === $lesson->scheduledAt || $this->notifications->isOpenGroup( $lesson->groupId ) ) {
+			if ( null === $lesson->scheduledAt || ( $this->notifications->isOpenGroup( $lesson->groupId ) || $this->notifications->isSelfPacedGroup( $lesson->groupId ) ) ) {
 				continue;
 			}
 			if ( null !== $this->substitutions->findActiveForGroup( $lesson->groupId, substr( $lesson->scheduledAt, 0, 10 ) ) ) {

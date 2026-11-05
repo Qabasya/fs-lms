@@ -72,4 +72,18 @@ class S3UrlSignerTest extends TestCase {
 		self::assertStringContainsString( 'X-Amz-Expires=86400', $url );
 		self::assertStringEndsWith( '&X-Amz-Signature=' . self::EXPECTED_SIGNATURE, $url );
 	}
+	/** Векторы рассчитаны botocore S3SigV4QueryAuth с фиксированной датой, без сети. */
+	public function test_timeweb_and_custom_endpoints_match_sdk_signatures(): void {
+		$cases = array(
+			'https://s3.twcstorage.ru' => '08de9c828a81b9e19d6e408339db524afdaa3990cb2b96d9f189cc2a0c698e94',
+			'https://s3.example.test:9443/storage' => 'e36c681703c5763ecfca63c49d9c7858955ae6f0f230c09b9ac43c8f81c734d6',
+			'https://s3.example.test:443/storage' => 'd1588b62333de58ff5fd455ba604d3586092b8f82e3cbadffe2ee96c84976e6c',
+		);
+		foreach ( $cases as $endpoint => $signature ) {
+			$url = $this->signer( array( 'endpoint' => $endpoint, 'region' => 'ru-1' ) )->presign( 'examplebucket', 'test.txt', 86400, $this->fixedNow() );
+			self::assertStringStartsWith( $endpoint . '/examplebucket/test.txt?', $url );
+			self::assertStringEndsWith( '&X-Amz-Signature=' . $signature, $url );
+		}
+	}
+
 }

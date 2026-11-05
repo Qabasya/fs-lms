@@ -66,7 +66,7 @@ class ExamReportViewService {
 				$finals[] = $entry['summary'];
 			}
 			$accessible[ $number ] = $entry['open'];
-			unset( $entry['summary'] );
+			unset( $entry['summary'], $entry['scored_units'] );
 			$rows[] = $entry;
 		}
 
@@ -97,21 +97,141 @@ class ExamReportViewService {
 	}
 
 	/**
+	 * Матрица «ученики × задания» для таблицы страницы и CSV-выгрузки: полное ФИО, балл за каждое
+	 * задание (пусто — не решали или на проверке), числовые первичный/вторичный баллы и подвал
+	 * («Средний» по окончательным результатам, попытки, верные решения, проценты — как в статистике
+	 * проведения). Доступ каждой строки перепроверяется тем же правилом, что у страницы.
+	 *
+	 * @return array{columns: list<string>, participants: int, rows: list<array<string, mixed>>, footer: array{average_primary: string, average_secondary: string, attempts: list<string>, correct: list<string>, attempts_share: list<string>, correct_share: list<string>}}
+	 */
+	public function matrix( ExamReportDTO $report ): array {
+		$event   = $this->events->find( $report->eventId );
+		$ids     = $this->members->listParticipationIds( $report->id );
+		$numbers = array();
+		$rows    = array();
+		$finals  = array();
+
+		foreach ( $ids as $index => $participationId ) {
+			$entry   = $this->row( $report, $event, $participationId, $index + 1 );
+			$summary = $entry['summary'];
+			$scored  = $entry['scored_units'];
+			unset( $entry['summary'], $entry['scored_units'] );
+
+			$cells = array();
+			foreach ( $scored as $unit ) {
+				$number             = (string) $unit['number'];
+				$numbers[ $number ] = true;
+
+				$answered    = ! in_array( $unit['status'], array( 'unanswered', 'pending' ), true );
+				$score       = (float) $unit['score'];
+				$cells[ $number ] = array(
+					'status' => (string) $unit['status'],
+					'score'  => $answered ? $this->number( $score ) : '',
+					// Заливка ячейки: есть балл — зелёный, ответ без балла — красный, без ответа — белая.
+					'class'  => ! $answered ? '' : ( $score > 0 ? 'is-ok' : 'is-zero' ),
+				);
+			}
+
+			if ( ! $entry['open'] || null === $summary ) {
+				$rows[] = array_merge( $entry, array( 'cells' => array(), 'primary' => '', 'secondary' => '', 'final' => false ) );
+				continue;
+			}
+
+			if ( ! empty( $summary['final'] ) ) {
+				$finals[] = $summary;
+			}
+
+			$rows[] = array_merge(
+				$entry,
+				array(
+					'cells'     => $cells,
+					'primary'   => $this->number( (float) $summary['primary'] ),
+					'secondary' => ! empty( $summary['final'] ) && isset( $summary['secondary'] ) ? $this->number( (float) $summary['secondary'] ) : '',
+					'final'     => ! empty( $summary['final'] ),
+				)
+			);
+		}
+
+		$columns = array_map( 'strval', array_keys( $numbers ) );
+		usort( $columns, static fn ( string $a, string $b ): int => (int) $a <=> (int) $b );
+
+		// Сводка по заданиям: попытки (дан ответ), верные решения и доли — как в статистике проведения.
+		$attempts = array_fill_keys( $columns, 0 );
+		$correct  = array_fill_keys( $columns, 0 );
+		foreach ( $rows as $row ) {
+			foreach ( $columns as $number ) {
+				$cell = $row['cells'][ $number ] ?? null;
+				if ( null === $cell || '' === $cell['score'] ) {
+					continue;
+				}
+				++$attempts[ $number ];
+				if ( 'correct' === $cell['status'] ) {
+					++$correct[ $number ];
+				}
+			}
+		}
+
+		$participants = count( $ids );
+		$share        = static fn ( int $part, int $whole ): string => 0 === $whole ? '' : (string) (int) round( 100 * $part / $whole );
+		$average      = function ( callable $pick ) use ( $finals ): string {
+			$values = array_values(
+				array_filter(
+					array_map(
+						static function ( array $summary ) use ( $pick ): ?float {
+							$value = $pick( $summary );
+
+							return null !== $value ? (float) $value : null;
+						},
+						$finals
+					),
+					static fn( ?float $value ): bool => null !== $value
+				)
+			);
+
+			return array() === $values ? '' : $this->number( array_sum( $values ) / count( $values ) );
+		};
+
+		$footer = array(
+			'average_primary'   => $average( static fn( array $summary ) => $summary['primary'] ?? null ),
+			'average_secondary' => $average( static fn( array $summary ) => $summary['secondary'] ?? null ),
+			'attempts'          => array(),
+			'correct'           => array(),
+			'attempts_share'    => array(),
+			'correct_share'     => array(),
+		);
+		foreach ( $columns as $number ) {
+			$footer['attempts'][]       = (string) $attempts[ $number ];
+			$footer['correct'][]        = (string) $correct[ $number ];
+			$footer['attempts_share'][] = $share( $attempts[ $number ], $participants );
+			$footer['correct_share'][]  = $share( $correct[ $number ], $attempts[ $number ] );
+		}
+
+		return array(
+			'columns'      => $columns,
+			'participants' => $participants,
+			'rows'         => $rows,
+			'footer'       => $footer,
+		);
+	}
+
+	/**
 	 * Строка таблицы. Заглушка, если участие больше нельзя показывать школе.
 	 *
-	 * @return array{n: int, name: string, primary: string, secondary: string, units: list<array{number: string, status: string}>, open: bool, summary: array<string, mixed>|null}
+	 * @return array{n: int, name: string, short_name: string, primary: string, secondary: string, units: list<array{number: string, status: string}>, scored_units: list<array{number: string, status: string, score: float, max: float}>, open: bool, summary: array<string, mixed>|null}
 	 */
 	private function row( ExamReportDTO $report, ?ExamEventDTO $event, int $participationId, int $number ): array {
 		$participation = $this->participations->find( $participationId );
 		$participant   = null !== $participation ? $this->participants->find( $participation->participantId ) : null;
 		$placeholder   = array(
-			'n'         => $number,
-			'name'      => self::PLACEHOLDER,
-			'primary'   => '',
-			'secondary' => '',
-			'units'     => array(),
-			'open'      => false,
-			'summary'   => null,
+			'n'            => $number,
+			'name'         => self::PLACEHOLDER,
+			'short_name'   => self::PLACEHOLDER,
+			'primary'      => '',
+			'secondary'    => '',
+			'units'        => array(),
+			'scored_units' => array(),
+			'open'         => false,
+			'summary'      => null,
 		);
 
 		if ( null === $participation || null === $participant || null !== $participant->anonymizedAt || null !== $this->reportService->canInclude( $participation, $report->eventId ) ) {
@@ -129,14 +249,34 @@ class ExamReportViewService {
 			: $this->names->participantName( $participant );
 
 		return array(
-			'n'         => $number,
-			'name'      => $name,
-			'primary'   => sprintf( '%s из %s', $summary['primary'], $summary['primary_max'] ),
-			'secondary' => $this->secondaryText( $summary ),
-			'units'     => $this->stats->attemptUnits( $attempt ),
-			'open'      => true,
-			'summary'   => $summary,
+			'n'            => $number,
+			'name'         => $name,
+			// Для таблицы на странице — фамилия и инициалы; полное ФИО остаётся в `name` (CSV пишет его).
+			'short_name'   => self::PLACEHOLDER === $name ? $name : $this->shortName( $name ),
+			'primary'      => sprintf( '%s из %s', $summary['primary'], $summary['primary_max'] ),
+			'secondary'    => $this->secondaryText( $summary ),
+			'units'        => $this->stats->attemptUnits( $attempt ),
+			'scored_units' => $this->stats->scoredAttemptUnits( $attempt ),
+			'open'         => true,
+			'summary'      => $summary,
 		);
+	}
+
+	/** Фамилия + инициалы («Иванов А.С.»); одно слово — как есть. */
+	private function shortName( string $name ): string {
+		$parts = preg_split( '/\s+/u', trim( $name ) );
+
+		if ( false === $parts || count( $parts ) < 2 ) {
+			return $name;
+		}
+
+		$surname  = (string) array_shift( $parts );
+		$initials = array_map(
+			static fn( string $part ): string => mb_strtoupper( mb_substr( $part, 0, 1 ) ) . '.',
+			$parts
+		);
+
+		return $surname . ' ' . implode( '', $initials );
 	}
 
 	/**

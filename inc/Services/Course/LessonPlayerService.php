@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Course;
 
+use Inc\Services\Enrollment\SelfPacedAccessPolicy;
 use Inc\Shared\SafeHtml;
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\LessonDTO;
@@ -52,6 +53,7 @@ class LessonPlayerService {
 		private readonly WorkTaskCheckService         $taskChecks,
 		private readonly GroupsRepository             $groups,
 		private readonly WorkSolutionReveal           $solutionReveal,
+		private readonly SelfPacedAccessPolicy $selfPacedAccess,
 	) {}
 
 	/**
@@ -98,6 +100,10 @@ class LessonPlayerService {
 	 * @return array{group_lesson_id:int, lesson_id:int, topic:string, steps:array<int, array<string,mixed>>}|null
 	 */
 	public function buildView( int $studentPersonId, GroupLessonDTO $groupLesson ): ?array {
+		if ( ! $this->selfPacedAccess->canAccessGroup( $groupLesson->groupId, $studentPersonId ) ) {
+			return null;
+		}
+
 		$lesson = $groupLesson->lessonId ? $this->lessons->get( $groupLesson->lessonId ) : null;
 		if ( null === $lesson ) {
 			return null;

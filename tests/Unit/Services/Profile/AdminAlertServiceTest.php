@@ -239,4 +239,18 @@ class AdminAlertServiceTest extends TestCase {
 		self::assertSame( 101, $out[0]['lesson']->id );
 		self::assertSame( 'Петров Пётр', $out[0]['teacher_name'] );
 	}
+
+	public function test_service_group_never_produces_attendance_alerts_even_if_mode_is_corrupted_to_scheduled(): void {
+		$this->groups->method( 'findAll' )->willReturn( array( (object) array( 'id' => 8, 'name' => 'Service', 'access_mode' => 'scheduled', 'self_paced_course_id' => 77 ) ) );
+		$this->attendance->expects( self::never() )->method( 'absenceStreaks' );
+		$this->records->expects( self::never() )->method( 'findActiveByGroupId' );
+		self::assertSame( array(), $this->service->absenceStreaks() );
+	}
+	public function test_service_marker_blocks_overdue_journal_alert_independently_of_open_mode(): void {
+		$this->groupLessons->method( 'listGroupEndedBetween' )->willReturn( array( $this->lesson( 101 ) ) );
+		$this->notifications->method( 'isOpenGroup' )->willReturn( false );
+		$this->notifications->method( 'isSelfPacedGroup' )->willReturn( true );
+		$this->notifications->expects( self::never() )->method( 'lessonStudentPersonIds' );
+		self::assertSame( array(), $this->service->overdueJournals( '2026-05-18', '2026-05-19' ) );
+	}
 }
