@@ -43,13 +43,14 @@ class LearnerRankingRepository {
 	public function studentIds( string $subject ): array {
 		return array_map(
 			'intval',
-			$this->wpdb->get_col(
+			$this->checkedColumn(
 				$this->wpdb->prepare(
-					'SELECT DISTINCT r.student_person_id FROM %i r JOIN %i g ON g.id = r.group_id WHERE r.status = %s AND g.subject_key = %s AND g.is_shared = 0 AND g.self_paced_course_id IS NULL',
+					'SELECT DISTINCT r.student_person_id FROM %i r JOIN %i g ON g.id = r.group_id WHERE r.status = %s AND g.subject_key = %s AND g.is_shared = 0 AND g.self_paced_course_id IS NULL AND g.access_mode <> %s',
 					TableName::StudentRecords->prefixed(),
 					TableName::Groups->prefixed(),
 					EnrollmentStatus::Active->value,
-					$subject
+					$subject,
+					\Inc\Enums\Course\AccessMode::Open->value
 				)
 			)
 		);
@@ -79,7 +80,7 @@ class LearnerRankingRepository {
 			THEN s.score >= s.max_score AND s.max_score > 0 AND s.status = %s ELSE t.is_correct = 1 AND (t.score IS NULL OR t.score >= t.max_score) END
 			HAVING (reviewed = 1 AND solved_at >= %s AND solved_at < %s)
 			OR (reviewed = 0 AND solved_at >= %s AND solved_at < %s)';
-		$rows = $this->wpdb->get_results(
+		$rows = $this->checkedResults(
 			$this->wpdb->prepare(
 				$sql,
 				TableName::TaskAttempts->prefixed(),
@@ -99,7 +100,7 @@ class LearnerRankingRepository {
 		) ?: array();
 
 		// Teacher credits and legacy per-task submissions may predate attempt history.
-		$fallback = $this->wpdb->get_results(
+		$fallback = $this->checkedResults(
 			$this->wpdb->prepare(
 				'SELECT s.student_person_id, s.work_type AS source, s.max_score AS task_points,
 			CASE WHEN s.graded_by_user_id IS NOT NULL THEN s.graded_at ELSE s.submitted_at END AS solved_at
@@ -139,7 +140,7 @@ class LearnerRankingRepository {
 	 * @return list<array{student_person_id: mixed, source: mixed, solved_at: mixed}>
 	 */
 	public function assessmentEvents( string $subject, string $from, string $until ): array {
-		return $this->wpdb->get_results(
+		return $this->checkedResults(
 			$this->wpdb->prepare(
 				'SELECT a.student_person_id, %s AS source,
 			COALESCE(a.approved_at, (SELECT MAX(review.graded_at) FROM %i review WHERE review.attempt_id = a.id), a.submitted_at) AS solved_at
@@ -168,7 +169,7 @@ class LearnerRankingRepository {
 	}
 	/** Held subject lessons in enrollment intervals; missing attendance breaks a series. */
 	public function attendanceEvents( string $subject, string $from, string $until, string $nowLocal ): array {
-		return $this->wpdb->get_results(
+		return $this->checkedResults(
 			$this->wpdb->prepare(
 				'SELECT DISTINCT r.student_person_id, l.id AS group_lesson_id, l.scheduled_at, COALESCE(a.is_present, 0) AS present
 				FROM %i r JOIN %i g ON g.id = r.group_id JOIN %i l ON l.group_id = g.id
@@ -192,16 +193,34 @@ class LearnerRankingRepository {
 	}
 	/** Active roster names and group labels only; no contact or identity-document data. */
 	public function roster( string $subject ): array {
-		return $this->wpdb->get_results(
+		return $this->checkedResults(
 			$this->wpdb->prepare(
-				'SELECT r.student_person_id, r.group_id, r.snapshot_last_name, r.snapshot_first_name, r.snapshot_middle_name, g.name AS group_name
-			FROM %i r JOIN %i g ON g.id = r.group_id WHERE r.status = %s AND g.subject_key = %s AND g.is_shared = 0 AND g.self_paced_course_id IS NULL ORDER BY r.id DESC',
+				'SELECT r.student_person_id, r.group_id, r.snapshot_last_name, r.snapshot_first_name, r.snapshot_middle_name, g.name AS group_name, g.access_mode
+			FROM %i r JOIN %i g ON g.id = r.group_id WHERE r.status = %s AND g.subject_key = %s AND g.is_shared = 0 AND g.self_paced_course_id IS NULL AND g.access_mode <> %s ORDER BY r.id DESC',
 				TableName::StudentRecords->prefixed(),
 				TableName::Groups->prefixed(),
 				EnrollmentStatus::Active->value,
-				$subject
+				$subject,
+				\Inc\Enums\Course\AccessMode::Open->value
 			),
 			ARRAY_A
 		) ?: array();
 	}
+	/** Не сохранять ошибку SQL как пустой рейтинг или достоверный снимок. */
+	private function checkedResults( string $sql, string $output ): array {
+		$rows = $this->wpdb->get_results( $sql, $output );
+		if ( '' !== (string) $this->wpdb->last_error ) {
+			throw new \RuntimeException( 'Не удалось прочитать данные рейтинга.' );
+		}
+		return is_array( $rows ) ? $rows : array();
+	}
+
+	private function checkedColumn( string $sql ): array {
+		$rows = $this->wpdb->get_col( $sql );
+		if ( '' !== (string) $this->wpdb->last_error ) {
+			throw new \RuntimeException( 'Не удалось прочитать список учеников рейтинга.' );
+		}
+		return is_array( $rows ) ? $rows : array();
+	}
+
 }

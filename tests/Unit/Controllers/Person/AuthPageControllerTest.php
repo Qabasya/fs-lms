@@ -67,6 +67,38 @@ class AuthPageControllerTest extends TestCase {
 		self::assertSame( 0, preg_match( '/<input[^>]*name="pwd"[^>]*disabled/', $html ), 'форма снова открыта' );
 	}
 
+	public function test_permanent_block_disables_form_without_a_countdown(): void {
+		$_GET = array( 'login' => 'blocked', 'fs_user' => 'ivan' );
+		$this->guard->method( 'lockSecondsFor' )->willReturn( 0 );
+		$this->guard->method( 'isPermanentlyBlocked' )->with( 'ivan', '10.0.0.1' )->willReturn( true );
+
+		$html = $this->controller->renderLoginPage();
+
+		self::assertMatchesRegularExpression( '/<input[^>]*name="log"[^>]*disabled/', $html );
+		self::assertMatchesRegularExpression( '/<input[^>]*name="pwd"[^>]*disabled/', $html );
+		self::assertMatchesRegularExpression( '/<button[^>]*id="wp-submit"[^>]*disabled/', $html );
+		self::assertStringContainsString( 'Обратитесь к администратору', $html );
+		self::assertStringNotContainsString( 'data-login-lock=', $html );
+	}
+
+	public function test_stale_permanent_block_flag_does_not_disable_form_after_unblock(): void {
+		$_GET = array( 'login' => 'blocked', 'fs_user' => 'ivan' );
+		$this->guard->method( 'lockSecondsFor' )->willReturn( 0 );
+		$this->guard->method( 'isPermanentlyBlocked' )->willReturn( false );
+
+		$html = $this->controller->renderLoginPage();
+
+		self::assertSame( 0, preg_match( '/<input[^>]*name="pwd"[^>]*disabled/', $html ) );
+		self::assertStringNotContainsString( 'Обратитесь к администратору', $html );
+	}
+
+	public function test_permanent_ip_block_disables_form_without_prefilled_login(): void {
+		$this->guard->method( 'isPermanentlyBlocked' )->with( '', '10.0.0.1' )->willReturn( true );
+		$html = $this->controller->renderLoginPage();
+		self::assertMatchesRegularExpression( '/<input[^>]*name="pwd"[^>]*disabled/', $html );
+		self::assertStringContainsString( 'Обратитесь к администратору', $html );
+	}
+
 	public function test_lock_flag_without_login_falls_back_to_address_wait(): void {
 		$_GET = array( 'login' => 'locked', 'wait' => '15' );
 		$this->guard->method( 'lockSecondsFor' )->with( '', '10.0.0.1' )->willReturn( 0 );

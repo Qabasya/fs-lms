@@ -29,7 +29,7 @@ class ExamScoreService {
 	/** Худший статус единицы: чем больше число, тем «хуже». */
 	private const STATUS_SEVERITY = array(
 		'pending'    => 4,
-		'unanswered' => 3,
+		'unanswered' => 2,
 		'incorrect'  => 3,
 		'partial'    => 2,
 		'correct'    => 1,

@@ -272,3 +272,36 @@
   &.is-ok { color: $wp-admin-green; }
   &.is-fail { color: $color-danger; }
 }
+
+
+.fs-ranking-subject {
+  display: flex;
+  gap: $spacing-sm;
+  align-items: center;
+  margin-top: $spacing-sm;
+}
+
+.fs-ranking-selected {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-sm;
+  margin-top: $spacing-sm;
+
+  &:empty { display: none; }
+}
+
+.fs-ranking-selected__item {
+  display: inline-flex;
+  align-items: center;
+  gap: $spacing-xs;
+  padding: $spacing-xs $spacing-sm;
+  border: 1px solid $color-border-input;
+  border-radius: $border-radius-sm;
+}
+
+.fs-ranking-selected__remove {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}

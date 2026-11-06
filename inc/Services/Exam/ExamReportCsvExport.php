@@ -85,6 +85,6 @@ class ExamReportCsvExport {
 	 * @param list<string> $fields
 	 */
 	private function line( $stream, array $fields ): void {
-		fputcsv( $stream, array_map( fn( mixed $field ): string => (string) $this->csv->neutralizeFormula( $field ), $fields ), ';' );
+		fputcsv( $stream, array_map( fn( mixed $field ): string => (string) $this->csv->neutralizeFormula( $field ), $fields ), ';', '"', '' );
 	}
 }

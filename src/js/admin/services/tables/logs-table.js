@@ -73,6 +73,32 @@ export const LogsTable = {
 	 * Привязка обработчиков событий.
 	 */
 	bindEvents() {
+		$( document ).on( 'keydown', '#fs-unlock-login-ip', ( e ) => {
+			if ( 'Enter' === e.key ) {
+				e.preventDefault();
+				$( e.currentTarget ).closest( '.js-unlock-login-ip' ).find( '.js-unlock-login-ip-button' ).trigger( 'click' );
+			}
+		} );
+		$( document ).on( 'click', '.js-unlock-login-ip-button', ( e ) => {
+			const $button = $( e.currentTarget );
+			if ( $button.prop( 'disabled' ) ) { return; }
+			const $group = $button.closest( '.js-unlock-login-ip' );
+			const $status = $group.find( '.js-unlock-login-ip-status' ).text( '' );
+			const ip = String( $group.find( '#fs-unlock-login-ip' ).val() || '' ).trim();
+			if ( ! ip ) {
+				$status.text( 'Укажите IP-адрес.' );
+				return;
+			}
+			$button.prop( 'disabled', true );
+			$.post( fs_lms_vars.ajaxurl, {
+				action: fs_lms_vars.ajax_actions.unlockLoginIp,
+				security: fs_lms_vars.nonces.manager,
+				ip,
+			} ).done( ( response ) => {
+				$status.text( response.success ? response.data.message : ( response.data || 'Не удалось снять блокировку.' ) );
+			} ).fail( () => $status.text( 'Не удалось связаться с сервером.' ) )
+				.always( () => $button.prop( 'disabled', false ) );
+		} );
 		// Делегирование события клика по кнопке экспорта.
 		// Кнопки могут находиться внутри динамически переключаемых вкладок,
 		// поэтому используем делегирование через $(document).

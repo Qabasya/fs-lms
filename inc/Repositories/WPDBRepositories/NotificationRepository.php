@@ -250,16 +250,16 @@ class NotificationRepository {
 		);
 	}
 
-	/** Прочитанные старше $readOlderDays дней и любые старше $allOlderDays — удаляются. */
-	public function purge( int $readOlderDays = 30, int $allOlderDays = 90 ): void {
+	/** Прочитанные и непрочитанные уведомления имеют отдельные сроки хранения в UTC. */
+	public function purge( int $readOlderDays = 7, int $unreadOlderDays = 30 ): void {
 		$this->wpdb->query(
 			$this->wpdb->prepare(
 				'DELETE FROM %i WHERE
-				 (read_at IS NOT NULL AND read_at < DATE_SUB(NOW(), INTERVAL %d DAY))
-				 OR created_at < DATE_SUB(NOW(), INTERVAL %d DAY)',
+				 (read_at IS NOT NULL AND read_at <= DATE_SUB(UTC_TIMESTAMP(), INTERVAL %d DAY))
+				 OR (read_at IS NULL AND created_at <= DATE_SUB(UTC_TIMESTAMP(), INTERVAL %d DAY))',
 				$this->table,
 				$readOlderDays,
-				$allOlderDays
+				$unreadOlderDays
 			)
 		);
 	}

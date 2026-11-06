@@ -39,6 +39,7 @@ class CronControllerTest extends TestCase {
 			$this->ticks,
 			$this->createMock( \Inc\Services\Course\AttendanceService::class ),
 			$this->createMock( \Inc\Contracts\ClockInterface::class ),
+			$this->createMock( \Inc\Services\Profile\RankingSnapshotService::class ),
 		);
 	}
 

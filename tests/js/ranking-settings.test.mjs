@@ -18,7 +18,7 @@ globalThis.fs_lms_vars = {
     ajax_actions: { saveRankingSettings: 'save_ranking_settings' },
     nonces: { config: 'settings-nonce' },
 };
-const { RankingSettings } = await import( '../../src/js/admin/services/settings/ranking-settings.js' );
+const { RankingSettings, matchingStudents } = await import( '../../src/js/admin/services/settings/ranking-settings.js' );
 
 function form( valid = true ) {
     const state = { text: '', classes: '', disabled: false, data: {}, attrs: {} };
@@ -42,6 +42,11 @@ function form( valid = true ) {
         find( selector ) {
             if ( selector === '.js-ranking-status' ) return status;
             if ( selector === 'button' ) return { prop( key, value ) { state[ key ] = value; } };
+            if ( selector === '[data-ranking-subject]' ) return { each( callback ) {
+                [ { dataset: { rankingSubject: 'math' }, querySelector: () => ( { checked: false } ) },
+                    { dataset: { rankingSubject: 'python' }, querySelector: () => ( { checked: true } ) } ].forEach( ( row, i ) => callback( i, row ) );
+            } };
+            if ( selector === '#fs-ranking-excluded' ) return { val: () => [ '4', '7' ] };
             assert.equal( selector, '[data-ranking-field]' );
             return { each( callback ) { fields.forEach( ( field, index ) => callback( index, field ) ); } };
         },
@@ -62,7 +67,7 @@ test( 'save sends only ranking fields with config nonce and prevents overlapping
     assert.equal( request.url, '/wp-admin/admin-ajax.php' );
     assert.deepEqual( request.payload, {
         action: 'save_ranking_settings', security: 'settings-nonce',
-        settings: { practice: '0', independent: '1.25', attendance_bonus: '2', attendance_streak_length: '3' },
+        settings: { practice: '0', independent: '1.25', attendance_bonus: '2', attendance_streak_length: '3', hidden_subjects: 'math', excluded_students: '4,7' },
     } );
     assert.equal( $form.state.disabled, true );
     assert.equal( $form.state.attrs[ 'aria-busy' ], 'true' );
@@ -96,4 +101,16 @@ test( 'network and JSON error responses have readable inline statuses', () => {
     request.callbacks.fail( {} );
     assert.equal( $form.state.text, 'Ошибка сети. Повторите сохранение.' );
     request.callbacks.always();
+} );
+
+
+test( 'student search finds unselected names without changing existing selections', () => {
+    const options = [
+        { value: '1', text: 'Иванов Иван (ID 1)', selected: true },
+        { value: '2', text: 'Иванова Анна (ID 2)', selected: false },
+        { value: '3', text: 'Петров Иван (ID 3)', selected: false },
+    ];
+    assert.deepEqual( matchingStudents( options, ' ИВАН ' ).map( item => item.value ), [ '2', '3' ] );
+    assert.deepEqual( matchingStudents( options, 'и' ), [] );
+    assert.equal( options[ 0 ].selected, true );
 } );

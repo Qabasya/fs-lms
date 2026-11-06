@@ -21,6 +21,10 @@ namespace Inc\Enums\Settings;
  * для получения имени опции при вызовах get_option(), update_option(), delete_option().
  */
 enum OptionName: string {
+	/** Префикс отдельных постоянных блокировок входа; суффикс — хеш идентификатора. */
+	case LoginBlockPrefix = 'fs_lms_login_block_';
+	/** Суточная база сравнения мест рейтинга, без автозагрузки. */
+	case RankingSnapshot = 'fs_lms_ranking_snapshot';
 
 	/** Опция для хранения списка предметов. */
 	case Subjects = 'fs_lms_subjects_list';

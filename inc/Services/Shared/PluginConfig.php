@@ -193,6 +193,22 @@ readonly class PluginConfig {
 		return $defaults;
 	}
 
+	/** Предметы скрыты только от учеников; новые предметы по умолчанию доступны. */
+	public function rankingHiddenSubjects(): array {
+		$value = $this->repository->get()['ranking_hidden_subjects'] ?? array();
+		return is_array( $value ) ? array_values( array_filter( $value, 'is_string' ) ) : array();
+	}
+
+	/** ID физлиц, полностью исключённых из расчёта мест. */
+	public function rankingExcludedStudents(): array {
+		$value = $this->repository->get()['ranking_excluded_students'] ?? array();
+		return is_array( $value ) ? array_values( array_unique( array_filter( array_map( 'intval', $value ), static fn( int $id ): bool => $id > 0 ) ) ) : array();
+	}
+
+	public function isLearnerRankingVisible( string $subject ): bool {
+		return ! in_array( $subject, $this->rankingHiddenSubjects(), true );
+	}
+
 	private function bounded( string $key, int $default, int $min, int $max ): int {
 		$value = $this->repository->get()[ $key ] ?? $default;
 

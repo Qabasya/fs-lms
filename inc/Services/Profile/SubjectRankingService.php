@@ -25,6 +25,7 @@ class SubjectRankingService {
 		private readonly LearnerRankingRepository $repository,
 		private readonly RankingCalculationService $ranking,
 		private readonly ClockInterface $clock,
+		private readonly RankingSnapshotService $snapshots,
 	) {}
 
 	/**
@@ -86,18 +87,21 @@ class SubjectRankingService {
 		foreach ( $this->repository->roster( $subject ) as $record ) {
 			$id  = (int) $record['student_person_id'];
 			$gid = (int) $record['group_id'];
+			$individual = ( $record['access_mode'] ?? '' ) === \Inc\Enums\Course\AccessMode::Individual->value;
 			if ( ! isset( $scores[ $id ] ) ) {
 				continue;
 			}
-			if ( $id === $viewerPersonId && 0 === $viewerGroupId ) {
+			if ( ! $individual && $id === $viewerPersonId && 0 === $viewerGroupId ) {
 				$viewerGroupId = $gid;
 			}
-			$groups[ $gid ] = array(
+			if ( ! $individual ) {
+				$groups[ $gid ] = array(
 				'id'      => $gid,
 				'name'    => (string) $record['group_name'],
 				// Имя предмета кнопке выбора группы (тот же вид, что в «Сводке по ученику»).
 				'subject' => $subjectName,
-			);
+				);
+			}
 			if ( ! isset( $students[ $id ] ) ) {
 				$students[ $id ] = array(
 					'person_id' => $id,
@@ -108,7 +112,9 @@ class SubjectRankingService {
 					'rank'      => $scores[ $id ]['rank'],
 				);
 			}
-			$students[ $id ]['groups'][ $gid ] = $groups[ $gid ];
+			if ( ! $individual ) {
+				$students[ $id ]['groups'][ $gid ] = $groups[ $gid ];
+			}
 		}
 		if ( $groupId < 0 || ( $groupId > 0 && ! isset( $groups[ $groupId ] ) ) ) {
 			throw new \InvalidArgumentException( 'Группа не входит в выбранное направление.' );
@@ -133,6 +139,7 @@ class SubjectRankingService {
 		} );
 		foreach ( $rows as &$row ) {
 			$row['groups'] = array_values( $row['groups'] );
+			$row['trend'] = $this->snapshots->trend( $subject, $groupId, $row['person_id'], $row['rank'], $period['from'], $now );
 		}
 		unset( $row );
 		return array(

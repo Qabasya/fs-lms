@@ -26,7 +26,7 @@ class RankingCalculationService {
 	public function scoresForSubject( string $subject, string $nowLocal, ?array $period = null ): array {
 		$period  = $period ?? $this->period( $nowLocal );
 		$weights = $this->points->settings();
-		$totals  = array_fill_keys( $this->repository->studentIds( $subject ), 0.0 );
+		$totals  = array_fill_keys( array_diff( $this->repository->studentIds( $subject ), $this->points->excludedStudents() ), 0.0 );
 		$events  = array_merge(
 			$this->repository->workEvents( $subject, $period['from'], $period['until'] ),
 			$this->repository->assessmentEvents( $subject, $period['from'], $period['until'] )
@@ -57,6 +57,10 @@ class RankingCalculationService {
 			}
 		}
 		return $this->rankTotals( $totals );
+	}
+
+	public function visibleToLearners( string $subject ): bool {
+		return $this->points->visibleToLearners( $subject );
 	}
 
 	/** Dense ranks from totals, shared by whole-subject and group views. */

@@ -246,10 +246,10 @@ $exam-result-nav-size: rem(34);
 $exam-report-row-extra: rem(10); // добавка к вертикальному отступу строки таблицы школьного отчёта
 // Кнопка «Скачать отчёт» повторяет размеры кабинетной (shared/cabinet cab-btn-sm) — в тех же пикселях.
 $exam-report-btn-font-size: rem(16);
-$exam-report-btn-padding-x: rem(12);
+$exam-report-btn-padding-x: rem(20);
 
 // Компактная сетка матрицы «ученики × задания»: ФИО и баллы — фиксированные, колонки заданий делят остаток.
-$exam-report-width: rem(1200); // контейнер школьного отчёта
+$exam-report-width: rem(1400); // контейнер школьного отчёта
 $exam-report-cell-min: rem(25);
 $exam-report-cell-height: rem(30);
 $exam-report-cell-padding-y: rem(4);

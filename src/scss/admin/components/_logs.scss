@@ -48,6 +48,19 @@
   margin-left: auto;
 }
 
+.fs-logs__unlock-ip {
+  display: flex;
+  flex-basis: 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: $spacing-sm;
+
+  .description {
+    flex-basis: 100%;
+    margin: 0;
+  }
+}
+
 // Keep all log columns aligned on phones; WordPress list-table card rules do not apply.
 .fs-logs-table-scroll {
   max-width: 100%;

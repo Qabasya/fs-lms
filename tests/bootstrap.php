@@ -247,6 +247,19 @@ if (!function_exists('get_option')) {
         return $GLOBALS['_test_options'][$option] ?? $default;
     }
 }
+if (!function_exists('add_option')) {
+    function add_option(string $option, mixed $value = '', string $deprecated = '', mixed $autoload = null): bool {
+        if (array_key_exists($option, $GLOBALS['_test_options'] ?? [])) { return false; }
+        $GLOBALS['_test_options'][$option] = $value;
+        return true;
+    }
+}
+if (!function_exists('wp_cache_delete')) {
+    function wp_cache_delete(string|int $key, string $group = ''): bool { return true; }
+}
+if (!function_exists('wp_using_ext_object_cache')) {
+    function wp_using_ext_object_cache(?bool $using = null): bool { return false; }
+}
 if (!function_exists('get_userdata')) {
     // Управляется $GLOBALS['_fs_test_userdata'][$userId] — объект с полями
     // WP_User (в т.ч. roles); без записи ведёт себя как «пользователя нет».

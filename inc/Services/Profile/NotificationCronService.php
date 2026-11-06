@@ -477,7 +477,7 @@ readonly class NotificationCronService {
 	}
 
 	private function purge(): void {
-		$this->notificationRepository->purge( 30, 90 );
+		$this->notificationRepository->purge();
 	}
 
 	/** Наивный сдвиг wall-clock строки (без конвертации часовых поясов) — паттерн {@see \Inc\Services\Group\ScheduleService}. */

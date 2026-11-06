@@ -278,17 +278,18 @@
   }
 }
 
+// Заголовок и навигация темы не нужны на странице с собственной шапкой отчёта.
+body:has(#fs-exam-report) :is(.page-title, .wp-block-post-title, .wd-breadcrumbs) { display: none; }
+
 // Школьный отчёт (этап 12.3): таблица результатов и разбор выбранной строки под ней.
 .fs-exam-report {
-  // Контейнер отчёта — 1200 px даже когда колонка темы уже: выход за constrained-обёртку
-  // (margin от центра родителя на половину нужной ширины; на узких экранах — во всю ширину).
-  // Паддинги базового .fs-exam-result снимаем полностью — ширина контента ровно 1200.
-  width: 100%;
+  // Отчёт целиком шире колонки темы; на узких экранах сохраняем поля по краям.
+  width: min(#{$exam-report-width}, calc(100vw - #{$spacing-md * 2}));
   max-width: $exam-report-width;
-  margin-inline: calc(50% - min(50vw, #{$exam-report-width} / 2));
+  margin-inline: calc(50% - min(#{$exam-report-width} / 2, 50vw - #{$spacing-md}));
   padding: 0;
 
-  .fs-exam-report__meta-row {
+  .fs-exam-result__title {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -303,7 +304,10 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: $spacing-xs $exam-report-btn-padding-x;
+    box-sizing: border-box;
+    height: 35px;
+    gap: $spacing-sm;
+    padding: 0 $exam-report-btn-padding-x;
     border: 1px solid $color-border;
     border-radius: $border-radius-sm;
     background: $color-white;
@@ -326,6 +330,8 @@
     grid-template-columns: repeat(4, 1fr);
     gap: $exam-report-stats-gap;
   }
+
+  > .fs-exam-result__stats dd { font-weight: $font-regular; }
 
   // Навигация заданиями в разборе — сетка в одну полосу с колонками таблицы:
   // отступ слева под колонку ФИО, справа — под обе балльные.
@@ -353,9 +359,9 @@
 
   &__table {
     // Настройки ширины и высоты отчёта: ФИО по умолчанию занимает остаток строки.
-    --exam-report-name-width: auto;
-    --exam-report-task-width: 2.5%;
-    --exam-report-score-width: 10%;
+    --exam-report-name-width: 14%;
+    --exam-report-task-width: auto;
+    --exam-report-score-width: 7%;
     --exam-report-row-height: #{$exam-report-cell-height};
 
     width: 100%;
@@ -376,8 +382,8 @@
       padding: $exam-report-cell-padding-y $exam-report-cell-padding-x;
       text-align: center;
       font-weight: $font-regular;
-      border-right: 1px solid $color-border-light;
-      border-bottom: 1px solid $color-border-light;
+      border-right: 1px solid $color-border;
+      border-bottom: 1px solid $color-border;
     }
 
     // Липкая колонка ФИО (при прокрутке широких форматов).
@@ -404,18 +410,18 @@
     thead .fs-exam-report__name { z-index: 2; background: $color-bg-subtle; }
 
     .fs-exam-report__task { width: var(--exam-report-task-width); }
+    thead .fs-exam-report__task { font-weight: $font-regular; }
 
     .fs-exam-report__sum {
       width: var(--exam-report-score-width);
       padding-inline: $spacing-xs;
-      font-weight: $font-semibold;
       white-space: nowrap;
     }
 
     // Баллы за задания цветом вердикта: есть балл — зелёный, ответ без балла — красный.
     .fs-exam-report__cell.is-ok { color: $color-ok; background: $color-ok-soft; }
     .fs-exam-report__cell.is-zero { color: $color-err; background: $color-err-soft; }
-    .fs-exam-report__cell.is-share { color: $color-wait-ink; font-weight: $font-semibold; }
+    .fs-exam-report__cell.is-share { color: $color-wait-ink; }
 
     // Строки белые; открытая строка кликабельна; выбранная (разбор ниже) — на ступень темнее.
     tbody td { background: $color-white; }
@@ -435,8 +441,17 @@
     .fs-exam-report__foot th,
     .fs-exam-report__foot td {
       background: $color-bg-subtle;
-      border-bottom: 0;
+      border-bottom: 1px solid $color-border;
     }
+
+    .fs-exam-report__foot td { font-weight: $font-regular; }
+
+    .fs-exam-report__foot:first-child th,
+    .fs-exam-report__foot:first-child td { border-top: 2px solid $color-border; }
+
+    .fs-exam-report__foot .is-ok { color: $color-ok; background: $color-bg-subtle; }
+    .fs-exam-report__foot .is-share { color: $color-wait-ink; background: $color-bg-subtle; }
+    .fs-exam-report__foot .is-zero { color: $color-err; background: $color-bg-subtle; }
 
     thead tr:last-child th,
     tbody tr:last-child td { border-bottom: 1px solid $color-border-light; }
@@ -447,6 +462,7 @@
 
   &__review {
     scroll-margin-top: $spacing-xl;
+    margin-top: $spacing-2xl;
   }
 
   &__review-title {

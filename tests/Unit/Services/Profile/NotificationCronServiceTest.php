@@ -99,7 +99,7 @@ class NotificationCronServiceTest extends TestCase {
 
 	public function test_tick_always_purges_with_retention_windows(): void {
 		$this->stubLessons();
-		$this->notificationRepository->expects( self::once() )->method( 'purge' )->with( 30, 90 );
+		$this->notificationRepository->expects( self::once() )->method( 'purge' )->with();
 
 		$this->service->tick();
 	}

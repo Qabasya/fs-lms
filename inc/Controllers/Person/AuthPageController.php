@@ -74,14 +74,17 @@ class AuthPageController extends BaseController implements ServiceInterface {
 		}
 
 		$login       = $this->sanitizeGetText( 'fs_user' );
-		$lockSeconds = $this->loginGuard->lockSecondsFor( $login, $this->requestContext()->ip );
+		$ip          = $this->requestContext()->ip;
+		$permanent   = $this->loginGuard->isPermanentlyBlocked( $login, $ip );
+		$lockSeconds = $this->loginGuard->lockSecondsFor( $login, $ip );
 
 		ob_start();
 		$this->render(
 			'frontend/auth-page',
 			array(
-				'error_message' => $this->loginNoticeMessage( $login, $lockSeconds ),
+				'error_message' => $this->loginNoticeMessage( $login, $lockSeconds, $permanent ),
 				'lock_seconds'  => $lockSeconds,
+				'permanent_lock' => $permanent,
 				'prefill_login' => $login,
 				'consent_url'   => $this->consentUrl(),
 				'logo_url'      => $this->url( 'assets/img/logo.svg' ),
@@ -105,7 +108,10 @@ class AuthPageController extends BaseController implements ServiceInterface {
 	 *
 	 * @return string Пустая строка — уведомления нет.
 	 */
-	private function loginNoticeMessage( string $login, int $lockSeconds ): string {
+	private function loginNoticeMessage( string $login, int $lockSeconds, bool $permanent ): string {
+		if ( $permanent ) {
+			return LoginNotice::Blocked->message();
+		}
 		// Время блокировки показывает таймер под формой — плашка только называет причину.
 		if ( $lockSeconds > 0 ) {
 			return LoginNotice::Locked->messageWithTimer();
@@ -113,7 +119,7 @@ class AuthPageController extends BaseController implements ServiceInterface {
 
 		$notice = LoginNotice::tryFrom( $this->sanitizeGetKey( 'login' ) );
 
-		if ( null === $notice || ( LoginNotice::Locked === $notice && '' !== $login ) ) {
+		if ( null === $notice || LoginNotice::Blocked === $notice || ( LoginNotice::Locked === $notice && '' !== $login ) ) {
 			return '';
 		}
 

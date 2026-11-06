@@ -116,6 +116,7 @@ enum AjaxHook: string {
 	case ExportConsentChangeLog = 'export_consent_change_log';
 	case ExportEmailLog        = 'export_email_log';
 	case ExportAuthLog         = 'export_auth_log';
+	case UnlockLoginIp         = 'unlock_login_ip';
 
 	// ==================== Настройки: шаблоны писем ====================
 	case SaveEmailTemplate   = 'save_email_template';

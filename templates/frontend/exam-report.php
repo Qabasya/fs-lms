@@ -31,17 +31,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 ?>
 
 <main class="fs-lms-join-page fs-exam-result fs-exam-report" id="fs-exam-report" data-review="<?php echo null !== $review ? '1' : '0'; ?>">
-	<?php
-	if ( ! empty( $crumbs ) ) {
-		include __DIR__ . '/partials/breadcrumbs.php';
-	}
-	?>
-
 	<header class="fs-exam-result__head">
 		<h1 class="fs-exam-result__title">
-			<?php echo esc_html( $title ); ?>
+			<span><?php echo esc_html( $title ); ?></span>
+			<a class="prof-btn prof-btn-sm fs-exam-report__csv" href="<?php echo esc_url( add_query_arg( array( 'csv' => '1' ), $page_url ) ); ?>"><?php esc_html_e( 'Скачать отчёт', 'fs-lms' ); ?><?php echo \Inc\Enums\Ui\Icon::Download->svg( 18 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></a>
 		</h1>
-		<div class="fs-exam-report__meta-row"><p class="fs-exam-result__meta"><?php echo esc_html( $event ); ?></p><a class="prof-btn prof-btn-sm fs-exam-report__csv" href="<?php echo esc_url( add_query_arg( array( 'csv' => '1' ), $page_url ) ); ?>"><?php esc_html_e( 'Скачать отчёт', 'fs-lms' ); ?></a></div>
+		<p class="fs-exam-result__meta"><?php echo esc_html( $event ); ?></p>
 	</header>
 
 	<p class="fs-exam-result__meta fs-exam-report__hint"><?php esc_html_e( 'Нажмите на строку ученика, чтобы открыть его работу ниже.', 'fs-lms' ); ?></p>
@@ -57,6 +52,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 	$columns = $table['columns'] ?? array();
 	$rows    = $table['rows'] ?? array();
 	$footer  = $table['footer'] ?? array( 'average_primary' => '', 'average_secondary' => '', 'attempts' => array(), 'correct' => array(), 'attempts_share' => array(), 'correct_share' => array() );
+	$share_class = static function ( $value ): string {
+		if ( '' === (string) $value || ! is_numeric( $value ) ) {
+			return '';
+		}
+		return (float) $value >= 70 ? ' is-ok' : ( (float) $value >= 40 ? ' is-share' : ' is-zero' );
+	};
 	?>
 
 	<?php if ( array() === $rows ) : ?>
@@ -70,7 +71,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 						<?php foreach ( $columns as $number ) : ?>
 							<th class="fs-exam-report__task"><?php echo esc_html( $number ); ?></th>
 						<?php endforeach; ?>
-						<th class="fs-exam-report__sum"><?php esc_html_e( 'Балл', 'fs-lms' ); ?></th>
+						<th class="fs-exam-report__sum"><?php esc_html_e( 'Первичный', 'fs-lms' ); ?></th>
+						<th class="fs-exam-report__sum"><?php esc_html_e( 'Тестовый', 'fs-lms' ); ?></th>
 					</tr>
 				</thead>
 				<tbody>
@@ -87,7 +89,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 									<?php echo null !== $cell ? esc_html( (string) $cell['score'] ) : ''; ?>
 								</td>
 							<?php endforeach; ?>
-							<td class="fs-exam-report__sum"><?php if ( $row['open'] ) : ?><?php echo esc_html( (string) $row['primary'] . ' / ' . ( '' !== $row['secondary'] ? (string) $row['secondary'] : ( $row['grade'] ?? '' ?: '—' ) ) ); ?><?php endif; ?></td>
+							<td class="fs-exam-report__sum"><?php if ( $row['open'] ) : ?><?php echo esc_html( (string) $row['primary'] ); ?><?php endif; ?></td>
+							<td class="fs-exam-report__sum"><?php if ( $row['open'] ) : ?><?php echo esc_html( '' !== $row['secondary'] ? (string) $row['secondary'] : ( $row['grade'] ?? '' ?: '—' ) ); ?><?php endif; ?></td>
 						</tr>
 					<?php endforeach; ?>
 				</tbody>
@@ -97,35 +100,36 @@ if ( ! defined( 'ABSPATH' ) ) {
 						<?php foreach ( $columns as $number ) : ?>
 							<td class="fs-exam-report__cell"></td>
 						<?php endforeach; ?>
-						<td class="fs-exam-report__sum"><?php echo esc_html( ( '' !== $footer['average_primary'] ? $footer['average_primary'] : '—' ) . ' / ' . ( '' !== $footer['average_secondary'] ? $footer['average_secondary'] : '—' ) ); ?></td>
+						<td class="fs-exam-report__sum"><?php echo esc_html( '' !== $footer['average_primary'] ? $footer['average_primary'] : '—' ); ?></td>
+						<td class="fs-exam-report__sum"><?php echo esc_html( '' !== $footer['average_secondary'] ? $footer['average_secondary'] : '—' ); ?></td>
 					</tr>
 					<tr class="fs-exam-report__foot">
 						<th class="fs-exam-report__name" scope="row"><?php esc_html_e( 'Попытки', 'fs-lms' ); ?></th>
 						<?php foreach ( $footer['attempts'] as $value ) : ?>
 							<td class="fs-exam-report__cell"><?php echo esc_html( (string) $value ); ?></td>
 						<?php endforeach; ?>
-						<td class="fs-exam-report__sum"></td>
+						<td class="fs-exam-report__sum"></td><td class="fs-exam-report__sum"></td>
 					</tr>
 					<tr class="fs-exam-report__foot">
 						<th class="fs-exam-report__name" scope="row"><?php esc_html_e( 'Верные решения', 'fs-lms' ); ?></th>
 						<?php foreach ( $footer['correct'] as $value ) : ?>
 							<td class="fs-exam-report__cell"><?php echo esc_html( (string) $value ); ?></td>
 						<?php endforeach; ?>
-						<td class="fs-exam-report__sum"></td>
+						<td class="fs-exam-report__sum"></td><td class="fs-exam-report__sum"></td>
 					</tr>
 					<tr class="fs-exam-report__foot">
 						<th class="fs-exam-report__name" scope="row"><?php esc_html_e( '% попыток', 'fs-lms' ); ?></th>
 						<?php foreach ( $footer['attempts_share'] as $value ) : ?>
-							<td class="fs-exam-report__cell is-share"><?php echo esc_html( (string) $value ); ?></td>
+							<td class="fs-exam-report__cell<?php echo esc_attr( $share_class( $value ) ); ?>"><?php echo esc_html( (string) $value ); ?></td>
 						<?php endforeach; ?>
-						<td class="fs-exam-report__sum"></td>
+						<td class="fs-exam-report__sum"></td><td class="fs-exam-report__sum"></td>
 					</tr>
 					<tr class="fs-exam-report__foot">
 						<th class="fs-exam-report__name" scope="row"><?php esc_html_e( '% верных', 'fs-lms' ); ?></th>
 						<?php foreach ( $footer['correct_share'] as $value ) : ?>
-							<td class="fs-exam-report__cell is-share"><?php echo esc_html( (string) $value ); ?></td>
+							<td class="fs-exam-report__cell<?php echo esc_attr( $share_class( $value ) ); ?>"><?php echo esc_html( (string) $value ); ?></td>
 						<?php endforeach; ?>
-						<td class="fs-exam-report__sum"></td>
+						<td class="fs-exam-report__sum"></td><td class="fs-exam-report__sum"></td>
 					</tr>
 				</tfoot>
 			</table>

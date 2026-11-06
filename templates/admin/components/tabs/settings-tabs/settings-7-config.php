@@ -121,6 +121,10 @@ $consultation_url = (string) ( $config['consultation_url'] ?? '' );
 		</div>
 	</form>
 
+	<?php if ( isset( $load_ranking_settings_view ) ) : ?>
+		<?php require FS_LMS_PATH . 'templates/admin/components/tabs/settings-tabs/settings-ranking.php'; ?>
+	<?php endif; ?>
+
 	<!-- ======== Ключи шифрования ======== -->
 	<div class="fs-card fs-card--flat">
 		<div class="fs-card__header">

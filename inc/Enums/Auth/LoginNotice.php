@@ -22,6 +22,7 @@ enum LoginNotice: string {
 	case Last    = 'last';
 	case Locked  = 'locked';
 	case Captcha = 'captcha';
+	case Blocked = 'blocked';
 
 	/**
 	 * @param int $waitMinutes Минуты: для Locked — до конца блокировки (0 — неизвестно), для Last — на сколько
@@ -40,6 +41,7 @@ enum LoginNotice: string {
 				? sprintf( 'Слишком много неудачных попыток. Повторите вход через %s', self::duration( $waitMinutes ) )
 				: 'Слишком много неудачных попыток. Повторите вход позже.',
 			self::Captcha => 'Не удалось пройти проверку, попробуйте ещё раз.',
+			self::Blocked => 'Вход временно недоступен. Обратитесь к администратору.',
 		};
 	}
 

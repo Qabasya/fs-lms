@@ -14,6 +14,7 @@ class LearnerRankingSectionTest extends TestCase {
 
 	private function points(array $overrides = []): RankingPointsPolicy {
 		$config = $this->createStub(\Inc\Services\Shared\PluginConfig::class);
+		$config->method('isLearnerRankingVisible')->willReturn(true);
 		$config->method('rankingSettings')->willReturn(array_merge(['practice'=>0.0,'independent'=>1.0,'homework'=>1.0,'survey'=>1.0,'assessment'=>1.0,'attendance_bonus'=>0.0,'attendance_streak_length'=>3], $overrides));
 		return new RankingPointsPolicy($config);
 	}
@@ -176,6 +177,15 @@ class LearnerRankingSectionTest extends TestCase {
 		$result=$section->forGroups(1,[['subject_key'=>'python']],'2026-10-31');
 		self::assertSame(5.0,$result[0]['score']);
 		self::assertSame(1,$result[0]['rank']);
+	}
+
+	public function test_hidden_subject_has_no_dashboard_tile(): void {
+		$repo = $this->createMock(LearnerRankingRepository::class);
+		$repo->expects(self::never())->method('studentIds');
+		$config = $this->createStub(\Inc\Services\Shared\PluginConfig::class);
+		$config->method('isLearnerRankingVisible')->willReturn(false);
+		$section = new LearnerRankingSection(new \Inc\Services\Profile\RankingCalculationService($repo, new RankingPointsPolicy($config)));
+		self::assertSame([], $section->forGroups(1, [['subject_key'=>'math']], '2026-11-01 12:00:00'));
 	}
 
 }

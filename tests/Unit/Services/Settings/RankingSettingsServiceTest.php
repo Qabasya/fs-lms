@@ -58,4 +58,38 @@ class RankingSettingsServiceTest extends TestCase {
 		$repository->expects( self::once() )->method( 'save' )->with( array( 'ranking_practice' => 0.0, 'ranking_assessment' => 1000.0, 'ranking_attendance_streak_length' => 100 ) );
 		( new RankingSettingsService( $repository ) )->save( array( 'practice' => '0', 'assessment' => '1000.00', 'attendance_streak_length' => '100' ) );
 	}
+	public function test_visibility_lists_are_saved_and_can_be_cleared(): void {
+		$before = $GLOBALS['_test_options'] ?? array();
+		try {
+			$repository = new PluginConfigRepository();
+			$config = new PluginConfig( $repository );
+			$service = new RankingSettingsService( $repository );
+			self::assertTrue( $config->isLearnerRankingVisible( 'math' ) );
+			$service->save( array( 'hidden_subjects' => 'math,python', 'excluded_students' => '7,8,7' ) );
+			self::assertFalse( $config->isLearnerRankingVisible( 'math' ) );
+			self::assertTrue( $config->isLearnerRankingVisible( 'new_subject' ) );
+			self::assertSame( array( 7, 8 ), $config->rankingExcludedStudents() );
+			$service->save( array( 'hidden_subjects' => '', 'excluded_students' => '' ) );
+			self::assertTrue( $config->isLearnerRankingVisible( 'math' ) );
+			self::assertSame( array(), $config->rankingExcludedStudents() );
+		} finally {
+			$GLOBALS['_test_options'] = $before;
+		}
+	}
+
+	public function test_invalid_selection_is_rejected_before_saving_weights(): void {
+		$repository = $this->createMock( PluginConfigRepository::class );
+		$repository->expects( self::never() )->method( 'save' );
+		$this->expectException( \InvalidArgumentException::class );
+		( new RankingSettingsService( $repository ) )->save( array( 'practice' => '1', 'excluded_students' => '1,no' ) );
+	}
+
+	public function test_changing_ranking_policy_discards_old_snapshot(): void {
+		$repository = $this->createStub( PluginConfigRepository::class );
+		$repository->method( 'get' )->willReturn( array( 'ranking_excluded_students' => array() ) );
+		$snapshots = $this->createMock( \Inc\Repositories\OptionsRepositories\RankingSnapshotRepository::class );
+		$snapshots->expects( self::once() )->method( 'clear' );
+		( new RankingSettingsService( $repository, $snapshots ) )->save( array( 'excluded_students' => '9' ) );
+	}
+
 }

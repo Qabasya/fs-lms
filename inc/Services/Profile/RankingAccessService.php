@@ -13,6 +13,7 @@ use Inc\Enums\Access\Capability;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
+use Inc\Services\Shared\PluginConfig;
 
 /** Staff see subject-wide rankings only for directions they are permitted to teach or manage. */
 class RankingAccessService {
@@ -22,6 +23,7 @@ class RankingAccessService {
 		private readonly GroupsRepository $groups,
 		private readonly SubjectRepository $subjects,
 		private readonly StudentRecordRepository $records,
+		private readonly PluginConfig $config,
 	) {}
 
 	/** Capability actually authorizing this request; parent/learner roles never qualify. */
@@ -62,11 +64,13 @@ class RankingAccessService {
 		$records  = $this->records->findActiveByStudent( $personId, false );
 		$groupIds = array_map( static fn( $record ): int => $record->groupId, $records );
 		foreach ( $this->groups->findByIds( $groupIds ) as $group ) {
-			$owned[ (string) $group->subject_key ] = true;
+			if ( empty( $group->is_shared ) && empty( $group->self_paced_course_id ) && 'open' !== ( $group->access_mode ?? 'scheduled' ) ) {
+				$owned[ (string) $group->subject_key ] = true;
+			}
 		}
 		$result = array();
 		foreach ( $this->subjects->readActive() as $subject ) {
-			if ( isset( $owned[ $subject->key ] ) ) {
+			if ( isset( $owned[ $subject->key ] ) && $this->config->isLearnerRankingVisible( $subject->key ) ) {
 				$result[] = array(
 					'key'  => (string) $subject->key,
 					'name' => (string) $subject->name,

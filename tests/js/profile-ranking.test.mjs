@@ -58,8 +58,26 @@ test('таблица: классы журнала; место и ученик �
     assert.match(html, /cn-name">Белов Иван<\/span><\/div><\/td>/);
     assert.match(html, /<td class="cell-c">МЕГЕ-1, МЕГЕ-2<\/td>/);
     assert.match(html, /<td class="cell-c">89,5<\/td>/);
-    assert.match(html, /<td class="cell-rank">2<\/td>/);
+    assert.match(html, /<span class="ranking-rank-value">2<\/span><span class="ranking-trend-slot" aria-hidden="true"><\/span>/);
     assert.doesNotMatch(html, /<caption/, 'подпись периода над таблицей убрана — период виден в селекте');
+});
+
+test('динамика места: неизменный контейнер и доступные стрелки без даты снимка', () => {
+    const row = { person_id: 1, rank: 2, name: 'Ученик', groups: [], score: 20 };
+    const html = rankingTableHtml({ rows: [
+        { ...row, trend: { direction: 'up', baseline_at: '2026-11-06 00:00:00' } },
+        { ...row, trend: { direction: 'down', baseline_at: '2026-11-06 00:00:00' } },
+        { ...row, trend: null },
+        row,
+        { ...row, trend: { direction: 'same', baseline_at: '2026-11-06 00:00:00' } },
+    ] });
+    assert.equal((html.match(/class="ranking-trend-slot"/g) || []).length, 5);
+    assert.match(html, /ranking-trend--up" tabindex="0" role="img" aria-label="Место поднялось" title="Место поднялось"/);
+    assert.match(html, /ranking-trend--down" tabindex="0" role="img" aria-label="Место опустилось" title="Место опустилось"/);
+    assert.doesNotMatch(html, /2026-11-06|06\.11\.2026/);
+    assert.equal((html.match(/aria-hidden="true"/g) || []).length, 3);
+    const escaped = rankingTableHtml({ rows: [{ ...row, trend: { direction: 'up', baseline_at: '" onmouseover="bad' } }] });
+    assert.doesNotMatch(escaped, /title="[^"]*" onmouseover=/);
 });
 
 test('имя ученика — кнопка-ссылка в «Сводку», как в журнале; без обработчика — просто текст', () => {

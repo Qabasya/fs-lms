@@ -202,6 +202,7 @@ final class Init {
 			WorkController::class,           // AJAX конструктора работы
 			CourseController::class,             // AJAX конструктора курса
 			\Inc\Cli\WorkPointsRecalculateCommand::class,
+			\Inc\Cli\LoginSecurityCommand::class,
 			CourseBuilderController::class,      // Stepik-конструктор курса (страница + AJAX)
 			CourseMetaBoxController::class,      // Метабоксы страницы редактирования курса
 			AssessmentMetaBoxController::class,  // Метабокс контрольной / экзамена

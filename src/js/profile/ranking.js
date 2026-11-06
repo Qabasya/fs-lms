@@ -2,6 +2,16 @@ import { createApi } from './api.js';
 import { esc, profileUrl } from './utils.js';
 import { subjectPickerBtnHtml, openSubjectPicker, groupPickerBtnHtml, openGroupPicker, optionPickerBtnHtml, openOptionPicker } from './picker.js';
 import { readNav, saveNav } from './nav-state.js';
+import { icoArrowUp, icoArrowDown } from '../common/icons.js';
+
+function rankTrendHtml(trend) {
+    if (!trend || !['up', 'down'].includes(trend.direction)) {
+        return '<span class="ranking-trend-slot" aria-hidden="true"></span>';
+    }
+    const label = trend.direction === 'up' ? 'Место поднялось' : 'Место опустилось';
+    const icon = trend.direction === 'up' ? icoArrowUp(16) : icoArrowDown(16);
+    return `<span class="ranking-trend-slot"><span class="ranking-trend ranking-trend--${trend.direction}" tabindex="0" role="img" aria-label="${esc(label)}" title="${esc(label)}">${icon}</span></span>`;
+}
 
 /**
  * Панель выбора периода, направления и группы — тот же вид, что на экране «Сводка по ученику».
@@ -43,7 +53,7 @@ export function rankingTableHtml(data, canOpenSummary = false, learner = false) 
             <td class="cell-name">${nameCell(row)}</td>
             <td class="cell-c">${esc((row.groups || []).map(group => group.name).join(', '))}</td>
             <td class="cell-c">${Number(row.score).toLocaleString('ru-RU', { maximumFractionDigits: 2 })}</td>
-            <td class="cell-rank">${esc(String(row.rank))}</td>
+            <td class="cell-rank"><span class="ranking-rank"><span class="ranking-rank-value">${esc(String(row.rank))}</span>${rankTrendHtml(row.trend)}</span></td>
         </tr>`).join('') : '<tr><td class="cell-empty" colspan="4">Нет активных учеников в выбранной группе.</td></tr>'}</tbody>
     </table></div></div>`;
 }

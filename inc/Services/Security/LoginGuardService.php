@@ -38,18 +38,21 @@ use WP_User;
  * ### Что не считается неудачей:
  *
  * - отказ по блокировке — иначе каждая попытка продлевала бы окно;
- * - непройденная капча — иначе бот без капчи мог бы закрыть вход живому человеку.
+ * - непройденная капча не увеличивает счётчик учётной записи; она учитывается в
+ *   отдельном постоянном IP-лимите, чтобы бот не мог заблокировать чужой аккаунт.
  */
 readonly class LoginGuardService {
 
 	public const CODE_LOCKED  = 'fs_lms_login_locked';
 	public const CODE_CAPTCHA = 'fs_lms_login_captcha';
+	public const CODE_PERMANENT = 'fs_lms_login_blocked';
 
 	public function __construct(
 		private RateLimitService $rateLimit,
 		private CaptchaService   $captcha,
 		private UserManager      $users,
 		private PluginConfig     $pluginConfig,
+		private LoginBlockService $blocks,
 	) {}
 
 	/**
@@ -65,11 +68,18 @@ readonly class LoginGuardService {
 	 * @return WP_User|WP_Error|null
 	 */
 	public function guard( mixed $user, string $login, string $captchaToken, string $ip, bool $fromLoginForm, ?CaptchaFailure $captchaFailure = null ): mixed {
+		if ( ! $this->pluginConfig->isTrustedIp( $ip ) && $this->blocks->ipBlocked( $ip ) ) {
+			return new WP_Error( self::CODE_PERMANENT, 'Вход временно недоступен. Обратитесь к администратору.' );
+		}
 		if ( '' === trim( $login ) ) {
 			return $user;
 		}
 
 		$userKey = $this->userKey( $login );
+		$userId = str_starts_with( $userKey, 'id:' ) ? (int) substr( $userKey, 3 ) : 0;
+		if ( ! $this->pluginConfig->isTrustedIp( $ip ) && $this->blocks->userBlocked( $userId ) ) {
+			return new WP_Error( self::CODE_PERMANENT, 'Вход временно недоступен. Обратитесь к администратору.' );
+		}
 
 		if ( ! $this->pluginConfig->isTrustedIp( $ip ) && $this->rateLimit->isLoginLocked( $ip, $userKey ) ) {
 			$wait = $this->rateLimit->loginRetryAfter( $ip, $userKey );
@@ -97,11 +107,21 @@ readonly class LoginGuardService {
 	 * @return void
 	 */
 	public function onFailure( string $login, ?WP_Error $error, string $ip ): void {
-		if ( '' === trim( $login ) || $this->isGuardRejection( $error ) || $this->pluginConfig->isTrustedIp( $ip ) ) {
+		if ( $this->pluginConfig->isTrustedIp( $ip ) ) {
+			return;
+		}
+		$this->blocks->recordIpFailure( $ip );
+		if ( '' === trim( $login ) || $this->isGuardRejection( $error ) ) {
 			return;
 		}
 
-		$this->rateLimit->registerLoginFailure( $ip, $this->userKey( $login ) );
+		$key = $this->userKey( $login );
+		// Ошибки других провайдеров (например, второго фактора) не являются
+		// доказательством неправильного пароля и не должны закрывать аккаунт.
+		if ( str_starts_with( $key, 'id:' ) && null !== $error && in_array( $error->get_error_code(), array( 'incorrect_password', 'empty_password' ), true ) ) {
+			$this->blocks->recordUserFailure( (int) substr( $key, 3 ) );
+		}
+		$this->rateLimit->registerLoginFailure( $ip, $key );
 	}
 
 	/**
@@ -113,6 +133,7 @@ readonly class LoginGuardService {
 	 * @return void
 	 */
 	public function onSuccess( WP_User $user, string $ip ): void {
+		$this->blocks->clearUserFailures( $user->ID );
 		$this->rateLimit->clearLoginFailures( $ip, $this->userIdKey( $user->ID ) );
 	}
 
@@ -128,6 +149,16 @@ readonly class LoginGuardService {
 	 * @return LoginNoticeDTO
 	 */
 	public function noticeFor( string $login, ?WP_Error $error, string $ip ): LoginNoticeDTO {
+		if ( null !== $error && self::CODE_PERMANENT === $error->get_error_code() ) {
+			return new LoginNoticeDTO( LoginNotice::Blocked );
+		}
+		if ( ! $this->pluginConfig->isTrustedIp( $ip ) ) {
+			$key = '' !== trim( $login ) ? $this->userKey( $login ) : '';
+			$userId = str_starts_with( $key, 'id:' ) ? (int) substr( $key, 3 ) : 0;
+			if ( $this->blocks->ipBlocked( $ip ) || $this->blocks->userBlocked( $userId ) ) {
+				return new LoginNoticeDTO( LoginNotice::Blocked );
+			}
+		}
 		if ( null !== $error && self::CODE_CAPTCHA === $error->get_error_code() ) {
 			return new LoginNoticeDTO( LoginNotice::Captcha );
 		}
@@ -149,7 +180,8 @@ readonly class LoginGuardService {
 	/**
 	 * Сколько секунд осталось блокировке входа для логина с этого адреса (для таймера и отключённой формы).
 	 *
-	 * Доверенный адрес и пустой логин не блокируются.
+	 * Доверенный адрес и пустой логин не блокируются. Для постоянной блокировки
+	 * возвращается 0: она не имеет срока окончания и отображается без таймера.
 	 *
 	 * @param string $login Введённый логин или email
 	 * @param string $ip    IP клиента
@@ -161,7 +193,27 @@ readonly class LoginGuardService {
 			return 0;
 		}
 
-		return $this->rateLimit->loginRetrySeconds( $ip, $this->userKey( $login ) );
+		$key = $this->userKey( $login );
+		$userId = str_starts_with( $key, 'id:' ) ? (int) substr( $key, 3 ) : 0;
+		if ( $this->blocks->ipBlocked( $ip ) || $this->blocks->userBlocked( $userId ) ) {
+			return 0; // У постоянной блокировки нет таймера окончания.
+		}
+		return $this->rateLimit->loginRetrySeconds( $ip, $key );
+	}
+
+	/** Постоянная блокировка IP или известной учётной записи для текущего посетителя. */
+	public function isPermanentlyBlocked( string $login, string $ip ): bool {
+		if ( $this->pluginConfig->isTrustedIp( $ip ) ) {
+			return false;
+		}
+		if ( $this->blocks->ipBlocked( $ip ) ) {
+			return true;
+		}
+		if ( '' === trim( $login ) ) {
+			return false;
+		}
+		$key = $this->userKey( $login );
+		return str_starts_with( $key, 'id:' ) && $this->blocks->userBlocked( (int) substr( $key, 3 ) );
 	}
 
 	/**
@@ -172,6 +224,7 @@ readonly class LoginGuardService {
 	 * @return void
 	 */
 	public function unlockUser( int $userId ): void {
+		$this->blocks->unblockUser( $userId );
 		$this->rateLimit->resetLoginLock( $this->userIdKey( $userId ) );
 	}
 
@@ -208,6 +261,6 @@ readonly class LoginGuardService {
 
 	private function isGuardRejection( ?WP_Error $error ): bool {
 		return null !== $error
-			&& in_array( $error->get_error_code(), array( self::CODE_LOCKED, self::CODE_CAPTCHA ), true );
+			&& in_array( $error->get_error_code(), array( self::CODE_LOCKED, self::CODE_CAPTCHA, self::CODE_PERMANENT ), true );
 	}
 }

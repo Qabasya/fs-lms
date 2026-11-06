@@ -423,6 +423,16 @@ class ExamReportPageTest extends TestCase {
 		self::assertStringNotContainsString( 'Лучше всего решили', $html );
 	}
 
+	public function test_report_percentage_colours_use_statistics_thresholds(): void {
+		$data = $this->pageData();
+		$data['table']['footer']['attempts_share'] = array( '39', '40', '69', '70', '' );
+		$html = $this->renderTemplate( $data );
+		self::assertStringContainsString( 'class="fs-exam-report__cell is-zero">39</td>', $html );
+		self::assertStringContainsString( 'class="fs-exam-report__cell is-share">40</td>', $html );
+		self::assertStringContainsString( 'class="fs-exam-report__cell is-share">69</td>', $html );
+		self::assertStringContainsString( 'class="fs-exam-report__cell is-ok">70</td>', $html );
+	}
+
 	public function test_report_data_never_contains_encrypted_contacts(): void {
 		$participant = ExamParticipantDTO::fromArray( array(
 			'id' => 9, 'phone_enc' => 'secret-phone', 'messenger_enc' => 'secret-messenger',

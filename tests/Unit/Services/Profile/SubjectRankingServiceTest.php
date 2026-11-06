@@ -33,7 +33,9 @@ class SubjectRankingServiceTest extends TestCase {
 		$records=$this->createStub(StudentRecordRepository::class);
 		// Ученик personId=5 состоит в одной активной группе — её предмет и есть его единственное направление.
 		$records->method('findActiveByStudent')->willReturn([(object)['groupId'=>11]]);
-		return new RankingAccessService($groups,$subjects,$records);
+		$config=$this->createStub(PluginConfig::class);
+		$config->method('isLearnerRankingVisible')->willReturn(true);
+		return new RankingAccessService($groups,$subjects,$records,$config);
 	}
 
 	private function service(string $now='2026-10-31 12:00:00'): SubjectRankingService {
@@ -54,7 +56,7 @@ class SubjectRankingServiceTest extends TestCase {
 		$ranking=new RankingCalculationService($repo,new RankingPointsPolicy($config));
 		$clock=$this->createStub(ClockInterface::class);
 		$clock->method('now')->willReturn($now);
-		return new SubjectRankingService($this->access(),$repo,$ranking,$clock);
+		return new SubjectRankingService($this->access(),$repo,$ranking,$clock,$this->createStub(\Inc\Services\Profile\RankingSnapshotService::class));
 	}
 
 	public function test_teacher_sees_only_directions_with_own_groups(): void {
@@ -104,7 +106,7 @@ class SubjectRankingServiceTest extends TestCase {
 		$config->method('rankingSettings')->willReturn(['homework'=>1.0,'attendance_bonus'=>0.0]);
 		$clock=$this->createStub(ClockInterface::class);
 		$clock->method('now')->willReturn('2026-10-31 12:00:00');
-		$service=new SubjectRankingService($this->access(),$repo,new RankingCalculationService($repo,new RankingPointsPolicy($config)),$clock);
+		$service=new SubjectRankingService($this->access(),$repo,new RankingCalculationService($repo,new RankingPointsPolicy($config)),$clock,$this->createStub(\Inc\Services\Profile\RankingSnapshotService::class));
 
 		$all=$service->build(7,'inf_ege');
 		self::assertSame([1,2,3],array_column($all['rows'],'rank'),'все группы — общие места направления (эталон)');
@@ -193,13 +195,14 @@ class SubjectRankingServiceTest extends TestCase {
 			'group_id' => 1 === $id ? 1 : 2, 'group_name' => 'Group',
 		], [1, 2, 3]));
 		$config = $this->createMock(PluginConfig::class);
+		$config->method('isLearnerRankingVisible')->willReturn(true);
 		$config->expects(self::exactly(3))->method('rankingSettings')->willReturn([
 			'practice' => 0.1, 'homework' => 0.2, 'survey' => 0.3, 'attendance_bonus' => 0.0,
 		]);
 		$ranking = new RankingCalculationService($repo, new RankingPointsPolicy($config));
 		$clock = $this->createStub(ClockInterface::class);
 		$clock->method('now')->willReturn('2026-11-01 12:00:00');
-		$service = new SubjectRankingService($this->access(), $repo, $ranking, $clock);
+		$service = new SubjectRankingService($this->access(), $repo, $ranking, $clock, $this->createStub(\Inc\Services\Profile\RankingSnapshotService::class));
 		$tile = (new \Inc\Services\Profile\Learner\LearnerRankingSection($ranking))->forGroups(2, [['subject_key' => 'inf_ege']], '2026-11-01 12:00:00')[0];
 		$all = $service->build(7, 'inf_ege');
 		$student = array_column($all['rows'], null, 'person_id')[2];
@@ -210,4 +213,56 @@ class SubjectRankingServiceTest extends TestCase {
 		self::assertSame([2, 3], array_column($group['rows'], 'person_id'));
 		self::assertSame([1, 2], array_column($group['rows'], 'rank'));
 	}
+	public function test_individual_group_name_is_hidden_but_student_remains_ranked(): void {
+		$GLOBALS['_test_user_can'][7] = [Capability::ManageLmsPlatform->value => true];
+		$repo = $this->createStub(LearnerRankingRepository::class);
+		$repo->method('studentIds')->willReturn([1, 2]);
+		$repo->method('roster')->willReturn([
+			['student_person_id'=>1,'snapshot_last_name'=>'Один','snapshot_first_name'=>'','group_id'=>10,'group_name'=>'Личная','access_mode'=>'individual'],
+			['student_person_id'=>2,'snapshot_last_name'=>'Два','snapshot_first_name'=>'','group_id'=>11,'group_name'=>'Обычная','access_mode'=>'scheduled'],
+		]);
+		$config = $this->createStub(PluginConfig::class);
+		$config->method('rankingSettings')->willReturn(['attendance_bonus'=>0]);
+		$clock = $this->createStub(ClockInterface::class);
+		$clock->method('now')->willReturn('2026-11-01 12:00:00');
+		$service = new SubjectRankingService($this->access(), $repo, new RankingCalculationService($repo, new RankingPointsPolicy($config)), $clock, $this->createStub(\Inc\Services\Profile\RankingSnapshotService::class));
+		$data = $service->build(7, 'inf_ege');
+		self::assertSame([], array_column($data['rows'], null, 'person_id')[1]['groups']);
+		self::assertSame([11], array_column($data['groups'], 'id'));
+	}
+
+	public function test_excluded_student_does_not_take_a_place(): void {
+		$repo = $this->createStub(LearnerRankingRepository::class);
+		$repo->method('studentIds')->willReturn([1, 2]);
+		$repo->method('workEvents')->willReturn([
+			['student_person_id'=>1, 'source'=>'homework', 'task_points'=>10],
+			['student_person_id'=>2, 'source'=>'homework', 'task_points'=>1],
+		]);
+		$config = $this->createStub(PluginConfig::class);
+		$config->method('rankingSettings')->willReturn(['homework'=>1, 'attendance_bonus'=>0]);
+		$config->method('rankingExcludedStudents')->willReturn([1]);
+		$scores = (new RankingCalculationService($repo, new RankingPointsPolicy($config)))->scoresForSubject('inf_ege', '2026-11-01 12:00:00');
+		self::assertSame([2], array_keys($scores));
+		self::assertSame(1, $scores[2]['rank']);
+	}
+
+	public function test_hidden_subject_cannot_be_opened_by_learner_but_staff_access_is_unchanged(): void {
+		$groups = $this->createStub(GroupsRepository::class);
+		$groups->method('findByIds')->willReturn([(object)['subject_key'=>'inf_ege']]);
+		$subjects = $this->createStub(SubjectRepository::class);
+		$subjects->method('readActive')->willReturn([(object)['key'=>'inf_ege','name'=>'Информатика']]);
+		$records = $this->createStub(StudentRecordRepository::class);
+		$records->method('findActiveByStudent')->willReturn([(object)['groupId'=>11]]);
+		$config = $this->createStub(PluginConfig::class);
+		$config->method('isLearnerRankingVisible')->willReturn(false);
+		$access = new RankingAccessService($groups, $subjects, $records, $config);
+		$GLOBALS['_test_user_can'][7] = [Capability::ManageLmsPlatform->value=>true];
+		self::assertSame([], $access->learnerSubjectsFor(5));
+		self::assertSame(['inf_ege'], array_column($access->subjectsFor(7), 'key'));
+		$repo = $this->createStub(LearnerRankingRepository::class);
+		$service = new SubjectRankingService($access, $repo, new RankingCalculationService($repo, new RankingPointsPolicy($config)), $this->createStub(ClockInterface::class), $this->createStub(\Inc\Services\Profile\RankingSnapshotService::class));
+		$this->expectException(\DomainException::class);
+		$service->buildForLearner(5, 'inf_ege');
+	}
+
 }

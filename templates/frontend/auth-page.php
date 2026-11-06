@@ -4,14 +4,15 @@
  *
  * @package FS LMS
  * @var string $error_message Уведомление после неудачного входа; '' — не показываем
- * @var int    $lock_seconds  Секунды до конца блокировки входа для логина из адреса; 0 — вход открыт
+ * @var int    $lock_seconds  Секунды до конца временной блокировки; 0 — таймера нет
+ * @var bool   $permanent_lock Блокировка действует до снятия администратором
  * @var string $prefill_login Логин из неудачной попытки
  * @var string $consent_url   URL согласия на обработку ПДн; '' — сноску не показываем
  * @var string $logo_url      URL логотипа центра
  * @var string $home_url      URL главной сайта (логотип ведёт на неё)
  * @var string $apply_url     URL страницы подачи заявки на обучение
  */
-$locked = $lock_seconds > 0;
+$locked = $permanent_lock || $lock_seconds > 0;
 ?>
 <div class="fs-auth-brand">
 	<a class="fs-auth-brand__home" href="<?php echo esc_url( $home_url ); ?>">
@@ -75,7 +76,7 @@ $locked = $lock_seconds > 0;
 	</form>
 
 	<?php // Блокировка входа: поля отключены, пока идёт пауза. Таймер и скрытие блока по её концу — login-form.js. Контактов нет намеренно: ученики их знают, а боты не должны получить. ?>
-	<?php if ( $locked ) : ?>
+	<?php if ( $lock_seconds > 0 && ! $permanent_lock ) : ?>
 		<div class="fs-auth-card__lock" data-login-lock="<?php echo (int) $lock_seconds; ?>" role="status" aria-live="polite">
 			<p class="fs-auth-card__lock-timer">Вход откроется через <span data-login-lock-timer></span></p>
 			<p class="fs-auth-card__lock-note"><span class="fs-auth-card__lock-line">Для разблокировки подождите заданное время</span> <span class="fs-auth-card__lock-line">или свяжитесь с администратором</span></p>

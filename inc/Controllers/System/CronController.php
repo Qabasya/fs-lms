@@ -15,6 +15,7 @@ use Inc\Services\Exam\ExamTickLock;
 use Inc\Services\Exam\ExamTickService;
 use Inc\Services\Profile\AdminAlertCronService;
 use Inc\Services\Profile\NotificationCronService;
+use Inc\Services\Profile\RankingSnapshotService;
 
 /**
  * Class CronController
@@ -55,6 +56,7 @@ class CronController extends BaseController implements ServiceInterface {
 		private readonly ExamTickService             $examTicks,
 		private readonly AttendanceService           $attendance,
 		private readonly ClockInterface              $clock,
+		private readonly RankingSnapshotService     $rankingSnapshot,
 	) {
 		parent::__construct();
 	}
@@ -72,6 +74,8 @@ class CronController extends BaseController implements ServiceInterface {
 
 		add_action( CronHook::NotificationsTick->value, array( $this, 'handleNotificationsTick' ) );
 		$this->cron_manager->schedule( CronHook::NotificationsTick->value, 'every_15_minutes' );
+		add_action( CronHook::RankingSnapshotTick->value, array( $this, 'handleRankingSnapshotTick' ) );
+		$this->cron_manager->schedule( CronHook::RankingSnapshotTick->value, 'every_15_minutes' );
 
 		// Экзамены: минутный тик (автоистечение попыток + неявки). Расписание NotificationsTick не меняется (README §8, п. 2).
 		add_action( CronHook::ExamAutoExpireTick->value, array( $this, 'handleExamAutoExpireTick' ) );
@@ -87,6 +91,10 @@ class CronController extends BaseController implements ServiceInterface {
 
 	public function handleExpireAttempts(): void {
 		$this->attemptRepo->expireOverdue();
+	}
+
+	public function handleRankingSnapshotTick(): void {
+		$this->examTickLock->run( 'ranking_snapshot', fn() => $this->rankingSnapshot->capture() );
 	}
 
 	/** Только делегирование: тело — {@see ExamTickService}, защита от параллельного запуска — {@see ExamTickLock}. */

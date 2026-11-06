@@ -73,6 +73,21 @@ class ExamReportCsvExportTest extends TestCase {
 		self::assertStringContainsString( "'=HYPERLINK", $export->build( $table ) );
 	}
 
+	public function test_name_with_backslash_quote_and_delimiter_roundtrips_as_one_field(): void {
+		$table = $this->table();
+		$name = "Иванов \\\"; Пётр";
+		$table['rows'][0]['name'] = $name;
+		$export = new ExamReportCsvExport( new \Inc\Services\Export\CsvExportService( $this->createStub( \Inc\Services\Export\OneTimeDownloadService::class ) ) );
+		$stream = fopen( 'php://temp', 'r+' );
+		fwrite( $stream, substr( $export->build( $table ), 3 ) );
+		rewind( $stream );
+		fgetcsv( $stream, 0, ';', '"', '' );
+		$row = fgetcsv( $stream, 0, ';', '"', '' );
+		fclose( $stream );
+
+		self::assertSame( array( $name, '1', '0', '', '1', '62' ), $row );
+	}
+
 	public function test_footer_has_average_and_task_summary(): void {
 		$lines = $this->lines();
 

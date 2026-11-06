@@ -18,6 +18,7 @@ use Inc\Callbacks\Settings\RolesSettingsCallbacks;
 use Inc\Enums\Access\Capability;
 use Inc\Enums\Wp\AjaxHook;
 use Inc\Services\Profile\HomeLayoutStatisticsService;
+use Inc\Services\Settings\RankingSettingsViewService;
 
 /**
  * Class SettingsController
@@ -59,6 +60,7 @@ class SettingsController extends AjaxController {
 		private readonly AcademicPeriodCallbacks $academicPeriodCallbacks,
 		private readonly RolesSettingsCallbacks $rolesCallbacks,
 		private readonly HomeLayoutStatisticsService $homeLayoutStatistics,
+		private readonly RankingSettingsViewService $rankingSettingsView,
 	) {
 		parent::__construct();
 	}
@@ -82,6 +84,7 @@ class SettingsController extends AjaxController {
 					);
 				}
 				if ( current_user_can( Capability::ManageLmsPlatform->value ) ) {
+					$tabs['tab-7']['data']['load_ranking_settings_view'] = $this->rankingSettingsView->build( ... );
 					$tabs['tab-home-layout'] = array(
 						'title' => 'Кастомизация',
 						'file'  => '/components/tabs/settings-tabs/settings-home-layout.php',

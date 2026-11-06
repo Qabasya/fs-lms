@@ -21,7 +21,7 @@ class LearnerRankingSection {
 		$items = array();
 		foreach ( $groups as $group ) {
 			$key = (string) ( $group['subject_key'] ?? '' );
-			if ( '' === $key || isset( $items[ $key ] ) ) {
+			if ( '' === $key || isset( $items[ $key ] ) || ! $this->ranking->visibleToLearners( $key ) ) {
 				continue;
 			}
 			$scores = $this->ranking->scoresForSubject( $key, $nowLocal );

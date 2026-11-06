@@ -34,6 +34,8 @@ readonly class PluginConfigRepository {
 		'ranking_assessment'               => 1.0,
 		'ranking_attendance_bonus'         => 0.0,
 		'ranking_attendance_streak_length' => 3,
+		'ranking_hidden_subjects'           => array(),
+		'ranking_excluded_students'          => array(),
 		'center_phone'             => '',
 		'center_email'             => '',
 		'center_hours'             => '',

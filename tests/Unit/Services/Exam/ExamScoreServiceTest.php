@@ -202,9 +202,13 @@ class ExamScoreServiceTest extends TestCase {
 		$this->assessments->method( 'get' )->willReturn( $this->assessment( AssessmentKind::EgeComputer, array( 101 => '14', 102 => '14' ) ) );
 
 		$none = $this->service->units( $this->attempt( 0.0, 2.0 ), array( $this->member( 101, 'incorrect' ), $this->member( 102, 'unanswered' ) ) );
+		$reversed = $this->service->units( $this->attempt( 0.0, 2.0 ), array( $this->member( 101, 'unanswered' ), $this->member( 102, 'incorrect' ) ) );
+		$empty = $this->service->units( $this->attempt( 0.0, 2.0 ), array( $this->member( 101, 'unanswered' ), $this->member( 102, 'unanswered' ) ) );
 		$all  = $this->service->units( $this->attempt( 2.0, 2.0 ), array( $this->member( 101, 'correct' ), $this->member( 102, 'correct' ) ) );
 
 		self::assertSame( 'incorrect', $none[0]['status'] );
+		self::assertSame( 'incorrect', $reversed[0]['status'], 'Неверный ответ учитывается независимо от порядка частей.' );
+		self::assertSame( 'unanswered', $empty[0]['status'] );
 		self::assertSame( 'correct', $all[0]['status'] );
 	}
 

@@ -95,6 +95,7 @@ readonly class LoginDiagnosticsService {
 		return match ( $code ) {
 			LoginGuardService::CODE_CAPTCHA => $this->captchaReason( $attempt ),
 			LoginGuardService::CODE_LOCKED  => LoginFailReason::Locked,
+			LoginGuardService::CODE_PERMANENT => LoginFailReason::Locked,
 			'invalid_username', 'invalid_email' => $this->hasCyrillic( $rawLogin )
 				&& null !== $this->findUser( $this->toLatinLayout( $rawLogin ) )[0]
 				? LoginFailReason::LoginLayout

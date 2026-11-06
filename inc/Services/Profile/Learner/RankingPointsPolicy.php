@@ -20,6 +20,14 @@ class RankingPointsPolicy {
 		return $this->config->rankingSettings();
 	}
 
+	public function excludedStudents(): array {
+		return $this->config->rankingExcludedStudents();
+	}
+
+	public function visibleToLearners( string $subject ): bool {
+		return $this->config->isLearnerRankingVisible( $subject );
+	}
+
 	/** Weight of one fully solved task, configured independently of exam grades. */
 	public function forSolvedTask( string $source ): float {
 		return (float) ( $this->config->rankingSettings()[ $source ] ?? 0.0 );

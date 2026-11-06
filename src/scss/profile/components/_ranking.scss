@@ -26,6 +26,15 @@
 .ranking-table .cell-empty { padding: t.$spacing-md; text-align: center; color: var(--muted); }
 .ranking-table .cell-rank { font-size: t.$font-size-xs; color: var(--muted-2); text-align: center; }
 
+/* Фиксированные области удерживают разряды и стрелку на одном месте во всех строках. */
+.ranking-rank { display: inline-grid; grid-template-columns: 4ch 20px; align-items: center; }
+.ranking-rank-value { text-align: right; font-variant-numeric: tabular-nums; }
+.ranking-trend-slot { display: flex; align-items: center; justify-content: flex-start; width: 20px; }
+.ranking-trend { display: inline-flex; margin-left: 2px; }
+.ranking-trend--up { color: var(--ok); }
+.ranking-trend--down { color: var(--err); }
+.ranking-trend:focus-visible { outline: 2px solid currentcolor; outline-offset: 2px; }
+
 /* В ученическом рейтинге подсвечена только собственная строка, а не строка под курсором. */
 .jgrid.ranking-table--learner tbody tr:hover td { background: transparent; }
 

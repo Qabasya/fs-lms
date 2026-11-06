@@ -3,6 +3,7 @@
 declare( strict_types=1 );
 
 use Inc\DTO\Log\AuthLogDTO;
+use Inc\Enums\Access\Capability;
 use Inc\Enums\Auth\AuthAction;
 use Inc\Enums\Auth\AuthResult;
 use Inc\Enums\Auth\LoginFailReason;
@@ -85,6 +86,15 @@ $sort_url    = add_query_arg( $auth_filters, $base_url );
 			<span class="dashicons dashicons-download"></span>
 			Экспорт CSV
 		</button>
+		<?php if ( current_user_can( Capability::Admin->value ) ) : ?>
+			<div class="fs-logs__unlock-ip js-unlock-login-ip">
+				<label for="fs-unlock-login-ip">Снять блокировку IP:</label>
+				<input id="fs-unlock-login-ip" type="text" placeholder="IPv4 или IPv6" autocomplete="off">
+				<button type="button" class="button js-unlock-login-ip-button">Разблокировать</button>
+				<span class="js-unlock-login-ip-status" role="status"></span>
+				<p class="description">Блокировка учётной записи снимается отдельно в карточке пользователя.</p>
+			</div>
+		<?php endif; ?>
 	</form>
 
 	<p class="fs-logs-summary">Найдено записей: <strong><?php echo number_format_i18n( $auth_total ); ?></strong></p>

@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Enums\Wp;
 
 enum CronHook: string {
+	case RankingSnapshotTick = 'fs_lms_ranking_snapshot_tick';
 	/** Истечение заявок, не дождавшихся родителя (pending_parent с истёкшим expires_at) */
 	case ExpireApplications = 'fs_lms_expire_applications';
 

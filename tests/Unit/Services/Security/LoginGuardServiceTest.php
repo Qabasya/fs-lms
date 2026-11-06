@@ -7,8 +7,11 @@ namespace Unit\Services\Security;
 use Inc\Enums\Auth\CaptchaOutcome;
 use Inc\Enums\Auth\LoginNotice;
 use Inc\Managers\Person\UserManager;
+use Inc\Repositories\OptionsRepositories\LoginBlockRepository;
+use Inc\Repositories\WPDBRepositories\ExamLockRepository;
 use Inc\Services\Captcha\CaptchaService;
 use Inc\Services\Security\LoginGuardService;
+use Inc\Services\Security\LoginBlockService;
 use Inc\Services\Security\RateLimitService;
 use Inc\Services\Shared\PluginConfig;
 use PHPUnit\Framework\TestCase;
@@ -43,6 +46,7 @@ class LoginGuardServiceTest extends TestCase {
 		array $logins = array(),
 		array $emails = array(),
 		bool $trusted = false,
+		?LoginBlockService $blocks = null,
 	): LoginGuardService {
 		$config = $this->createStub( PluginConfig::class );
 		$config->method( 'isTestEnv' )->willReturn( $testEnv );
@@ -58,7 +62,67 @@ class LoginGuardServiceTest extends TestCase {
 		$users->method( 'findByLogin' )->willReturnCallback( static fn ( string $l ): ?WP_User => $logins[ $l ] ?? null );
 		$users->method( 'findByEmail' )->willReturnCallback( static fn ( string $e ): ?WP_User => $emails[ $e ] ?? null );
 
-		return new LoginGuardService( $this->rateLimit, $captcha, $users, $config );
+		return new LoginGuardService( $this->rateLimit, $captcha, $users, $config, $blocks ?? $this->createStub( LoginBlockService::class ) );
+	}
+
+	public function test_permanent_user_block_applies_across_ips_and_trusted_ip_bypasses_it(): void {
+		$blocks = $this->createStub( LoginBlockService::class );
+		$blocks->method( 'userBlocked' )->willReturn( true );
+		$user = $this->user( 5 );
+		$service = $this->makeService( logins: array( 'ivan' => $user ), blocks: $blocks );
+		self::assertSame( LoginGuardService::CODE_PERMANENT, $service->guard( $user, 'ivan', '', '10.0.0.2', true )->get_error_code() );
+		$trusted = $this->makeService( logins: array( 'ivan' => $user ), trusted: true, blocks: $blocks );
+		self::assertSame( $user, $trusted->guard( $user, 'ivan', '', '10.0.0.3', true ) );
+		self::assertTrue( $service->isPermanentlyBlocked( 'ivan', '10.0.0.2' ) );
+		self::assertFalse( $trusted->isPermanentlyBlocked( 'ivan', '10.0.0.3' ) );
+	}
+
+	public function test_permanent_ip_block_is_visible_even_without_login(): void {
+		$blocks = $this->createStub( LoginBlockService::class );
+		$blocks->method( 'ipBlocked' )->willReturn( true );
+		$service = $this->makeService( blocks: $blocks );
+		self::assertTrue( $service->isPermanentlyBlocked( '', self::IP ) );
+	}
+
+	public function test_captcha_rejection_counts_ip_but_not_account(): void {
+		$blocks = $this->createMock( LoginBlockService::class );
+		$blocks->expects( self::once() )->method( 'recordIpFailure' )->with( self::IP );
+		$blocks->expects( self::never() )->method( 'recordUserFailure' );
+		$service = $this->makeService( logins: array( 'ivan' => $this->user( 5 ) ), blocks: $blocks );
+		$service->onFailure( 'ivan', new WP_Error( LoginGuardService::CODE_CAPTCHA, 'x' ), self::IP );
+	}
+
+	public function test_incorrect_password_counts_ip_and_existing_account(): void {
+		$blocks = $this->createMock( LoginBlockService::class );
+		$blocks->expects( self::once() )->method( 'recordIpFailure' )->with( self::IP );
+		$blocks->expects( self::once() )->method( 'recordUserFailure' )->with( 5 );
+		$service = $this->makeService( logins: array( 'ivan' => $this->user( 5 ) ), blocks: $blocks );
+		$service->onFailure( 'ivan', new WP_Error( 'incorrect_password', 'x' ), self::IP );
+	}
+
+	public function test_other_authentication_error_does_not_permanently_block_account(): void {
+		$blocks = $this->createMock( LoginBlockService::class );
+		$blocks->expects( self::once() )->method( 'recordIpFailure' );
+		$blocks->expects( self::never() )->method( 'recordUserFailure' );
+		$service = $this->makeService( logins: array( 'ivan' => $this->user( 5 ) ), blocks: $blocks );
+		$service->onFailure( 'ivan', new WP_Error( 'two_factor_failed', 'x' ), self::IP );
+	}
+
+	public function test_three_failures_across_ips_require_admin_unblock(): void {
+		$previousOptions = $GLOBALS['_test_options'] ?? array();
+		$GLOBALS['_test_options'] = array();
+		$locks = $this->createStub( ExamLockRepository::class );
+		$locks->method( 'acquire' )->willReturn( true );
+		$blocks = new LoginBlockService( new LoginBlockRepository( $locks ) );
+		$user = $this->user( 5 );
+		$service = $this->makeService( logins: array( 'ivan' => $user ), blocks: $blocks );
+		foreach ( array( '203.0.113.1', '203.0.113.2', '203.0.113.3' ) as $ip ) {
+			$service->onFailure( 'ivan', new WP_Error( 'incorrect_password', 'x' ), $ip );
+		}
+		self::assertSame( LoginGuardService::CODE_PERMANENT, $service->guard( $user, 'ivan', '', '203.0.113.4', true )->get_error_code() );
+		$service->unlockUser( 5 );
+		self::assertSame( $user, $service->guard( $user, 'ivan', '', '203.0.113.4', true ) );
+		$GLOBALS['_test_options'] = $previousOptions;
 	}
 
 	private function failTimes( LoginGuardService $service, string $login, int $times ): void {

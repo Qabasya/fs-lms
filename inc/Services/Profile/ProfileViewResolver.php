@@ -197,6 +197,11 @@ class ProfileViewResolver {
 		$view  = $this->viewFor( $ctx->role );
 		$built = $view ? $view->build( $ctx ) : array( 'nav' => array(), 'screens' => array() );
 
+		if ( UserRole::FSStudent === $ctx->role && ( null === $ctx->personId || array() === $this->rankingAccess->learnerSubjectsFor( $ctx->personId ) ) ) {
+			$built['nav'] = array_values( array_filter( $built['nav'], static fn( array $item ): bool => 'student-ranking' !== $item['key'] ) );
+			$built['screens'] = array_values( array_filter( $built['screens'], static fn( string $screen ): bool => 'student-ranking' !== $screen ) );
+		}
+
 		$user = get_userdata( $wpUserId );
 		$name = $user ? ( $user->display_name ?: $user->user_login ) : '';
 
