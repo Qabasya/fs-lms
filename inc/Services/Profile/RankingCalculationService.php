@@ -32,12 +32,18 @@ class RankingCalculationService {
 			$this->repository->assessmentEvents( $subject, $period['from'], $period['until'] )
 		);
 		$parts = array();
+		$practiceGroups = array();
 		foreach ( $events as $event ) {
 			$id = (int) $event['student_person_id'];
 			if ( array_key_exists( $id, $totals ) ) {
 				$totals[ $id ] += (float) ( $weights[ (string) $event['source'] ] ?? 0 ) * (float) ( $event['task_points'] ?? 1.0 );
 				$source = (string) $event['source'];
 				$parts[ $id ][ $source ] = ( $parts[ $id ][ $source ] ?? 0 ) + (float) ( $event['task_points'] ?? 1.0 );
+				if ( $withBreakdown && 'practice' === $source ) {
+					$points = (float) ( $event['task_points'] ?? 1.0 );
+					$key = (string) $points;
+					$practiceGroups[ $id ][ $key ] = ( $practiceGroups[ $id ][ $key ] ?? 0 ) + 1;
+				}
 			}
 		}
 		$bonus = (float) $weights['attendance_bonus'];
@@ -67,6 +73,15 @@ class RankingCalculationService {
 				$sources = array_unique( array_merge( array_diff( array_keys( $weights ), array( 'attendance_streak_length' ) ), array_keys( $parts[ $id ] ?? array() ) ) );
 				foreach ( $sources as $source ) {
 					$row['breakdown'][] = array( 'source' => $source, 'amount' => $parts[ $id ][ $source ] ?? 0, 'weight' => (float) ( $weights[ $source ] ?? 0 ), 'streak_length' => 'attendance_bonus' === $source ? (int) ( $weights['attendance_streak_length'] ?? 3 ) : null );
+					if ( 'practice' === $source ) {
+						$groups = $practiceGroups[ $id ] ?? array();
+						ksort( $groups, SORT_NUMERIC );
+						$last = array_key_last( $row['breakdown'] );
+						$row['breakdown'][ $last ]['task_groups'] = array();
+						foreach ( $groups as $points => $count ) {
+							$row['breakdown'][ $last ]['task_groups'][] = array( 'points' => (float) $points, 'count' => $count );
+						}
+					}
 				}
 			}
 			unset( $row );

@@ -8,6 +8,41 @@ globalThis.window = { fsProfile: { groups: [] } };
 
 const { rankingPickersHtml, rankingTableHtml, scoreBreakdownHtml } = await import('../../src/js/profile/ranking.js');
 
+test('практика показывает расчёты друг под другом в одной строке работы', () => {
+    const practice = { source: 'practice', amount: 123, weight: 1, task_groups: [
+        { points: 1, count: 100 }, { points: 2, count: 10 }, { points: 3, count: 1 },
+    ] };
+    const html = scoreBreakdownHtml({ score: 123, breakdown: [practice] });
+    assert.match(html, /<li><span>Практика<\/span><span class="ranking-score-values">/);
+    assert.equal((html.match(/<li>/g) || []).length, 1);
+    assert.match(html, /<strong>100<\/strong><br>10 × 2/);
+    assert.doesNotMatch(html, /Стоимость задания|решений:/);
+    assert.match(html, /100 × 1 = <strong>100/);
+    assert.match(html, /10 × 2 = <strong>20/);
+    assert.match(html, /1 × 3 = <strong>3/);
+    assert.doesNotMatch(html, /123 × 1/);
+    assert.match(scoreBreakdownHtml({ score: 61.5, breakdown: [{ ...practice, weight: 0.5 }] }), /123 × 0,5 = <strong>61,5/);
+    assert.doesNotMatch(scoreBreakdownHtml({ score: 0, breakdown: [{ ...practice, weight: 0 }] }), /Практика|123 × 0/);
+});
+
+test('нулевые категории и группы не показываются, коэффициент подписан явно', () => {
+    const html = scoreBreakdownHtml({ score: 4, breakdown: [
+        { source: 'practice', amount: 5, weight: 0, task_groups: [{ points: 2, count: 1 }, { points: 3, count: 1 }] },
+        { source: 'independent', amount: 0, weight: 1 },
+        { source: 'survey', amount: 1, weight: 1 },
+        { source: 'assessment', amount: 3, weight: 1 },
+        { source: 'attendance_bonus', amount: 0, weight: 0 },
+    ] });
+    assert.doesNotMatch(html, /Практика|Самостоятельная работа|Серии посещений/);
+    assert.match(html, /Опрос/);
+    assert.match(html, /Итого: <strong>4/);
+    const weighted = scoreBreakdownHtml({ score: 1, breakdown: [
+        { source: 'practice', amount: 2, weight: 0.5, task_groups: [{ points: 0, count: 5 }, { points: 2, count: 1 }] },
+    ] });
+    assert.doesNotMatch(weighted, /5 × 0/);
+    assert.match(weighted, /С коэффициентом: 2 × 0,5 = <strong>1/);
+});
+
 test('расчёт баллов показывает типы, веса, бонус и итог; кнопка доступна только сотруднику', () => {
     const row = { person_id: 7, name: 'Ученик', score: 7, groups: [], breakdown: [
         { source: 'homework', amount: 3, weight: 2 },

@@ -8,9 +8,16 @@ const scoreLabels = { practice: 'Практика', independent: 'Самосто
 const scoreNumber = value => Number(value).toLocaleString('ru-RU', { maximumFractionDigits: 2 });
 
 export function scoreBreakdownHtml(row) {
-    const parts = (row.breakdown || []).map(part => {
+    const parts = (row.breakdown || []).filter(part => part.amount * part.weight > 0).map(part => {
         const label = scoreLabels[part.source] || part.source;
         const detail = part.source === 'attendance_bonus' ? ` (длина серии: ${part.streak_length})` : '';
+        if (part.source === 'practice' && part.task_groups?.length) {
+            const groups = part.task_groups.filter(group => group.count > 0 && group.points > 0).map(group => `${scoreNumber(group.count)} × ${scoreNumber(group.points)} = <strong>${scoreNumber(group.count * group.points)}</strong>`).join('<br>');
+            const total = part.weight === 1
+                ? ''
+                : `<br>С коэффициентом: ${scoreNumber(part.amount)} × ${scoreNumber(part.weight)} = <strong>${scoreNumber(part.amount * part.weight)}</strong>`;
+            return `<li><span>${esc(label)}</span><span class="ranking-score-values">${groups}${total}</span></li>`;
+        }
         return `<li><span>${esc(label + detail)}</span><span>${scoreNumber(part.amount)} × ${scoreNumber(part.weight)} = <strong>${scoreNumber(part.amount * part.weight)}</strong></span></li>`;
     });
     return `<div class="gp-title">Баллы: ${esc(row.name || 'Ученик')}</div><ul class="ranking-score-list">${parts.join('')}</ul><p class="ranking-score-total">Итого: <strong>${scoreNumber(row.score)}</strong></p>`;

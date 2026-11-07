@@ -19,6 +19,36 @@ use PHPUnit\Framework\TestCase;
 
 class SubjectRankingServiceTest extends TestCase {
 
+	public function test_practice_breakdown_groups_events_by_points_without_changing_score(): void {
+		$repo = $this->createStub( LearnerRankingRepository::class );
+		$repo->method( 'studentIds' )->willReturn( [1, 2] );
+		$events = array();
+		foreach ( [3 => 1, 1 => 100, 2 => 10] as $points => $count ) {
+			for ( $i = 0; $i < $count; ++$i ) {
+				$events[] = ['student_person_id' => 1, 'source' => 'practice', 'task_points' => $points];
+			}
+		}
+		$events[] = ['student_person_id' => 2, 'source' => 'practice', 'task_points' => 2];
+		$events[] = ['student_person_id' => 1, 'source' => 'homework', 'task_points' => 3];
+		$repo->method( 'workEvents' )->willReturn( $events );
+		$config = $this->createStub( PluginConfig::class );
+		$config->method( 'rankingSettings' )->willReturn( ['practice' => 0.5, 'homework' => 1, 'attendance_bonus' => 0] );
+		$ranking = new RankingCalculationService( $repo, new RankingPointsPolicy( $config ) );
+		$plain = $ranking->scoresForSubject( 'inf_ege', '2026-11-01 12:00:00' );
+		$detailed = $ranking->scoresForSubject( 'inf_ege', '2026-11-01 12:00:00', null, true );
+		$parts = array_column( $detailed[1]['breakdown'], null, 'source' );
+		self::assertSame( 64.5, $detailed[1]['score'] );
+		self::assertSame( $plain[1]['score'], $detailed[1]['score'] );
+		self::assertSame( 123.0, $parts['practice']['amount'] );
+		self::assertSame( [
+			['points' => 1.0, 'count' => 100],
+			['points' => 2.0, 'count' => 10],
+			['points' => 3.0, 'count' => 1],
+		], $parts['practice']['task_groups'] );
+		self::assertArrayNotHasKey( 'task_groups', $parts['homework'] );
+		self::assertArrayNotHasKey( 'breakdown', $plain[1] );
+	}
+
 	protected function tearDown(): void {
 		unset( $GLOBALS['_test_user_can'][7] );
 		parent::tearDown();
