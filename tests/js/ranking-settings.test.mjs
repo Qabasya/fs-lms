@@ -29,7 +29,7 @@ function form( valid = true ) {
     };
     const fields = [
         { name: 'practice', value: '0' },
-        { name: 'independent', value: '1.25' },
+        { name: 'independent', value: '1' },
         { name: 'attendance_bonus', value: '2' },
         { name: 'attendance_streak_length', value: '3' },
     ];
@@ -67,7 +67,7 @@ test( 'save sends only ranking fields with config nonce and prevents overlapping
     assert.equal( request.url, '/wp-admin/admin-ajax.php' );
     assert.deepEqual( request.payload, {
         action: 'save_ranking_settings', security: 'settings-nonce',
-        settings: { practice: '0', independent: '1.25', attendance_bonus: '2', attendance_streak_length: '3', hidden_subjects: 'math', excluded_students: '4,7' },
+        settings: { practice: '0', independent: '1', attendance_bonus: '2', attendance_streak_length: '3', hidden_subjects: 'math', excluded_students: '4,7' },
     } );
     assert.equal( $form.state.disabled, true );
     assert.equal( $form.state.attrs[ 'aria-busy' ], 'true' );

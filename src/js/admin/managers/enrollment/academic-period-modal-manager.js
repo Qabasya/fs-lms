@@ -88,6 +88,7 @@ export const AcademicPeriodModalManager = {
             name:       $link.data('name'),
             start_date: $link.data('start-date'), // Дефис в HTML (data-start-date) превращается в camelCase (start-date -> startDate, но здесь ключ задан явно)
             end_date:   $link.data('end-date'),
+            holidays:   $link.data('holidays') || [],
             //data-атрибуты всегда строки. Преобразуем "1" или "0" в настоящий boolean.
             is_current: parseInt($link.data('current'), 10) === 1,
         });
@@ -114,6 +115,7 @@ export const AcademicPeriodModalManager = {
             start_date:  formData.start_date,
             end_date:    formData.end_date,
             is_current:  formData.is_current,
+            holiday_ranges: JSON.stringify(formData.holiday_ranges),
         })
             .done((res) => {
                 // res - это ответ от сервера (обычно в формате { success: true/false, data: {...} })

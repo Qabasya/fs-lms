@@ -97,6 +97,10 @@ export const AcademicPeriodModal = {
             this._saveCallbacks.forEach(cb => cb(formData));
         });
 
+        this.$modal.on('click.fs', '.js-period-add-holiday', () => this._addHoliday());
+        this.$modal.on('click.fs', '.js-period-remove-holiday', (e) => $(e.currentTarget).closest('.js-period-holiday').remove());
+        this.$modal.on('change.fs', '.js-period-holiday input', (e) => e.currentTarget.setCustomValidity(''));
+
         // UX: Очистка состояния ошибки валидации, как только пользователь начинает исправлять поле
         this.$startDateInput.add(this.$endDateInput).on('change.fs', () => {
             this.$endDateInput[0].setCustomValidity('');
@@ -135,6 +139,20 @@ export const AcademicPeriodModal = {
             this.$startDateInput.val(data.start_date ?? '');
             this.$endDateInput.val(data.end_date ?? '');
             this.$isCurrentInput.prop('checked', !!data.is_current); // Приведение к строгому boolean
+            this.$modal.find('.js-period-holidays').empty();
+            const dates = [...new Set(Array.isArray(data.holidays) ? data.holidays : [])].sort();
+            let from = '', until = '';
+            dates.forEach(date => {
+                const next = until ? new Date(`${until}T00:00:00Z`) : null;
+                if (next) next.setUTCDate(next.getUTCDate() + 1);
+                if (next && next.toISOString().slice(0, 10) !== date) {
+                    this._addHoliday(from, until);
+                    from = '';
+                }
+                if (!from) from = date;
+                until = date;
+            });
+            if (from) this._addHoliday(from, until);
         } else {
             this._resetForm();
         }
@@ -195,6 +213,19 @@ export const AcademicPeriodModal = {
             return false;
         }
 
+        let valid = true;
+        this.$modal.find('.js-period-holiday').each((_, row) => {
+            const from = row.querySelector('[data-from]');
+            const until = row.querySelector('[data-until]');
+            until.setCustomValidity('');
+            if (from.value < this.$startDateInput.val() || until.value > this.$endDateInput.val() || from.value > until.value) {
+                until.setCustomValidity('Выходные должны быть внутри периода; дата окончания — не раньше начала.');
+                if (valid) until.reportValidity();
+                valid = false;
+            }
+        });
+        if (!valid) return false;
+
         return true;
     },
 
@@ -211,6 +242,14 @@ export const AcademicPeriodModal = {
         this.$endDateInput[0].setCustomValidity(''); // Сброс ошибки валидации
         this.$isCurrentInput.prop('checked', false);
         this.$actionInput.val('add');
+        this.$modal.find('.js-period-holidays').empty();
+    },
+
+    _addHoliday(from = '', until = '') {
+        const $row = $('<div class="fs-form-row js-period-holiday"><div class="fs-form-group"><label>С <input type="date" data-from required></label></div><div class="fs-form-group"><label>По <input type="date" data-until required></label></div><button type="button" class="button js-period-remove-holiday">Удалить</button></div>');
+        $row.find('[data-from]').val(from);
+        $row.find('[data-until]').val(until);
+        this.$modal.find('.js-period-holidays').append($row);
     },
 
     /**
@@ -229,6 +268,10 @@ export const AcademicPeriodModal = {
             // PHP интерпретирует данные форм как строки. Передача '1' или '0' для чекбокса 
             // является стандартом для корректной обработки булевых значений на бэкенде WordPress.
             is_current:  this.$isCurrentInput.is(':checked') ? '1' : '0',
+            holiday_ranges: this.$modal.find('.js-period-holiday').map((_, row) => ({
+                from: row.querySelector('[data-from]').value,
+                until: row.querySelector('[data-until]').value,
+            })).get(),
         };
     },
 };

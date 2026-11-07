@@ -34,6 +34,13 @@
                 </div>
 
                 <div class="fs-form-group">
+                    <label>Выходные</label>
+                    <p class="description">Даты включительно; действуют для всех групп периода при автораспределении.</p>
+                    <div class="js-period-holidays"></div>
+                    <button type="button" class="button js-period-add-holiday">Добавить выходные</button>
+                </div>
+
+                <div class="fs-form-group">
                     <label class="fs-checkbox-label">
                         <input type="checkbox" id="period_is_current" value="1">
                         <span>Сделать этот период Текущим</span>

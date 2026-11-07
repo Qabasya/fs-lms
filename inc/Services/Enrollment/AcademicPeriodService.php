@@ -102,6 +102,35 @@ readonly class AcademicPeriodService {
 		return $this->period_repository->save( $dto );
 	}
 
+	/** Преобразует включительные диапазоны выходных в даты внутри периода. */
+	public function holidayDates( array $ranges, string $start, string $end ): array {
+		$dates = array();
+		if ( count( $ranges ) > 100 ) {
+			throw new \InvalidArgumentException( 'Слишком много диапазонов выходных.' );
+		}
+		foreach ( $ranges as $range ) {
+			if ( ! is_array( $range ) || ! is_string( $range['from'] ?? null ) || ! is_string( $range['until'] ?? null ) ) {
+				throw new \InvalidArgumentException( 'Укажите корректные даты выходных.' );
+			}
+			$from = $range['from'];
+			$until = $range['until'];
+			foreach ( array( $from, $until ) as $date ) {
+				$parsed = \DateTimeImmutable::createFromFormat( '!Y-m-d', $date );
+				if ( ! $parsed || $parsed->format( 'Y-m-d' ) !== $date ) {
+					throw new \InvalidArgumentException( 'Укажите корректные даты выходных.' );
+				}
+			}
+			if ( $from < $start || $until > $end || $from > $until || ( new \DateTimeImmutable( $from ) )->diff( new \DateTimeImmutable( $until ) )->days > 3660 ) {
+				throw new \InvalidArgumentException( 'Выходные должны находиться внутри учебного периода, а дата окончания — не раньше начала.' );
+			}
+			for ( $date = new \DateTimeImmutable( $from ); $date->format( 'Y-m-d' ) <= $until; $date = $date->modify( '+1 day' ) ) {
+				$dates[ $date->format( 'Y-m-d' ) ] = true;
+			}
+		}
+		ksort( $dates );
+		return array_keys( $dates );
+	}
+
 	/**
 	 * Удаляет учебный период по ID.
 	 *

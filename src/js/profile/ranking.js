@@ -1,8 +1,20 @@
 import { createApi } from './api.js';
-import { esc, profileUrl } from './utils.js';
+import { esc, profileUrl, openGradePopModal, closeGradePop } from './utils.js';
 import { subjectPickerBtnHtml, openSubjectPicker, groupPickerBtnHtml, openGroupPicker, optionPickerBtnHtml, openOptionPicker } from './picker.js';
 import { readNav, saveNav } from './nav-state.js';
 import { icoArrowUp, icoArrowDown } from '../common/icons.js';
+
+const scoreLabels = { practice: 'Практика', independent: 'Самостоятельная работа', homework: 'Домашняя работа', survey: 'Опрос', assessment: 'Экзамены и контрольные', attendance_bonus: 'Серии посещений' };
+const scoreNumber = value => Number(value).toLocaleString('ru-RU', { maximumFractionDigits: 2 });
+
+export function scoreBreakdownHtml(row) {
+    const parts = (row.breakdown || []).map(part => {
+        const label = scoreLabels[part.source] || part.source;
+        const detail = part.source === 'attendance_bonus' ? ` (длина серии: ${part.streak_length})` : '';
+        return `<li><span>${esc(label + detail)}</span><span>${scoreNumber(part.amount)} × ${scoreNumber(part.weight)} = <strong>${scoreNumber(part.amount * part.weight)}</strong></span></li>`;
+    });
+    return `<div class="gp-title">Баллы: ${esc(row.name || 'Ученик')}</div><ul class="ranking-score-list">${parts.join('')}</ul><p class="ranking-score-total">Итого: <strong>${scoreNumber(row.score)}</strong></p>`;
+}
 
 function rankTrendHtml(trend) {
     if (!trend || !['up', 'down'].includes(trend.direction)) {
@@ -52,7 +64,7 @@ export function rankingTableHtml(data, canOpenSummary = false, learner = false) 
         <tbody>${rows.length ? rows.map(row => `<tr${learner && Number(data.viewer_person_id) > 0 && Number(row.person_id) === Number(data.viewer_person_id) ? ' class="ranking-self"' : ''}>
             <td class="cell-name">${nameCell(row)}</td>
             <td class="cell-c">${esc((row.groups || []).map(group => group.name).join(', '))}</td>
-            <td class="cell-c">${Number(row.score).toLocaleString('ru-RU', { maximumFractionDigits: 2 })}</td>
+            <td class="cell-c${!learner && Array.isArray(row.breakdown) ? ' ranking-score-cell' : ''}">${!learner && Array.isArray(row.breakdown) ? `<button type="button" class="ranking-score" data-score-pid="${Number(row.person_id)}" aria-label="Расчёт баллов: ${esc(row.name)}">${scoreNumber(row.score)}</button>` : scoreNumber(row.score)}</td>
             <td class="cell-rank"><span class="ranking-rank"><span class="ranking-rank-value">${esc(String(row.rank))}</span>${rankTrendHtml(row.trend)}</span></td>
         </tr>`).join('') : '<tr><td class="cell-empty" colspan="4">Нет активных учеников в выбранной группе.</td></tr>'}</tbody>
     </table></div></div>`;
@@ -91,6 +103,17 @@ export function renderRanking(root, handlers = {}, screen = 'ranking') {
     function render(message = '') {
         const content = message ? `<p class="ranking-message" role="status">${esc(message)}</p>` : rankingTableHtml(data, 'function' === typeof handlers.openSummary, screen === 'student-ranking');
         shell.innerHTML = `<div class="sum-head">${rankingPickersHtml(subject, groups, groupId, periods, periodFrom, showSubject, viewerGroupId)}</div>${content}`;
+        shell.querySelectorAll('[data-score-pid]').forEach(button => {
+            button.addEventListener('click', () => {
+                const row = data.rows.find(item => Number(item.person_id) === Number(button.dataset.scorePid));
+                if (!row) return;
+                const pop = document.getElementById('profGradePop');
+                if (!pop) return;
+                pop.innerHTML = `<div class="gp-form ranking-score-form">${scoreBreakdownHtml(row)}<div class="gp-row"><button type="button" class="prof-btn prof-btn-sm prof-btn-primary" data-score-close>Закрыть</button></div></div>`;
+                pop.querySelector('[data-score-close]').addEventListener('click', () => { closeGradePop(); button.focus(); });
+                openGradePopModal(pop);
+            });
+        });
         shell.querySelectorAll('[data-summary-pid]').forEach(btn => btn.addEventListener('click', () => {
             handlers.openSummary(+btn.dataset.summaryGid, +btn.dataset.summaryPid);
         }));

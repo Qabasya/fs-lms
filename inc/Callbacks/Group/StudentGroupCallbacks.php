@@ -199,6 +199,15 @@ class StudentGroupCallbacks extends BaseController {
 
 		$group_id = $this->sanitizeInt( 'group_id' );
 		$records  = $this->studentRecordRepository->findAllByGroup( $group_id );
+		// Повторное зачисление создаёт новую запись; историю отчисления сохраняем,
+		// но не показываем её рядом с текущим обучением того же ученика.
+		$active_ids = array_fill_keys( array_map(
+			fn( $r ) => $r->studentPersonId,
+			array_filter( $records, fn( $r ) => EnrollmentStatus::Active === $r->status )
+		), true );
+		$records = array_values( array_filter( $records, fn( $r ) =>
+			EnrollmentStatus::Expelled !== $r->status || ! isset( $active_ids[ $r->studentPersonId ] )
+		) );
 
 		$parent_ids = array_values( array_unique(
 			array_filter( array_map( fn( $r ) => $r->parentPersonId, $records ) )

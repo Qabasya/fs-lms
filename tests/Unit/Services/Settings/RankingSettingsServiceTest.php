@@ -21,10 +21,10 @@ class RankingSettingsServiceTest extends TestCase {
 			$config = new PluginConfig( $repository );
 			$policy = new \Inc\Services\Profile\Learner\RankingPointsPolicy( $config );
 			self::assertSame( 0.0, $policy->forSolvedTask( 'practice' ) );
-			$settings->save( array( 'practice' => '0.25', 'attendance_bonus' => '1.20', 'attendance_streak_length' => '4' ) );
-			self::assertSame( 0.25, $policy->forSolvedTask( 'practice' ) );
+			$settings->save( array( 'practice' => '2', 'attendance_bonus' => '1', 'attendance_streak_length' => '4' ) );
+			self::assertSame( 2.0, $policy->forSolvedTask( 'practice' ) );
 			self::assertSame( 5.0, $policy->forSolvedTask( 'survey' ) );
-			self::assertSame( 1.2, $policy->attendanceBonus() );
+			self::assertSame( 1.0, $policy->attendanceBonus() );
 			self::assertSame( 4, $policy->attendanceStreakLength() );
 			self::assertSame( 35, $repository->get()['exam_hold_minutes'] );
 			self::assertSame( $config->rankingSettings(), $config->viewState()['ranking'] );
@@ -38,7 +38,7 @@ class RankingSettingsServiceTest extends TestCase {
 			array(), array( 'unknown' => 1 ), array( 'practice' => -1 ), array( 'practice' => NAN ),
 			array( 'practice' => INF ), array( 'practice' => array( 1 ) ), array( 'practice' => true ),
 			array( 'practice' => 'NaN' ), array( 'practice' => '1abc' ), array( 'practice' => 1000.01 ),
-			array( 'practice' => 0.001 ), array( 'attendance_streak_length' => 1 ),
+			array( 'practice' => 0.001 ), array( 'practice' => '1.25' ), array( 'attendance_streak_length' => 1 ),
 			array( 'attendance_streak_length' => 101 ), array( 'attendance_streak_length' => 3.5 ),
 			array( 'practice' => 2, 'homework' => 'bad' ),
 		) );
@@ -56,7 +56,7 @@ class RankingSettingsServiceTest extends TestCase {
 	public function test_zero_and_upper_bounds_are_valid(): void {
 		$repository = $this->createMock( PluginConfigRepository::class );
 		$repository->expects( self::once() )->method( 'save' )->with( array( 'ranking_practice' => 0.0, 'ranking_assessment' => 1000.0, 'ranking_attendance_streak_length' => 100 ) );
-		( new RankingSettingsService( $repository ) )->save( array( 'practice' => '0', 'assessment' => '1000.00', 'attendance_streak_length' => '100' ) );
+		( new RankingSettingsService( $repository ) )->save( array( 'practice' => '0', 'assessment' => '1000', 'attendance_streak_length' => '100' ) );
 	}
 	public function test_visibility_lists_are_saved_and_can_be_cleared(): void {
 		$before = $GLOBALS['_test_options'] ?? array();

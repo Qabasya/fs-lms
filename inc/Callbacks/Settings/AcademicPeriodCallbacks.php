@@ -78,7 +78,20 @@ class AcademicPeriodCallbacks extends BaseController {
 
 		$oldLabel = $isNew ? null : $this->period_service->getById( $id )?->name;
 
-		$dto   = new AcademicPeriodDTO( $id, $name, $start_date, $end_date, $is_current );
+		$ranges_json = $this->sanitizeText( 'holiday_ranges' );
+		$ranges = json_decode( $ranges_json, true );
+		if ( '' === $ranges_json ) {
+			$holidays = $isNew ? array() : ( $this->period_service->getById( $id )?->holidays ?? array() );
+		} elseif ( ! is_array( $ranges ) || ! array_is_list( $ranges ) ) {
+			$this->error( 'Некорректный список выходных.' );
+		} else {
+			try {
+				$holidays = $this->period_service->holidayDates( $ranges, $start_date, $end_date );
+			} catch ( \InvalidArgumentException $e ) {
+				$this->error( $e->getMessage() );
+			}
+		}
+		$dto   = new AcademicPeriodDTO( $id, $name, $start_date, $end_date, $is_current, $holidays );
 		$saved = $this->period_service->savePeriod( $dto );
 
 		if ( $saved ) {

@@ -142,8 +142,10 @@ $base_url  = add_query_arg( array( 'page' => $page_slug, 'period_filter' => $sel
 					data-is-shared="<?php echo $group['is_shared'] ? '1' : '0'; ?>">
 					<td class="column-title">
 						<strong><?php echo esc_html( $group['title'] ); ?></strong>
-						<?php $type = \Inc\Enums\Course\GroupType::fromStorage( $group['access_mode'], $group['is_shared'] ); ?>
-						<span class="fs-badge is-blue"><?php echo esc_html( $type->label() ); ?></span>
+						<?php if ( $group['is_shared'] ) : ?>
+							<?php $type = \Inc\Enums\Course\GroupType::fromStorage( $group['access_mode'], $group['is_shared'] ); ?>
+							<span class="fs-badge is-blue"><?php echo esc_html( $type->label() ); ?></span>
+						<?php endif; ?>
 					</td>
 					<td><?php echo esc_html( $group['period_name'] ); ?></td>
 					<td><?php echo esc_html( $group['subject_name'] ); ?></td>

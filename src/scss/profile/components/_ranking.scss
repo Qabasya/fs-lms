@@ -44,6 +44,36 @@
 /* Ширины по образцу журнала: имя — 188 px и липнет слева (перед ним нет колонки «#»,
    журнальный сдвиг left: 38px не нужен). «Группа», «Баллы» и «Место в рейтинге» — $ranking-result-width. */
 .ranking-table { min-width: 0; }
+
+.ranking-table .ranking-score-cell { position: relative; }
+
+.ranking-score {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.ranking-score-form { width: min(520px, calc(100vw - 60px)); }
+
+.ranking-score-list { padding: 0; list-style: none; }
+
+.ranking-score-list li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.ranking-score-total { margin: 16px 0; text-align: right; }
+
 .ranking-table .col-name { left: 0; }
 
 .ranking-table .col-mid,

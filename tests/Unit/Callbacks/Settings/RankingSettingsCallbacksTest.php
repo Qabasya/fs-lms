@@ -23,12 +23,12 @@ class RankingSettingsCallbacksTest extends TestCase {
 		try {
 			$repository = new PluginConfigRepository();
 			$callback = new RankingSettingsCallbacks( new RankingSettingsService( $repository ) );
-			$_POST = array( 'settings' => array( 'homework' => '0.25' ) );
+			$_POST = array( 'settings' => array( 'homework' => '2' ) );
 			self::assertTrue( fs_test_capture_json( fn() => $callback->ajaxSaveRankingSettings() )->success );
-			self::assertSame( 0.25, $repository->get()['ranking_homework'] );
-			$_POST = array( 'settings' => array( 'homework' => 'bad' ) );
+			self::assertSame( 2.0, $repository->get()['ranking_homework'] );
+			$_POST = array( 'settings' => array( 'homework' => '0.25' ) );
 			self::assertFalse( fs_test_capture_json( fn() => $callback->ajaxSaveRankingSettings() )->success );
-			self::assertSame( 0.25, $repository->get()['ranking_homework'] );
+			self::assertSame( 2.0, $repository->get()['ranking_homework'] );
 		} finally {
 			$GLOBALS['_test_options'] = $before;
 		}

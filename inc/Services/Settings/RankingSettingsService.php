@@ -45,9 +45,9 @@ class RankingSettingsService {
 				continue;
 			}
 			$isLength = 'attendance_streak_length' === $key;
-			$pattern  = $isLength ? '/^\d+$/' : '/^\d+(?:\.\d{1,2})?$/';
+			$pattern  = '/^\d+$/';
 			if ( ( ! is_int( $value ) && ! is_float( $value ) && ! is_string( $value ) ) || ( is_float( $value ) && ! is_finite( $value ) ) || ! preg_match( $pattern, (string) $value ) ) {
-				throw new \InvalidArgumentException( 'Укажите неотрицательные числовые значения; веса — до двух знаков после точки.' );
+				throw new \InvalidArgumentException( 'Укажите целые неотрицательные значения.' );
 			}
 			$number = (float) $value;
 			if ( ! is_finite( $number ) || $number < ( $isLength ? 2 : 0 ) || $number > ( $isLength ? 100 : 1000 ) ) {

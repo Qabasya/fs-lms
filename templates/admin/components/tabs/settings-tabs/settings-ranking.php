@@ -10,13 +10,16 @@ $ranking_fields = WorkType::options() + array( 'assessment' => 'Экзамены
 			<div class="fs-card__header"><h2 class="fs-card__title">Рейтинг</h2></div>
 			<div class="fs-card__body">
 				<p class="fs-card__desc">Баллы за одну решённую задачу, включая повторные решения. Ноль отключает начисление за этот источник. Изменения пересчитывают рейтинг текущего триместра.</p>
+				<?php if ( array_filter( $ranking_settings, static fn( $value ) => is_numeric( $value ) && (float) $value !== floor( (float) $value ) ) ) : ?>
+					<p class="fs-field__desc">Ранее сохранены дробные значения. Перед сохранением замените их целыми числами.</p>
+				<?php endif; ?>
 				<?php foreach ( $ranking_fields as $key => $label ) : ?>
 					<?php $is_streak = 'attendance_streak_length' === $key; ?>
 					<div class="fs-field">
 						<label for="fs-ranking-<?php echo esc_attr( $key ); ?>" class="fs-field__label"><?php echo esc_html( $label ); ?></label>
 						<div class="fs-field__control">
 							<input type="number" id="fs-ranking-<?php echo esc_attr( $key ); ?>" name="<?php echo esc_attr( $key ); ?>" data-ranking-field class="small-text" required
-								min="<?php echo $is_streak ? '2' : '0'; ?>" max="<?php echo $is_streak ? '100' : '1000'; ?>" step="<?php echo $is_streak ? '1' : '0.01'; ?>"
+								min="<?php echo $is_streak ? '2' : '0'; ?>" max="<?php echo $is_streak ? '100' : '1000'; ?>" step="1"
 								value="<?php echo esc_attr( (string) $ranking_settings[ $key ] ); ?>" />
 						</div>
 						<?php if ( 'attendance_bonus' === $key ) : ?>

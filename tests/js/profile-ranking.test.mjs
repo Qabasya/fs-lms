@@ -6,7 +6,21 @@ import { test } from 'node:test';
 
 globalThis.window = { fsProfile: { groups: [] } };
 
-const { rankingPickersHtml, rankingTableHtml } = await import('../../src/js/profile/ranking.js');
+const { rankingPickersHtml, rankingTableHtml, scoreBreakdownHtml } = await import('../../src/js/profile/ranking.js');
+
+test('расчёт баллов показывает типы, веса, бонус и итог; кнопка доступна только сотруднику', () => {
+    const row = { person_id: 7, name: 'Ученик', score: 7, groups: [], breakdown: [
+        { source: 'homework', amount: 3, weight: 2 },
+        { source: 'attendance_bonus', amount: 1, weight: 1, streak_length: 3 },
+    ] };
+    const details = scoreBreakdownHtml(row);
+    assert.match(details, /Домашняя работа/);
+    assert.match(details, /3 × 2 = <strong>6/);
+    assert.match(details, /длина серии: 3/);
+    assert.match(details, /Итого: <strong>7/);
+    assert.match(rankingTableHtml({ rows: [row] }), /data-score-pid="7"/);
+    assert.doesNotMatch(rankingTableHtml({ rows: [row] }, false, true), /data-score-pid/);
+});
 
 const subject = { key: 'inf_ege', name: 'Информатика ЕГЭ' };
 const groups = [

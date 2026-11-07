@@ -66,6 +66,7 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 								data-name="<?php echo esc_attr( $row_name ); ?>"
 								data-start-date="<?php echo esc_attr( $start_date ); ?>"
 								data-end-date="<?php echo esc_attr( $end_date ); ?>"
+								data-holidays="<?php echo esc_attr( wp_json_encode( $period['holidays'] ?? array() ) ); ?>"
 								data-current="<?php echo $is_current ? '1' : '0'; ?>">
 								<?php echo esc_html( $period['name'] ); ?>
 							</a>
@@ -101,6 +102,7 @@ require_once FS_LMS_PATH . 'templates/admin/components/UI/ui_renderers.php';
 							data-name="<?php echo esc_attr( $row_name ); ?>"
 							data-start-date="<?php echo esc_attr( $start_date ); ?>"
 							data-end-date="<?php echo esc_attr( $end_date ); ?>"
+							data-holidays="<?php echo esc_attr( wp_json_encode( $period['holidays'] ?? array() ) ); ?>"
 							data-current="<?php echo $is_current ? '1' : '0'; ?>">
 							Изменить
 						</a>

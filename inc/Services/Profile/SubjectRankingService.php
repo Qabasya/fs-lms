@@ -79,7 +79,7 @@ class SubjectRankingService {
 				throw new \InvalidArgumentException( 'Период недоступен.' );
 			}
 		}
-		$scores   = $this->ranking->scoresForSubject( $subject, $now, $period );
+		$scores   = $this->ranking->scoresForSubject( $subject, $now, $period, 0 === $viewerPersonId );
 		$students = array();
 		$groups   = array();
 		$viewerGroupId = 0;
@@ -111,6 +111,9 @@ class SubjectRankingService {
 					'score'     => $scores[ $id ]['score'],
 					'rank'      => $scores[ $id ]['rank'],
 				);
+				if ( 0 === $viewerPersonId ) {
+					$students[ $id ]['breakdown'] = $scores[ $id ]['breakdown'] ?? array();
+				}
 			}
 			if ( ! $individual ) {
 				$students[ $id ]['groups'][ $gid ] = $groups[ $gid ];
