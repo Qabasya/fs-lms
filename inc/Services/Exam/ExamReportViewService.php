@@ -72,7 +72,7 @@ class ExamReportViewService {
 
 		$review = null;
 		if ( null !== $row && ( $accessible[ $row ] ?? false ) ) {
-			$data = $this->result->build( $ids[ $row - 1 ] );
+			$data = $this->result->build( $ids[ $row - 1 ], true );
 			if ( null !== $data && true === ( $data['revealed'] ?? false ) ) {
 				$review = $data + array(
 					'row'  => $row,

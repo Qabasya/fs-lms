@@ -15,7 +15,7 @@ use Inc\Repositories\WPDBRepositories\ExamParticipationRepository;
 /**
  * Общее представление разбора для результата гостя и школьного отчёта; без данных оболочки страницы.
  *
- * Разбор берётся из той же проекции, что у ученика (`read_only`), и по тому же правилу раскрытия: гость видит сразу после сдачи.
+ * Гость получает разбор по правилу раскрытия своей ссылки; школьный отчёт — после проверки доступа и согласия в отчёте.
  * Попытка определяется по участию из гостевой сессии — номер попытки из адреса не читается. Ручная часть ОГЭ показывается
  * с пометкой «Проверяется преподавателем» и без балла, итог до её завершения — предварительный.
  */
@@ -40,14 +40,14 @@ class ExamReviewViewService {
 	) {}
 
 	/**
-	 * Готовит общий разбор текущей попытки участия без контактов центра.
+	 * Готовит общий разбор текущей попытки участия без контактов центра. Режим отчёта допустим только после проверки его строки.
 	 *
 	 * @return array<string, mixed>|null null — участия нет; `revealed = false` — работа ещё не сдана.
 	 */
-	public function build( int $participationId ): ?array {
+	public function build( int $participationId, bool $schoolReport = false ): ?array {
 		$participation = $this->participations->find( $participationId );
 		$event         = null !== $participation ? $this->events->find( $participation->eventId ) : null;
-		$review        = null !== $participation ? $this->reviews->forParticipation( $participationId ) : null;
+		$review        = null !== $participation ? ( $schoolReport ? $this->reviews->forReportParticipation( $participationId ) : $this->reviews->forParticipation( $participationId ) ) : null;
 		if ( null === $event || null === $review ) {
 			return null;
 		}

@@ -301,7 +301,7 @@ function rowHtml(r) {
         <td>${r.school ? esc(r.school) : '—'}</td>
         <td>${when}</td>
         <td class="exam-results-score">${r.score ? scoreText(r.score) : '—'}</td>
-        <td>${resultStatusPillHtml(r.result_status, r.result_status_label)}</td>
+        <td>${resultStatusPillHtml(r.result_status, r.result_status_label, r.audience, r.result_sent)}</td>
     </tr>`;
 }
 

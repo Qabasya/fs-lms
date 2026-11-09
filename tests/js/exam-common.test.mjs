@@ -1,7 +1,22 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { endTime, toDateTimeLocal, sessionsByDate, inPeriod, validateEventForm, seatOptions } from '../../src/js/profile/exams/exam-common.js';
+import { endTime, toDateTimeLocal, sessionsByDate, inPeriod, validateEventForm, seatOptions, resultStatusPillHtml } from '../../src/js/profile/exams/exam-common.js';
+import { progressPillHtml } from '../../src/js/profile/exams/exam-conduct.js';
+
+test('промежуточные этапы прохождения жёлтые, неявка красная', () => {
+	for (const status of ['not_started', 'in_progress', 'submitted']) {
+		assert.match(progressPillHtml(status, 'Этап'), /prof-state-wait/);
+	}
+	assert.match(progressPillHtml('missed', 'Неявка'), /prof-state-err/);
+});
+
+test('цвет результата учитывает отправку гостю и утверждение ученика', () => {
+	assert.match(resultStatusPillHtml('approved', 'Результат сформирован', 'guest', false), /prof-state-wait/);
+	assert.match(resultStatusPillHtml('approved', 'Результат отправлен', 'guest', true), /prof-state-now/);
+	assert.match(resultStatusPillHtml('approved', 'Утверждена', 'student', false), /prof-state-now/);
+	assert.match(resultStatusPillHtml('ready', 'Готова к утверждению', 'student', false), /prof-state-wait/);
+});
 
 test('окончание сеанса — начало плюс длительность формата: 10:00 + 235 мин = 13:55', () => {
 	assert.equal(endTime('10:00', 235), '13:55');

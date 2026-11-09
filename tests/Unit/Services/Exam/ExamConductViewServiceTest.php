@@ -468,6 +468,7 @@ class ExamConductViewServiceTest extends TestCase {
 		$row = $this->service->sessionBoard( 10, 7 )['rows'][0];
 
 		self::assertSame( 'Результат сформирован', $row['result_status_label'] );
+		self::assertFalse( $row['result_sent'] );
 	}
 
 	public function test_guest_result_is_sent_after_the_result_link_is_marked_passed(): void {
@@ -487,6 +488,7 @@ class ExamConductViewServiceTest extends TestCase {
 		$row = $this->service->sessionBoard( 10, 7 )['rows'][0];
 
 		self::assertSame( 'Результат отправлен', $row['result_status_label'] );
+		self::assertTrue( $row['result_sent'] );
 		self::assertSame( 'approved', $row['result_status'] );
 		self::assertStringStartsWith( 'Ссылка на результат передана 10.03 09:30', $row['result_link_passed'], 'время — местное (+3)' );
 		self::assertNull( $row['entry_link_passed'] );

@@ -301,7 +301,7 @@ class ExamReportPageTest extends TestCase {
 
 	public function test_review_block_is_built_only_for_report_member(): void {
 		$result = $this->createMock( ExamReviewViewService::class );
-		$result->expects( self::once() )->method( 'build' )->with( 81 )->willReturn( array( 'revealed' => true, 'caption' => '84 из 100', 'units' => array(), 'counts' => array(), 'tasks' => array() ) );
+		$result->expects( self::once() )->method( 'build' )->with( 81, true )->willReturn( array( 'revealed' => true, 'caption' => '84 из 100', 'units' => array(), 'counts' => array(), 'tasks' => array() ) );
 		$service = $this->viewService( $this->createMock( ExamReportService::class ), $this->participant(), $result );
 
 		$data = $service->build( $this->report(), 2 );

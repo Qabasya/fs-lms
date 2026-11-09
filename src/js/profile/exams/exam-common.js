@@ -144,8 +144,9 @@ export function validateEventForm(v) {
 const RESULT_PILL = { none: 'prof-state-err', ready: 'prof-state-wait', approved: 'prof-state-now' };
 
 /** Пилюля состояния работы (`result_status`, подпись приходит с сервера); остальные состояния — прежняя нейтральная «скоро». */
-export function resultStatusPillHtml(status, label) {
-    return `<span class="prof-state-pill ${RESULT_PILL[status] || 'prof-state-soon'}">${esc(label)}</span>`;
+export function resultStatusPillHtml(status, label, audience, sent) {
+    const pill = 'approved' === status && 'guest' === audience && !sent ? 'prof-state-wait' : (RESULT_PILL[status] || 'prof-state-soon');
+    return `<span class="prof-state-pill ${pill}">${esc(label)}</span>`;
 }
 
 /** Причины, по которым строку нельзя отметить для утверждения: ключ — `result_status`/признак строки. */

@@ -203,6 +203,7 @@ class ExamResultsViewService {
 				'group'               => $group['name'],
 				'result_status'       => $result->value,
 				'result_status_label' => $result->label( $audience, isset( $sent[ $participation->id ] ) ),
+				'result_sent'         => isset( $sent[ $participation->id ] ),
 				'score'               => AttemptStatus::InProgress === $attempt->status ? null : $this->scores->summarize( $attempt, $event ),
 			);
 		}
