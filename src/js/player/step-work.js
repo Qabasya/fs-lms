@@ -18,7 +18,7 @@
  * черновиком, поэтому перезагрузка страницы отсчёт не сбрасывает. На сервер
  * уходят секунды ДО сдачи — сервер откладывает их от своих часов.
  */
-import { retryAvailable } from './work-retry.js';
+import { restoreWorkAnswer, retryAvailable } from './work-retry.js';
 import { workPointsLabel, workTaskMaximum, pendingWorkPoints, workTaskVerdictHtml, workSubmissionFromResponse, mergeWorkTaskResult } from './work-result.js';
 import { initTaskWidget } from '../frontend/components/task-widget.js';
 import { getCore, onPanelShow, isPreview, isTeacherMode } from './core.js';
@@ -148,10 +148,7 @@ function mountWork( panel, root ) {
 
 		// Приоритет: верная проверка > черновик > последняя проверка > прошлая сдача.
 		const check = checks[ taskId ];
-		let saved   = drafts[ taskId ] !== undefined
-			? drafts[ taskId ]
-			: ( check ? check.answer : parseAnswer( state.task_results[ taskId ]?.answer ) );
-		if ( check && 'correct' === check.status ) { saved = check.answer; }
+		const saved = restoreWorkAnswer( { check, draft: drafts[ taskId ], submitted: parseAnswer( state.task_results[ taskId ]?.answer ) } );
 		if ( saved !== undefined && saved !== null ) { widget.setAnswer( saved ); }
 		if ( check && 'correct' === check.status ) { solveByCheck( card, widget ); }
 

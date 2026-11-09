@@ -21,3 +21,15 @@ export function hasUnsolved( verdicts, taskIds ) {
 export function retryAvailable( { left, allLocked, pastDue, verdicts, taskIds } ) {
 	return left > 0 && ! allLocked && ! pastDue && hasUnsolved( verdicts, taskIds );
 }
+
+export function restoreWorkAnswer( { check, draft, submitted } ) {
+	if ( check && 'correct' === check.status ) {
+		const checked = check.answer;
+		const text = 'string' === typeof checked ? checked : checked?.text;
+		if ( draft && 'object' === typeof draft && 'string' === typeof draft.code && draft.text === text ) {
+			return { text, code: draft.code };
+		}
+		return checked;
+	}
+	return draft !== undefined ? draft : ( check ? check.answer : submitted );
+}
