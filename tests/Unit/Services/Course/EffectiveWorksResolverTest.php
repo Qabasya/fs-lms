@@ -111,6 +111,55 @@ class EffectiveWorksResolverTest extends TestCase {
 		$this->resolver->setExtraWorks( 42, [ 10, 20 ], 1 );
 	}
 
+	public function test_disabled_snapshot_capture_does_not_affect_assignment(): void {
+		$this->groupLessons->method( 'find' )->willReturn( $this->makeRow( workIdsSnapshot: [ 1 ], extraWorkIds: [] ) );
+		$this->groupLessons->expects( self::once() )->method( 'setExtraWorkIds' )->with( 42, [ 10 ] );
+		$snapshots = $this->createMock( \Inc\Services\Course\RankingAssignmentSnapshotService::class );
+		$snapshots->expects( self::never() )->method( 'synchronized' );
+		$visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::class );
+		$resolver = new EffectiveWorksResolver( $this->groupLessons, $this->lessonManager, $this->workManager, $this->dispatcher, $snapshots, $visibility );
+		$resolver->setExtraWorks( 42, [ 10 ], 1 );
+	}
+
+	public function test_records_issued_extra_before_committing_group_lesson(): void {
+		$row = $this->makeRow( workIdsSnapshot: [ 1 ], extraWorkIds: [] );
+		$this->groupLessons->method( 'find' )->willReturn( $row );
+		$this->groupLessons->method( 'setExtraWorkIds' )->willReturn( true );
+		$snapshots = $this->createMock( \Inc\Services\Course\RankingAssignmentSnapshotService::class );
+		$snapshots->method( 'synchronized' )->willReturnCallback( static function ( callable $fn ): void { $fn(); } );
+		$snapshots->expects( self::once() )->method( 'capture' )->with( 42, [ 10 ] );
+		$visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::class );
+		$visibility->method( 'effectiveVisibility' )->willReturn( 'open' );
+		$resolver = new EffectiveWorksResolver( $this->groupLessons, $this->lessonManager, $this->workManager, $this->dispatcher, $snapshots, $visibility, true );
+		$resolver->setExtraWorks( 42, [ 10 ], 1 );
+	}
+
+	public function test_extra_added_to_archived_lesson_is_issued_immediately(): void {
+		$row = $this->makeRow( workIdsSnapshot: [ 1 ], extraWorkIds: [] );
+		$this->groupLessons->method( 'find' )->willReturn( $row );
+		$this->groupLessons->method( 'setExtraWorkIds' )->willReturn( true );
+		$snapshots = $this->createMock( \Inc\Services\Course\RankingAssignmentSnapshotService::class );
+		$snapshots->method( 'synchronized' )->willReturnCallback( static function ( callable $fn ): void { $fn(); } );
+		$snapshots->expects( self::once() )->method( 'capture' )->with( 42, [ 10 ] );
+		$visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::class );
+		$visibility->method( 'effectiveVisibility' )->willReturn( 'archived' );
+		$resolver = new EffectiveWorksResolver( $this->groupLessons, $this->lessonManager, $this->workManager, $this->dispatcher, $snapshots, $visibility, true );
+		$resolver->setExtraWorks( 42, [ 10 ], 1 );
+	}
+
+	public function test_extra_added_before_opening_is_pending(): void {
+		$row = $this->makeRow( workIdsSnapshot: [ 1 ], extraWorkIds: [] );
+		$this->groupLessons->method( 'find' )->willReturn( $row );
+		$this->groupLessons->method( 'setExtraWorkIds' )->willReturn( true );
+		$snapshots = $this->createMock( \Inc\Services\Course\RankingAssignmentSnapshotService::class );
+		$snapshots->method( 'synchronized' )->willReturnCallback( static function ( callable $fn ): void { $fn(); } );
+		$snapshots->expects( self::once() )->method( 'markPending' )->with( 42, [ 10 ] );
+		$visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::class );
+		$visibility->method( 'effectiveVisibility' )->willReturn( 'hidden' );
+		$resolver = new EffectiveWorksResolver( $this->groupLessons, $this->lessonManager, $this->workManager, $this->dispatcher, $snapshots, $visibility, true );
+		$resolver->setExtraWorks( 42, [ 10 ], 1 );
+	}
+
 	public function test_set_extra_works_throws_when_not_found(): void {
 		$this->groupLessons->method( 'find' )->willReturn( null );
 

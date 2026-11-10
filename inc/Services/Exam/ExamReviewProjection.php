@@ -30,6 +30,7 @@ class ExamReviewProjection {
 
 	public const MODE_MANAGE    = 'manage';
 	public const MODE_READ_ONLY = 'read_only';
+	private const MODE_REPORT = 'report';
 
 	/** Ключи корня, которые ученику ни к чему и раскрывают служебное устройство оценивания. */
 	private const ROOT_GRADING_KEYS = array( 'attempt_id', 'group_id', 'student_name', 'review_url', 'gradable', 'submission_id' );
@@ -55,6 +56,9 @@ class ExamReviewProjection {
 	 * @return array<string, mixed>|null null — попытка не найдена или не экзаменная.
 	 */
 	public function forViewer( int $attemptId, string $mode ): ?array {
+		if ( self::MODE_REPORT === $mode ) {
+			throw new \InvalidArgumentException( 'Неизвестный режим разбора: ' . $mode );
+		}
 		$attempt = $this->attempts->find( $attemptId );
 		if ( null === $attempt || ! $attempt->isExam() ) {
 			// Режим проверяем и здесь: опечатка не должна тихо превратиться в «нет такой попытки».
@@ -87,12 +91,22 @@ class ExamReviewProjection {
 	}
 
 	/**
-	 * Разбор по участию (гость по своей сессии, школьный отчёт по составу отчёта): попытка — текущая попытка этого участия, номер из запроса не принимается.
+	 * Разбор по участию гостя: попытка — текущая попытка этого участия, номер из запроса не принимается.
 	 * Гостю разбор раскрыт, только пока выдана ссылка результата ({@see \Inc\Services\Assessment\AttemptRevealPolicy}); до сдачи и до выдачи ссылки — `revealed = false`.
 	 *
 	 * @return array<string, mixed>|null null — участия или попытки нет.
 	 */
 	public function forParticipation( int $participationId ): ?array {
+		return $this->participationReview( $participationId, self::MODE_READ_ONLY );
+	}
+
+	/** Разбор для уже проверенной строки школьного отчёта; доступ и согласие проверяет вызывающий код. */
+	public function forReportParticipation( int $participationId ): ?array {
+		return $this->participationReview( $participationId, self::MODE_REPORT );
+	}
+
+	/** @return array<string, mixed>|null */
+	private function participationReview( int $participationId, string $mode ): ?array {
 		$participation = $this->participations->find( $participationId );
 		$event         = null !== $participation ? $this->events->find( $participation->eventId ) : null;
 		if ( null === $participation || null === $event || null === $participation->currentAttemptId ) {
@@ -104,7 +118,11 @@ class ExamReviewProjection {
 			return null;
 		}
 
-		return $this->readOnlyWithResult( $attempt, $event );
+		if ( self::MODE_REPORT === $mode && AttemptStatus::InProgress === $attempt->status ) {
+			return null;
+		}
+
+		return $this->readOnlyWithResult( $attempt, $event, $mode );
 	}
 
 	/** Дешёвая проверка раскрытия: без сборки заданий, баллов и контактов страницы. */
@@ -136,8 +154,8 @@ class ExamReviewProjection {
 	 *
 	 * @return array<string, mixed>|null
 	 */
-	private function readOnlyWithResult( AttemptDTO $attempt, \Inc\DTO\Exam\ExamEventDTO $event ): ?array {
-		$assembled = $this->assemble( $attempt, self::MODE_READ_ONLY );
+	private function readOnlyWithResult( AttemptDTO $attempt, \Inc\DTO\Exam\ExamEventDTO $event, string $mode = self::MODE_READ_ONLY ): ?array {
+		$assembled = $this->assemble( $attempt, $mode );
 		if ( null === $assembled ) {
 			return null;
 		}
@@ -202,7 +220,7 @@ class ExamReviewProjection {
 	 * @throws \InvalidArgumentException Если передан неизвестный режим.
 	 */
 	private function assertMode( string $mode ): void {
-		if ( self::MODE_MANAGE !== $mode && self::MODE_READ_ONLY !== $mode ) {
+		if ( self::MODE_MANAGE !== $mode && self::MODE_READ_ONLY !== $mode && self::MODE_REPORT !== $mode ) {
 			throw new \InvalidArgumentException( 'Неизвестный режим разбора: ' . $mode );
 		}
 	}

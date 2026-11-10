@@ -48,13 +48,17 @@ const ACTION_LABELS = {
 const PAYMENT_PILL = { paid: 'prof-state-now', pending: 'prof-state-soon' };
 
 
-/** Прохождение: не начат — жёлтый, в процессе и сдана — зелёный, неявка — красный (как состояния результата, см. `resultStatusPillHtml`). */
+/** Промежуточные этапы прохождения — жёлтые, неявка — красная. */
 const PROGRESS_PILL = {
     not_started: 'prof-state-wait',
-    in_progress: 'prof-state-now',
-    submitted: 'prof-state-now',
+    in_progress: 'prof-state-wait',
+    submitted: 'prof-state-wait',
     missed: 'prof-state-err',
 };
+
+export function progressPillHtml(status, label) {
+    return `<span class="prof-state-pill ${PROGRESS_PILL[status] || 'prof-state-done'}">${esc(label)}</span>`;
+}
 
 let requestedSessionId = 0;
 const ALL_SESSIONS_LABEL = 'Все сеансы';
@@ -428,8 +432,8 @@ function rowHtml(r) {
     const cancelled = 'cancelled' === r.registration_status;
     const pill = cancelled
         ? '<span class="prof-state-pill prof-state-done">Запись отменена</span>'
-        : `<span class="prof-state-pill ${PROGRESS_PILL[r.progress] || 'prof-state-done'}">${esc(r.progress_label)}</span>`;
-    const result = 'none' === r.result_status ? '' : resultStatusPillHtml(r.result_status, r.result_status_label);
+        : progressPillHtml(r.progress, r.progress_label);
+    const result = 'none' === r.result_status ? '' : resultStatusPillHtml(r.result_status, r.result_status_label, r.audience, r.result_sent);
     const stamp = 'guest' !== r.audience ? sessionBadgeHtml(r) : '';
     const score = r.score ? `<span class="exam-conduct-score">${scoreText(r.score)}</span>` : '';
 

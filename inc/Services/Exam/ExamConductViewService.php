@@ -427,6 +427,7 @@ class ExamConductViewService {
 			'score'               => $this->scoreOf( $attempt, $event ),
 			'result_status'       => $result,
 			'result_status_label' => $this->resultLabel( $result, $audience, null !== $resultLink?->passedAt ),
+			'result_sent'         => null !== $resultLink?->passedAt,
 			'actions'             => $this->rowActions( $registration, $attempt, $others, $participation ),
 			'admitted_at'         => null !== $participation->admittedAt ? $this->time->toLocal( $participation->admittedAt ) : null,
 			'staff_confirmed_at'  => ExamAudience::Guest === $audience && null !== $participation->staffConfirmedAt ? $this->time->toLocal( $participation->staffConfirmedAt ) : null,

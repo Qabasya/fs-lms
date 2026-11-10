@@ -32,6 +32,7 @@ class SubjectRankingServiceTest extends TestCase {
 		$events[] = ['student_person_id' => 1, 'source' => 'homework', 'task_points' => 3];
 		$repo->method( 'workEvents' )->willReturn( $events );
 		$config = $this->createStub( PluginConfig::class );
+		$config->method('rankingForSubject')->willReturnCallback(static fn() => array_merge($config->rankingSettings(), ['excluded_students' => $config->rankingExcludedStudents()]));
 		$config->method( 'rankingSettings' )->willReturn( ['practice' => 0.5, 'homework' => 1, 'attendance_bonus' => 0] );
 		$ranking = new RankingCalculationService( $repo, new RankingPointsPolicy( $config ) );
 		$plain = $ranking->scoresForSubject( 'inf_ege', '2026-11-01 12:00:00' );
@@ -64,6 +65,7 @@ class SubjectRankingServiceTest extends TestCase {
 		// Ученик personId=5 состоит в одной активной группе — её предмет и есть его единственное направление.
 		$records->method('findActiveByStudent')->willReturn([(object)['groupId'=>11]]);
 		$config=$this->createStub(PluginConfig::class);
+		$config->method('rankingForSubject')->willReturnCallback(static fn() => array_merge($config->rankingSettings(), ['excluded_students' => $config->rankingExcludedStudents()]));
 		$config->method('isLearnerRankingVisible')->willReturn(true);
 		return new RankingAccessService($groups,$subjects,$records,$config);
 	}
@@ -82,6 +84,7 @@ class SubjectRankingServiceTest extends TestCase {
 		}
 		$repo->method('roster')->willReturn($roster);
 		$config=$this->createStub(PluginConfig::class);
+		$config->method('rankingForSubject')->willReturnCallback(static fn() => array_merge($config->rankingSettings(), ['excluded_students' => $config->rankingExcludedStudents()]));
 		$config->method('rankingSettings')->willReturn(['homework'=>1.0,'attendance_bonus'=>0.0]);
 		$ranking=new RankingCalculationService($repo,new RankingPointsPolicy($config));
 		$clock=$this->createStub(ClockInterface::class);
@@ -133,6 +136,7 @@ class SubjectRankingServiceTest extends TestCase {
 		}
 		$repo->method('roster')->willReturn($roster);
 		$config=$this->createStub(PluginConfig::class);
+		$config->method('rankingForSubject')->willReturnCallback(static fn() => array_merge($config->rankingSettings(), ['excluded_students' => $config->rankingExcludedStudents()]));
 		$config->method('rankingSettings')->willReturn(['homework'=>1.0,'attendance_bonus'=>0.0]);
 		$clock=$this->createStub(ClockInterface::class);
 		$clock->method('now')->willReturn('2026-10-31 12:00:00');
@@ -192,6 +196,17 @@ class SubjectRankingServiceTest extends TestCase {
 		self::assertSame(['inf_ege'],array_column($this->access()->learnerSubjectsFor(5),'key'));
 	}
 
+	public function test_learner_receives_only_own_score_breakdown(): void {
+		$data = $this->service()->buildForLearner( 2, 'inf_ege' );
+		foreach ( $data['rows'] as $row ) {
+			if ( 2 === $row['person_id'] ) {
+				self::assertArrayHasKey( 'breakdown', $row );
+			} else {
+				self::assertArrayNotHasKey( 'breakdown', $row );
+			}
+		}
+	}
+
 	public function test_learner_gets_same_table_but_only_for_own_direction(): void {
 		$data=$this->service()->buildForLearner(5,'inf_ege');
 		self::assertSame(5, $data['viewer_person_id']);
@@ -225,6 +240,7 @@ class SubjectRankingServiceTest extends TestCase {
 			'group_id' => 1 === $id ? 1 : 2, 'group_name' => 'Group',
 		], [1, 2, 3]));
 		$config = $this->createMock(PluginConfig::class);
+		$config->method('rankingForSubject')->willReturnCallback(static fn() => array_merge($config->rankingSettings(), ['excluded_students' => $config->rankingExcludedStudents()]));
 		$config->method('isLearnerRankingVisible')->willReturn(true);
 		$config->expects(self::exactly(3))->method('rankingSettings')->willReturn([
 			'practice' => 0.1, 'homework' => 0.2, 'survey' => 0.3, 'attendance_bonus' => 0.0,
@@ -252,6 +268,7 @@ class SubjectRankingServiceTest extends TestCase {
 			['student_person_id'=>2,'snapshot_last_name'=>'Два','snapshot_first_name'=>'','group_id'=>11,'group_name'=>'Обычная','access_mode'=>'scheduled'],
 		]);
 		$config = $this->createStub(PluginConfig::class);
+		$config->method('rankingForSubject')->willReturnCallback(static fn() => array_merge($config->rankingSettings(), ['excluded_students' => $config->rankingExcludedStudents()]));
 		$config->method('rankingSettings')->willReturn(['attendance_bonus'=>0]);
 		$clock = $this->createStub(ClockInterface::class);
 		$clock->method('now')->willReturn('2026-11-01 12:00:00');
@@ -269,6 +286,7 @@ class SubjectRankingServiceTest extends TestCase {
 			['student_person_id'=>2, 'source'=>'homework', 'task_points'=>1],
 		]);
 		$config = $this->createStub(PluginConfig::class);
+		$config->method('rankingForSubject')->willReturnCallback(static fn() => array_merge($config->rankingSettings(), ['excluded_students' => $config->rankingExcludedStudents()]));
 		$config->method('rankingSettings')->willReturn(['homework'=>1, 'attendance_bonus'=>0]);
 		$config->method('rankingExcludedStudents')->willReturn([1]);
 		$scores = (new RankingCalculationService($repo, new RankingPointsPolicy($config)))->scoresForSubject('inf_ege', '2026-11-01 12:00:00');
@@ -284,6 +302,7 @@ class SubjectRankingServiceTest extends TestCase {
 		$records = $this->createStub(StudentRecordRepository::class);
 		$records->method('findActiveByStudent')->willReturn([(object)['groupId'=>11]]);
 		$config = $this->createStub(PluginConfig::class);
+		$config->method('rankingForSubject')->willReturnCallback(static fn() => array_merge($config->rankingSettings(), ['excluded_students' => $config->rankingExcludedStudents()]));
 		$config->method('isLearnerRankingVisible')->willReturn(false);
 		$access = new RankingAccessService($groups, $subjects, $records, $config);
 		$GLOBALS['_test_user_can'][7] = [Capability::ManageLmsPlatform->value=>true];

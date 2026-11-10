@@ -31,7 +31,12 @@ class RankingSettingsCallbacks extends BaseController {
 	public function ajaxSaveRankingSettings(): void {
 		$this->authorize( Nonce::Config, Capability::ManageLmsPlatform );
 		try {
-			$this->settings->save( $this->unslashArray( 'settings' ) );
+			$subjects = $this->unslashArray( 'subjects' );
+			if ( array() !== $subjects || $this->sanitizeBool( 'subject_settings' ) ) {
+				$this->settings->saveSubjects( $subjects, $this->unslashArray( 'settings' ) );
+			} else {
+				$this->settings->save( $this->unslashArray( 'settings' ) );
+			}
 		} catch ( \InvalidArgumentException $exception ) {
 			$this->error( $exception->getMessage() );
 			return;

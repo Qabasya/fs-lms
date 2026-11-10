@@ -55,11 +55,19 @@ class WorkMetaBoxController extends BaseController implements ServiceInterface {
 		add_filter( 'default_title', array( $this, 'prefillWorkTitle' ), 10, 2 );
 		add_action( 'add_meta_boxes', array( $this, 'tidyWorkMetaBoxes' ), 100 );
 		add_action( 'save_post', array( $this, 'handleWorkSave' ) );
+		add_action( 'before_delete_post', array( $this, 'captureBeforeDelete' ), 10, 2 );
 		add_action( 'transition_post_status', array( $this, 'handleWorkPublish' ), 10, 3 );
 		// #10: не даём опубликовать работу без названия (откат в draft + notice).
 		add_filter( 'wp_insert_post_data', array( $this, 'validateWorkTitle' ), 10, 2 );
 		add_action( 'admin_notices', array( $this, 'showPublishError' ) );
 		add_action( 'admin_notices', array( $this, 'showTypeChangeWarning' ) );
+	}
+
+	/** Сохраняет состав также перед удалением работы средствами WordPress. */
+	public function captureBeforeDelete( int $postId, \WP_Post $post ): void {
+		if ( $this->works->isRankingSnapshotCaptureEnabled() && PostTypeResolver::isWorkPostType( $post->post_type ) ) {
+			$this->works->synchronizedMetaChange( $postId, static function (): void {} );
+		}
 	}
 
 	/**
@@ -220,12 +228,19 @@ class WorkMetaBoxController extends BaseController implements ServiceInterface {
 		}
 
 		// Мерж: сохраняем только work_type, item_ids (степ-лист, AJAX) не затираем.
-		$this->metaBoxManager->saveFieldsMerge(
-			$post_id,
-			PostMetaName::Meta->value,
-			$this->withoutRejectedTypeChange( $post_id, $this->unslashArray( PostMetaName::Meta->value ) ),
-			$this->template->get_fields()
-		);
+		$save = function () use ( $post_id ): void {
+			$this->metaBoxManager->saveFieldsMerge(
+				$post_id,
+				PostMetaName::Meta->value,
+				$this->withoutRejectedTypeChange( $post_id, $this->unslashArray( PostMetaName::Meta->value ) ),
+				$this->template->get_fields()
+			);
+		};
+		if ( $this->works->isRankingSnapshotCaptureEnabled() ) {
+			$this->works->synchronizedMetaChange( $post_id, $save );
+		} else {
+			$save();
+		}
 	}
 
 	/**

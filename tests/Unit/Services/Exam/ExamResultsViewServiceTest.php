@@ -222,12 +222,13 @@ class ExamResultsViewServiceTest extends TestCase {
 		self::assertSame( array(
 			'attempt_id', 'participation_id', 'result_version', 'event_id', 'event_title',
 			'session_id', 'session_date', 'session_time', 'name', 'audience', 'audience_label',
-			'source', 'school', 'source_id', 'group_id', 'group', 'result_status', 'result_status_label', 'score',
+			'source', 'school', 'source_id', 'group_id', 'group', 'result_status', 'result_status_label', 'result_sent', 'score',
 		), array_keys( $row ) );
 		self::assertSame( 'Иванов Пётр', $row['name'] );
 		self::assertSame( 'ready', $row['result_status'] );
 		self::assertSame( 'Готова к утверждению', $row['result_status_label'] );
 		self::assertSame( 'Результат сформирован', $result['items'][2]['result_status_label'] );
+		self::assertFalse( $result['items'][2]['result_sent'] );
 		self::assertSame( 10, $row['score']['primary'] );
 		self::assertSame( array( 'events', 'sessions', 'sources', 'groups', 'schools' ), array_keys( $result['filters'] ) );
 	}
@@ -239,6 +240,7 @@ class ExamResultsViewServiceTest extends TestCase {
 		$items = $this->service->results( 10, 'inf_ege', array() )['items'];
 
 		self::assertSame( 'Результат отправлен', $items[2]['result_status_label'] );
+		self::assertTrue( $items[2]['result_sent'] );
 		self::assertSame( 'approved', $items[2]['result_status'], 'значение статуса для фильтров не меняется' );
 		self::assertSame( 'Готова к утверждению', $items[0]['result_status_label'], 'у ученика подпись прежняя' );
 	}

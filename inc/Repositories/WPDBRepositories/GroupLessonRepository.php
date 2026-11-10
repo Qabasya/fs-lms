@@ -67,6 +67,20 @@ class GroupLessonRepository {
 		return array_map( [ GroupLessonDTO::class, 'fromArray' ], $rows ?: array() );
 	}
 
+	/** @return GroupLessonDTO[] Занятия предмета, включая группы без активных учеников. */
+	public function listBySubject( string $subject ): array {
+		$rows = $this->wpdb->get_results( $this->wpdb->prepare(
+			'SELECT gl.* FROM %i gl JOIN %i g ON g.id = gl.group_id WHERE g.subject_key = %s',
+			$this->table,
+			TableName::Groups->prefixed(),
+			$subject
+		), ARRAY_A );
+		if ( '' !== $this->wpdb->last_error || ! is_array( $rows ) ) {
+			throw new \RuntimeException( 'Не удалось получить занятия предмета.' );
+		}
+		return array_map( [ GroupLessonDTO::class, 'fromArray' ], $rows );
+	}
+
 	/** @return GroupLessonDTO[] */
 	public function listOpenByGroup( int $groupId ): array {
 		$rows = $this->wpdb->get_results(

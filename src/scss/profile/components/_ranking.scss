@@ -41,6 +41,9 @@
 .jgrid.ranking-table--learner tbody tr.ranking-self td,
 .jgrid.ranking-table--learner tbody tr.ranking-self:hover td { background: var(--accent-soft); }
 
+.ranking-table tr[data-score-row] { cursor: pointer; }
+.ranking-table tr[data-score-row]:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
 /* Ширины по образцу журнала: имя — 188 px и липнет слева (перед ним нет колонки «#»,
    журнальный сдвиг left: 38px не нужен). «Группа», «Баллы» и «Место в рейтинге» — $ranking-result-width. */
 .ranking-table { min-width: 0; }
@@ -74,7 +77,16 @@
 
 .ranking-score-total { margin: 16px 0; text-align: right; }
 
-.ranking-score-values { text-align: right; }
+.ranking-score-values { flex: 0 0 min(100%, 300px); text-align: right; }
+
+.ranking-score-equation {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(4ch, auto);
+  gap: 0 6px;
+  align-items: baseline;
+
+  strong { text-align: left; }
+}
 
 .ranking-table .col-name { left: 0; }
 

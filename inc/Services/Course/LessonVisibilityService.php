@@ -19,6 +19,8 @@ class LessonVisibilityService {
 		private readonly LessonManager               $lessonManager,
 		private readonly LogEventDispatcherInterface $dispatcher,
 		private readonly ClockInterface              $clock,
+		private readonly ?RankingAssignmentSnapshotService $rankingSnapshots = null,
+		private readonly bool $captureRankingAssignments = false,
 	) {}
 
 
@@ -64,6 +66,29 @@ class LessonVisibilityService {
 		$liveWorkIds = $lesson->workIds();
 		foreach ( $this->groupLessons->listByLessonId( $lessonId ) as $row ) {
 			if ( ! $row->isPublished() ) {
+				continue;
+			}
+			if ( $this->captureRankingAssignments && $this->rankingSnapshots ) {
+				$this->rankingSnapshots->synchronized( function () use ( $row, $liveWorkIds ): void {
+					$current = $this->groupLessons->find( $row->id );
+					if ( ! $current || ! $current->isPublished() ) {
+						return;
+					}
+					$effective = array_merge( $current->workIdsSnapshot ?? array(), $current->extraWorkIds );
+					$missing = array_values( array_diff( $liveWorkIds, $effective ) );
+					if ( ! $missing ) {
+						return;
+					}
+					if ( LessonVisibility::Hidden->value !== $this->effectiveVisibility( $current ) ) {
+						$this->rankingSnapshots->capture( $current->id, $missing );
+					} else {
+						$this->rankingSnapshots->markPending( $current->id, $missing );
+					}
+					$merged = array_values( array_unique( array_merge( $current->extraWorkIds, $missing ) ) );
+					if ( ! $this->groupLessons->setExtraWorkIds( $current->id, $merged ) ) {
+						throw new \RuntimeException( 'Не удалось сохранить дополнительные работы.' );
+					}
+				} );
 				continue;
 			}
 			$effective = array_merge( $row->workIdsSnapshot ?? array(), $row->extraWorkIds );

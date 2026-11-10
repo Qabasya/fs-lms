@@ -38,7 +38,7 @@ class SubjectRepository {
 	/**
 	 * Конструктор репозитория.
 	 */
-	public function __construct() {}
+	public function __construct( private readonly PluginConfigRepository $config = new PluginConfigRepository() ) {}
 
 	/**
 	 * Имя опции в wp_options.
@@ -87,13 +87,17 @@ class SubjectRepository {
 	 * @return bool
 	 */
 	public function setArchived( string $key, bool $archived ): bool {
-		$subjects = $this->getRaw();
-		if ( ! isset( $subjects[ $key ] ) ) {
-			return false;
-		}
-		$subjects[ $key ]['archived'] = $archived;
-
-		return update_option( $this->option_name, $subjects );
+		$result = false;
+		$this->config->mutate( function ( array $config ) use ( $key, $archived, &$result ): array {
+			$this->refreshCache();
+			$subjects = $this->getRaw();
+			if ( isset( $subjects[ $key ] ) ) {
+				$subjects[ $key ]['archived'] = $archived;
+				$result = update_option( $this->option_name, $subjects );
+			}
+			return $config;
+		} );
+		return $result;
 	}
 
 	/**
@@ -123,10 +127,23 @@ class SubjectRepository {
 			return false;
 		}
 
-		$subjects           = $this->getRaw();
-		$subjects[ $dto->key ] = $dto->toArray();
-
-		return update_option( $this->option_name, $subjects );
+		$result = false;
+		$this->config->mutate( function ( array $config ) use ( $dto, &$result ): array {
+			$this->refreshCache();
+			$subjects = $this->getRaw();
+			$isNew = ! isset( $subjects[ $dto->key ] );
+			if ( $isNew && (int) $config['ranking_subjects_version'] >= 1 ) {
+				if ( ! is_array( $config['ranking_subjects'] ) ) {
+					$config['ranking_subjects'] = array();
+				}
+				$config['ranking_subjects'][ $dto->key ] = array( 'generation' => bin2hex( random_bytes( 16 ) ) );
+				$this->config->writeLocked( $config );
+			}
+			$subjects[ $dto->key ] = $dto->toArray();
+			$result = update_option( $this->option_name, $subjects );
+			return $config;
+		} );
+		return $result;
 	}
 
 	/**
@@ -137,16 +154,21 @@ class SubjectRepository {
 	 * @return bool
 	 */
 	public function remove( string $key ): bool {
-		$subjects = $this->getRaw();
-
-		if ( ! isset( $subjects[ $key ] ) ) {
-			return false;
-		}
-
-		// unset() — удаляет элемент из массива по ключу
-		unset( $subjects[ $key ] );
-
-		return update_option( $this->option_name, $subjects );
+		$result = false;
+		$this->config->mutate( function ( array $config ) use ( $key, &$result ): array {
+			$this->refreshCache();
+			$subjects = $this->getRaw();
+			if ( ! isset( $subjects[ $key ] ) ) {
+				return $config;
+			}
+			unset( $subjects[ $key ] );
+			$result = update_option( $this->option_name, $subjects );
+			if ( $result && is_array( $config['ranking_subjects'] ) ) {
+				unset( $config['ranking_subjects'][ $key ] );
+			}
+			return $config;
+		} );
+		return $result;
 	}
 
 	/**
@@ -155,7 +177,14 @@ class SubjectRepository {
 	 * @return bool
 	 */
 	public function clear(): bool {
-		// delete_option() — удаляет опцию из таблицы wp_options
-		return delete_option( $this->option_name );
+		$result = false;
+		$this->config->mutate( function ( array $config ) use ( &$result ): array {
+			$result = delete_option( $this->option_name );
+			if ( $result ) {
+				$config['ranking_subjects'] = array();
+			}
+			return $config;
+		} );
+		return $result;
 	}
 }

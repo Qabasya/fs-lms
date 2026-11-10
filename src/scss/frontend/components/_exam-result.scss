@@ -325,13 +325,21 @@ body:has(#fs-exam-report) :is(.page-title, .wp-block-post-title, .wd-breadcrumbs
     }
   }
 
-  // Плитки показателей сверху — ровно 4 в ряд с тем же шагом, края совпадают с таблицей.
+  // Плитки показателей сверху; на телефонах они перестраиваются по ширине экрана.
   > .fs-exam-result__stats {
     grid-template-columns: repeat(4, 1fr);
     gap: $exam-report-stats-gap;
   }
 
   > .fs-exam-result__stats dd { font-weight: $font-regular; }
+
+  @media (max-width: $bp-mobile) {
+    > .fs-exam-result__stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+
+  @media (max-width: $bp-narrow) {
+    > .fs-exam-result__stats { grid-template-columns: 1fr; }
+  }
 
   // Навигация заданиями в разборе — сетка в одну полосу с колонками таблицы:
   // отступ слева под колонку ФИО, справа — под обе балльные.
@@ -350,6 +358,7 @@ body:has(#fs-exam-report) :is(.page-title, .wp-block-post-title, .wd-breadcrumbs
   // Матрица «ученики × задания» — как таблица экрана «Статистика» (prof-card exam-stats-table):
   // полная сетка, шапка-полоса, липкая колонка ФИО, баллы в ячейках цветом вердикта, сводный подвал.
   &__scroll {
+    max-width: 100%;
     margin-bottom: $spacing-md;
     overflow-x: auto;
     border: 1px solid $color-border-light;
@@ -455,6 +464,20 @@ body:has(#fs-exam-report) :is(.page-title, .wp-block-post-title, .wd-breadcrumbs
 
     thead tr:last-child th,
     tbody tr:last-child td { border-bottom: 1px solid $color-border-light; }
+  }
+
+  @media (max-width: $bp-mobile) {
+    &__table {
+      width: max-content;
+      min-width: 100%;
+      table-layout: auto;
+
+      th,
+      td { min-width: $exam-report-mobile-cell-width; }
+
+      .fs-exam-report__name { min-width: $exam-report-name-width; }
+      .fs-exam-report__sum { min-width: $exam-report-sum-width; }
+    }
   }
 
   // Подсказка над таблицей — тем же мелким серым стилем, что и мета-строка шапки.

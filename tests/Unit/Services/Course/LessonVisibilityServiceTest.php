@@ -87,6 +87,20 @@ class LessonVisibilityServiceTest extends TestCase {
 		$this->service->syncExtraWorksForOpenOccurrences( 1 );
 	}
 
+	public function test_sync_records_new_extra_work_on_open_lesson(): void {
+		$row = $this->makeRow( workIdsSnapshot: [ 10 ], extraWorkIds: [] );
+		$lesson = $this->makeLesson( workIds: [ 10, 20 ] );
+		$this->lessonManager->method( 'get' )->willReturn( $lesson );
+		$this->groupLessons->method( 'listByLessonId' )->willReturn( [ $row ] );
+		$this->groupLessons->method( 'find' )->willReturn( $row );
+		$this->groupLessons->method( 'setExtraWorkIds' )->willReturn( true );
+		$snapshots = $this->createMock( \Inc\Services\Course\RankingAssignmentSnapshotService::class );
+		$snapshots->method( 'synchronized' )->willReturnCallback( static function ( callable $fn ): void { $fn(); } );
+		$snapshots->expects( self::once() )->method( 'markPending' )->with( 42, [ 20 ] );
+		$service = new LessonVisibilityService( $this->groupLessons, $this->lessonManager, $this->dispatcher, $this->clock, $snapshots, true );
+		$service->syncExtraWorksForOpenOccurrences( 1 );
+	}
+
 	public function test_sync_skips_unpublished_occurrences(): void {
 		$row    = $this->makeRow( workIdsSnapshot: null, extraWorkIds: [] );
 		$lesson = $this->makeLesson( workIds: [ 10, 20 ] );

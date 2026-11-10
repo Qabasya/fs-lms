@@ -42,7 +42,11 @@ if (!class_exists('wpdb')) {
         public function insert(string $table, array $data, ?array $format = null): int|false { return 1; }
         public function update(string $table, array $data, array $where, $format = null, $where_format = null): int|false { return 1; }
         public function delete(string $table, array $where, $where_format = null): int|false { return 1; }
-        public function get_var(string $query, int $x = 0, int $y = 0): mixed { return null; }
+        public function get_var(string $query, int $x = 0, int $y = 0): mixed {
+            if (str_contains($query, 'SELECT DATABASE()')) { return 'test'; }
+            if (str_contains($query, 'GET_LOCK(') || str_contains($query, 'RELEASE_LOCK(')) { return '1'; }
+            return null;
+        }
         public function get_row(string $query, string $output = 'OBJECT', int $y = 0): mixed { return null; }
         public function get_results(string $query, string $output = 'OBJECT'): array { return []; }
         public function get_col(string $query, int $x = 0): array { return []; }
@@ -861,6 +865,8 @@ if (!function_exists('wp_timezone')) {
 }
 if (!function_exists('update_option')) {
     function update_option(string $option, mixed $value, mixed $autoload = null): bool {
+		if (!empty($GLOBALS['_test_fail_update_option'])) { return false; }
+		if (($GLOBALS['_test_fail_option_name'] ?? null) === $option) { return false; }
         $GLOBALS['_test_options'][$option] = $value;
         return true;
     }

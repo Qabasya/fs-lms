@@ -79,7 +79,8 @@ class SubjectRankingService {
 				throw new \InvalidArgumentException( 'Период недоступен.' );
 			}
 		}
-		$scores   = $this->ranking->scoresForSubject( $subject, $now, $period, 0 === $viewerPersonId );
+		$policy = $this->ranking->subjectPolicy( $subject );
+		$scores   = $this->ranking->scoresForSubject( $subject, $now, $period, true, $policy );
 		$students = array();
 		$groups   = array();
 		$viewerGroupId = 0;
@@ -111,8 +112,11 @@ class SubjectRankingService {
 					'score'     => $scores[ $id ]['score'],
 					'rank'      => $scores[ $id ]['rank'],
 				);
-				if ( 0 === $viewerPersonId ) {
+				if ( 0 === $viewerPersonId || $id === $viewerPersonId ) {
 					$students[ $id ]['breakdown'] = $scores[ $id ]['breakdown'] ?? array();
+					$students[ $id ]['max_score'] = $scores[ $id ]['max_score'] ?? null;
+					$students[ $id ]['max_unknown'] = $scores[ $id ]['max_unknown'] ?? false;
+					$students[ $id ]['score_unknown'] = $scores[ $id ]['score_unknown'] ?? false;
 				}
 			}
 			if ( ! $individual ) {
@@ -142,7 +146,7 @@ class SubjectRankingService {
 		} );
 		foreach ( $rows as &$row ) {
 			$row['groups'] = array_values( $row['groups'] );
-			$row['trend'] = $this->snapshots->trend( $subject, $groupId, $row['person_id'], $row['rank'], $period['from'], $now );
+			$row['trend'] = $this->snapshots->trend( $subject, $groupId, $row['person_id'], $row['rank'], $period['from'], $now, $policy );
 		}
 		unset( $row );
 		return array(

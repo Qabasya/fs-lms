@@ -65,6 +65,9 @@ enum OptionName: string {
 	/** Конфигурация плагина: DaData-токен, тест-окружение, OTP bypass-код */
 	case PluginConfig = 'fs_lms_plugin_config';
 
+	/** Снимки дополнительных работ для рейтинга. */
+	case RankingAssignmentSnapshots = 'fs_lms_ranking_assignment_snapshots';
+
 	/** Аватары предметов и групп: ['subject' => [key => attachment_id], 'group' => [id => attachment_id]] */
 	case Avatars = 'fs_lms_avatars';
 

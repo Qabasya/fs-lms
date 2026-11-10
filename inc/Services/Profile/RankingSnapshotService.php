@@ -45,11 +45,16 @@ class RankingSnapshotService {
 			}
 		}
 		$season = $this->ranking->period( $start );
-		$data = $this->transaction->read( function () use ( $start, $season ): array {
-			$result = array();
-			foreach ( $this->subjects->readActive() as $subject ) {
-				$scores = $this->ranking->scoresForSubject( $subject->key, $start, $season );
-				$result[ $subject->key ] = $this->builder->build( $scores, $this->roster->roster( $subject->key ) );
+		$policies = array();
+		foreach ( $this->subjects->readActive() as $subject ) {
+			$policies[ $subject->key ] = $this->ranking->subjectPolicy( $subject->key );
+		}
+		$data = $this->transaction->read( function () use ( $start, $season, $policies ): array {
+			$result = array( 'subjects' => array(), 'policies' => array() );
+			foreach ( $policies as $subject => $policy ) {
+				$scores = $this->ranking->scoresForSubject( $subject, $start, $season, false, $policy );
+				$result['subjects'][ $subject ] = $this->builder->build( $scores, $this->roster->roster( $subject ) );
+				$result['policies'][ $subject ] = $this->fingerprint( $policy );
 			}
 			return $result;
 		} );
@@ -64,13 +69,20 @@ class RankingSnapshotService {
 			'boundary' => $boundary,
 			'captured_at' => $start,
 			'season' => $season['from'],
-			'subjects' => $data,
+			'subjects' => $data['subjects'],
+			'policies' => $data['policies'],
 		) );
 	}
 
 	/** @return array{direction:string, baseline_at:string}|null */
-	public function trend( string $subject, int $groupId, int $personId, int $rank, string $season, string $now ): ?array {
+	public function trend( string $subject, int $groupId, int $personId, int $rank, string $season, string $now, ?array $policy = null ): ?array {
 		$snapshot = $this->snapshots->read();
+		if ( $this->ranking->usesSubjectSettings() ) {
+			$current = $this->fingerprint( $this->ranking->subjectPolicy( $subject ) );
+			if ( ( $snapshot['policies'][ $subject ] ?? null ) !== $current || ( null !== $policy && $this->fingerprint( $policy ) !== $current ) ) {
+				return null;
+			}
+		}
 		$tz = wp_timezone();
 		$boundary = $this->interval->start( new DateTimeImmutable( $now, $tz ), $tz )->format( 'Y-m-d H:i:s' );
 		if ( $boundary === $season ) {
@@ -96,5 +108,9 @@ class RankingSnapshotService {
 			return null;
 		}
 		return array( 'direction' => $rank < $previous ? 'up' : 'down', 'baseline_at' => $snapshot['captured_at'] );
+	}
+
+	private function fingerprint( array $policy ): string {
+		return hash( 'sha256', serialize( array( 'assignments-v1', $policy ) ) );
 	}
 }

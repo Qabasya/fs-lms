@@ -375,6 +375,7 @@ final class Init {
 		$migrationRunner->register( new Migration_1_0_105() );
 		$migrationRunner->register( new Migration_1_0_106() );
 		$migrationRunner->run();
+		$container->get( \Inc\Migrations\RankingSubjectMigration::class )->run();
 
 		// Data-миграция (не схема): ссылки на файлы заданий со старой схемой
 		// http:// ломают скачивание по кнопке — для браузера это чужой origin,

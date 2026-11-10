@@ -10,6 +10,7 @@ use Inc\Enums\Wp\Nonce;
 use Inc\Services\Course\CourseAssignmentService;
 use Inc\Services\Course\CourseBuilderService;
 use Inc\Services\Course\CoursePublishValidator;
+use Inc\Services\Course\RankingLessonPublicationService;
 use Inc\Shared\PluginLogger;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
@@ -31,6 +32,8 @@ class CourseBuilderCallbacks extends BaseController {
 		private readonly CourseBuilderService $builder,
 		private readonly CoursePublishValidator $publishValidator,
 		private readonly CourseAssignmentService $assignment,
+		private readonly ?RankingLessonPublicationService $rankingPublication = null,
+		private readonly bool $captureRankingAssignments = false,
 	) {
 		parent::__construct();
 	}
@@ -179,7 +182,11 @@ class CourseBuilderCallbacks extends BaseController {
 		$published = $this->sanitizeBool( 'published' );
 		$course_id = $this->sanitizeInt( 'course_id' );
 
-		if ( $this->builder->updateLessonMeta( $lesson_id, $title, $published ) ) {
+		$save = fn(): bool => $this->builder->updateLessonMeta( $lesson_id, $title, $published );
+		$saved = $published && $this->captureRankingAssignments && $this->rankingPublication
+			? $this->rankingPublication->publish( $lesson_id, $save )
+			: $save();
+		if ( $saved ) {
 			if ( $published && $course_id > 0 ) {
 				$this->syncCourseToGroups( $course_id );
 			}

@@ -4,7 +4,7 @@
 @use '../variables' as *;
 @use 'motion' as *;
 
-.prof-dash { padding: rem(24); max-width: rem(1320); margin: 0 auto; }
+.prof-dash { padding: rem(24); }
 
 /* Баннер «идёт контрольная»: весь кабинет заблокирован запирающей попыткой. */
 .prof-exam-lock {

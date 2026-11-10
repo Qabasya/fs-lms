@@ -37,6 +37,8 @@ class WorkMetaBoxControllerTypeChangeTest extends TestCase {
 
 		$this->metaBoxes = $this->createMock( MetaBoxManager::class );
 		$this->works     = $this->createMock( WorkManager::class );
+		$this->works->method( 'isRankingSnapshotCaptureEnabled' )->willReturn( true );
+		$this->works->method( 'synchronizedMetaChange' )->willReturnCallback( static fn( int $id, callable $change ): mixed => $change() );
 		$this->authoring = $this->createMock( WorkAuthoringService::class );
 		$this->guard     = $this->createMock( TaskPublishGuard::class );
 
@@ -56,6 +58,27 @@ class WorkMetaBoxControllerTypeChangeTest extends TestCase {
 		$this->works->method( 'get' )->willReturn( new WorkDTO(
 			id: 5, subjectKey: 'inf', title: 'Работа', workType: $type, itemIds: $items, instructions: '', authorId: 1, status: 'draft',
 		) );
+	}
+
+	public function test_native_work_deletion_captures_assignment(): void {
+		$this->works->expects( self::once() )->method( 'synchronizedMetaChange' )->with( 5, self::isInstanceOf( \Closure::class ) );
+		$this->controller->captureBeforeDelete( 5, new \WP_Post( array( 'ID' => 5, 'post_type' => 'inf_works' ) ) );
+	}
+
+	public function test_disabled_capture_saves_and_deletes_without_snapshot_calls(): void {
+		$works = $this->createMock( WorkManager::class );
+		$works->method( 'isRankingSnapshotCaptureEnabled' )->willReturn( false );
+		$works->expects( self::never() )->method( 'synchronizedMetaChange' );
+		$works->method( 'get' )->willReturn( new WorkDTO( 5, 'inf', 'Работа', WorkType::Practice, array(), '', 1, 'draft' ) );
+		$this->metaBoxes->expects( self::once() )->method( 'saveFieldsMerge' );
+		$controller = new WorkMetaBoxController(
+			$this->createMock( SubjectRepository::class ), $this->createMock( MetaBoxRegistrar::class ),
+			$this->metaBoxes, new WorkTemplate(), $works, $this->createMock( PostManager::class ),
+			$this->guard, $this->authoring,
+		);
+		$this->postType( 'practice' );
+		$controller->handleWorkSave( 5 );
+		$controller->captureBeforeDelete( 5, new \WP_Post( array( 'ID' => 5, 'post_type' => 'inf_works' ) ) );
 	}
 
 	private function postType( string $type ): void {

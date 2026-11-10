@@ -10,9 +10,16 @@ export function matchingStudents( options, query ) {
         .slice( 0, 20 );
 }
 
+/** Keep hidden controls out of validation and keyboard navigation. */
+export function syncRankingFields( fields, enabled ) {
+    fields.hidden = ! enabled;
+    fields.disabled = ! enabled;
+}
+
 /** Веса рейтинга: сохраняется только форма своей карточки. */
 export const RankingSettings = {
     init() {
+        this.initSubjectCards();
         const $form = $( '#fs-ranking-settings-form' );
         if ( ! $form.length || $form.data( 'rankingBound' ) ) {
             return;
@@ -21,6 +28,29 @@ export const RankingSettings = {
         $form.data( 'rankingBound', true ).on( 'submit', ( event ) => {
             event.preventDefault();
             this.save( $form );
+        } );
+    },
+
+    initSubjectCards() {
+        const $form = $( '#fs-ranking-subjects-form' );
+        if ( ! $form.length || $form.data( 'rankingBound' ) ) return;
+        $form.find( '[data-ranking-card]' ).each( ( _, card ) => {
+            const toggle = card.querySelector( 'input[type=checkbox]' );
+            const fields = card.querySelector( '[data-ranking-fields]' );
+            toggle.setAttribute( 'aria-controls', fields.id );
+            card.dataset.enabledOriginal = toggle.checked ? '1' : '0';
+            const sync = () => syncRankingFields( fields, toggle.checked );
+            toggle.addEventListener( 'change', sync );
+            card.querySelectorAll( '[data-ranking-field]' ).forEach( field => field.addEventListener( 'input', () => {
+                field.step = field.value === field.dataset.original && field.dataset.original.includes( '.' ) ? 'any' : '1';
+            } ) );
+            sync();
+        } );
+        this.bindStudentSearch( $form );
+        $form.data( 'excludedOriginal', ( $form.find( '#fs-ranking-excluded' ).val() || [] ).join( ',' ) );
+        $form.data( 'rankingBound', true ).on( 'submit', event => {
+            event.preventDefault();
+            this.saveSubjects( $form );
         } );
     },
 
@@ -57,7 +87,7 @@ export const RankingSettings = {
             if ( ! results.length ) $list.append( $( '<li class="fs-print-center__suggest-empty">' ).text( 'Ученики не найдены' ) );
             results.forEach( ( option, index ) => {
                 $list.append( $( '<li class="fs-print-center__suggest-item" role="option">' )
-                    .attr( { 'data-index': index, id: `fs-ranking-student-opt-${ index }` } )
+                    .attr( { 'data-index': index, id: `${ $list.attr( 'id' ) }-opt-${ index }` } )
                     .append( $( '<span class="fs-print-center__suggest-name">' ).text( option.text ) ) );
             } );
             $list.prop( 'hidden', false );
@@ -86,6 +116,46 @@ export const RankingSettings = {
             Array.from( $select[ 0 ].options ).forEach( option => { if ( option.value === id ) option.selected = false; } );
             $item.remove();
         } );
+    },
+
+    saveSubjects( $form ) {
+        if ( $form.data( 'saving' ) || ! $form[ 0 ].reportValidity() ) return;
+        const subjects = {};
+        $form.find( '[data-ranking-card]' ).each( ( _, card ) => {
+            const enabled = card.querySelector( 'input[type=checkbox]' ).checked ? '1' : '0';
+            const patch = {};
+            if ( enabled !== card.dataset.enabledOriginal ) patch.enabled = enabled;
+            if ( '1' === enabled ) {
+                card.querySelectorAll( '[data-ranking-field]' ).forEach( field => {
+                    if ( field.value !== field.dataset.original ) patch[ field.name ] = field.value;
+                } );
+            }
+            if ( Object.keys( patch ).length ) subjects[ card.dataset.rankingCard ] = patch;
+        } );
+        const $status = $form.find( '.js-ranking-status' );
+        const excluded = ( $form.find( '#fs-ranking-excluded' ).val() || [] ).join( ',' );
+        const settings = excluded === $form.data( 'excludedOriginal' ) ? {} : { excluded_students: excluded };
+        if ( ! Object.keys( subjects ).length && ! Object.keys( settings ).length ) { $status.text( 'Нет изменений.' ); return; }
+        const $buttons = $form.find( 'button' );
+        $form.data( 'saving', true ).attr( 'aria-busy', 'true' );
+        $buttons.prop( 'disabled', true );
+        $status.text( 'Сохранение…' ).removeClass( 'fs-config-status--ok fs-config-status--err' );
+        $.post( fs_lms_vars.ajaxurl, { action: fs_lms_vars.ajax_actions.saveRankingSettings, security: fs_lms_vars.nonces.config, subject_settings: 1, subjects, settings } )
+            .done( result => {
+                if ( ! result.success ) { $status.text( this.errorMessage( result ) ).addClass( 'fs-config-status--err' ); return; }
+                $form.find( '[data-ranking-card]' ).each( ( _, card ) => {
+                    const sent = subjects[ card.dataset.rankingCard ];
+                    if ( ! sent ) return;
+                    if ( Object.hasOwn( sent, 'enabled' ) ) card.dataset.enabledOriginal = sent.enabled;
+                    card.querySelectorAll( '[data-ranking-field]' ).forEach( field => {
+                        if ( Object.hasOwn( sent, field.name ) ) field.dataset.original = sent[ field.name ];
+                    } );
+                } );
+                if ( Object.hasOwn( settings, 'excluded_students' ) ) $form.data( 'excludedOriginal', settings.excluded_students );
+                $status.text( 'Сохранено.' ).addClass( 'fs-config-status--ok' );
+            } )
+            .fail( xhr => { $status.text( this.errorMessage( xhr.responseJSON, 'Ошибка сети. Повторите сохранение.' ) ).addClass( 'fs-config-status--err' ); } )
+            .always( () => { $buttons.prop( 'disabled', false ); $form.data( 'saving', false ).removeAttr( 'aria-busy' ); } );
     },
 
     save( $form ) {

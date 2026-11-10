@@ -245,6 +245,35 @@ class ExamReviewProjectionTest extends TestCase {
 		self::assertTrue( $this->projection->isParticipationSubmitted( 7 ) );
 	}
 
+	public function test_school_report_can_read_submitted_work_without_guest_result_link(): void {
+		$this->participations->method( 'find' )->willReturn( $this->participation() );
+		$this->events->method( 'find' )->willReturn( $this->event() );
+		$this->attempts->method( 'find' )->willReturn( $this->attempt() );
+		$this->attemptService->expects( self::never() )->method( 'isRevealed' );
+		$this->details->method( 'forWork' )->willReturn( $this->detail() );
+		$this->scores->method( 'summarize' )->willReturn( array( 'primary' => 18 ) );
+
+		$result = $this->projection->forReportParticipation( 7 );
+
+		self::assertTrue( $result['revealed'] );
+		self::assertSame( '5', $result['tasks'][0]['answer'] );
+		self::assertArrayNotHasKey( 'task_id', $result['tasks'][0] );
+	}
+
+	public function test_school_report_rejects_foreign_attempt(): void {
+		$this->participations->method( 'find' )->willReturn( $this->participation() );
+		$this->events->method( 'find' )->willReturn( $this->event() );
+		$this->attempts->method( 'find' )->willReturn( $this->attempt( 11, 8 ) );
+		$this->details->expects( self::never() )->method( 'forWork' );
+
+		self::assertNull( $this->projection->forReportParticipation( 7 ) );
+	}
+
+	public function test_report_mode_cannot_be_requested_through_general_viewer(): void {
+		$this->expectException( \InvalidArgumentException::class );
+		$this->projection->forViewer( 11, 'report' );
+	}
+
 	public function test_submitted_check_is_false_for_running_attempt_and_foreign_attempt(): void {
 		$this->participations->method( 'find' )->willReturn( $this->participation() );
 		$running = new AttemptDTO(
