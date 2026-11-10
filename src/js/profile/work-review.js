@@ -10,10 +10,6 @@
 import { esc, toast, fmtNum, fmtDateTime, fmtDuration } from './utils.js';
 import { icoChevronLeft } from '../common/icons.js';
 import { createApi } from './api.js';
-
-/* Деталь работы тяжёлая (условия, ответы, вердикты), а учитель листает работы туда-обратно: повторное
-   открытие берётся из кеша мгновенно, а фоновая сверка подменяет экран, если данные на сервере изменились. */
-const DETAIL_CACHE = { ttl: 300000, swr: true };
 import { confirmDialog } from '../common/components/confirm-dialog.js';
 import { renderTask, VERDICT_LABEL, verdictKey } from './task-render.js';
 import { resultCaption } from './exams/exam-result.js';
@@ -47,7 +43,7 @@ export function renderWorkReview(root, { onBack, onLoaded } = {}) {
     onBackCb = typeof onBack === 'function' ? onBack : () => {};
     onLoadedCb = typeof onLoaded === 'function' ? onLoaded : () => {};
     const p = window.fsProfile || {};
-    reviewApi       = p.review ? createApi(p.review, { cache: { getDetail: DETAIL_CACHE, getAttemptHistory: DETAIL_CACHE } }) : null;
+    reviewApi       = p.review ? createApi(p.review) : null;
     attemptGradeApi = p.attemptGrade ? createApi(p.attemptGrade) : null;
     // D4: поштучное оценивание задания «Развёрнутый ответ» внутри submission-работы —
     // переиспользует Этап-7 эндпоинт GradeBatchTask (пишет per-task строку submissions).
@@ -75,7 +71,7 @@ export async function openWorkReview(sourceType, sourceId, from, { keepScroll = 
     if (!keepScroll) { wrRoot.innerHTML = '<div class="wr-loading">Загрузка…</div>'; }
     let d;
     try {
-        d = await reviewApi('getDetail', { source_type: sourceType, source_id: sourceId }, { onUpdate: refreshIfUntouched(sourceType, sourceId) });
+        d = await reviewApi('getDetail', { source_type: sourceType, source_id: sourceId });
     } catch (e) {
         wrRoot.innerHTML = `<div class="wr-loading">${esc(e.message)}</div>`;
         return;
@@ -87,7 +83,7 @@ export async function openWorkReview(sourceType, sourceId, from, { keepScroll = 
     let history = [];
     if ('work' === d.kind && d.submission_id) {
         try {
-            const r = await reviewApi('getAttemptHistory', { submission_id: d.submission_id }, { onUpdate: refreshIfUntouched(sourceType, sourceId) });
+            const r = await reviewApi('getAttemptHistory', { submission_id: d.submission_id });
             history = r?.attempts || [];
         } catch { /* пилюли просто не покажутся */ }
     }
@@ -95,30 +91,6 @@ export async function openWorkReview(sourceType, sourceId, from, { keepScroll = 
     render(d, history);
     if (scroll) { restoreScroll(scroll); }
     onLoadedCb(d);
-}
-
-/** Прогревает кеш детали (наведение на строку списка работ); история попыток — следом, когда известна сдача. */
-export function prefetchWorkReview(sourceType, sourceId) {
-    if (!reviewApi) { return; }
-    reviewApi('getDetail', { source_type: sourceType, source_id: sourceId })
-        .then((d) => {
-            if ('work' === d.kind && d.submission_id) { reviewApi.prefetch('getAttemptHistory', { submission_id: d.submission_id }); }
-        })
-        .catch(() => {});
-}
-
-/**
- * Обработчик фоновой сверки: сервер вернул другое, чем показано из кеша (ученик пересдал, коллега оценил).
- * Экран перерисовывается на месте, но только если учитель всё ещё на этой работе и ничего не набирал —
- * иначе набранный комментарий пропал бы.
- */
-function refreshIfUntouched(sourceType, sourceId) {
-    return () => {
-        if (!current || current.sourceType !== sourceType || current.sourceId !== sourceId) { return; }
-        const dirty = [...wrRoot.querySelectorAll('textarea, input')].some((el) => el.value !== el.defaultValue);
-        if (dirty) { return; }
-        reload();
-    };
 }
 
 /** Перечитывает деталь на месте: прокрутка экрана сохраняется (см. {@see openWorkReview}). */

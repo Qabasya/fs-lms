@@ -17,8 +17,7 @@
 
 import { esc, emptyState, fmtDate, toast } from './utils.js';
 import { icoInbox } from '../common/icons.js';
-import { createApi, clearApiCache } from './api.js';
-import { prefetchWorkReview } from './work-review.js';
+import { createApi } from './api.js';
 import { groupPickerBtnHtml, openGroupPicker, optionPickerBtnHtml, openOptionPicker } from './picker.js';
 import { badgeHtml, workCardHtml } from './work-card.js';
 import { confirmDialog } from '../common/components/confirm-dialog.js';
@@ -83,17 +82,13 @@ export function renderWorks(r, opts = {}) {
         refreshing:   false,
         scrollTop:    0,
     };
-    // Порции и ученики — короткий кеш: возврат к работе не ждёт сервер;
-    // «Обновить» и любая запись (зачёт) сбрасывают его.
-    api = createApi(state.cfg, { cache: {
-        getPassedWorks:    30000,
-        getPassedStudents: 30000,
-    } });
+    // Кеш чтения отключён (решение 2026-11): экраны всегда читают свежие данные с сервера.
+    api = createApi(state.cfg);
     if (!state.cfg) { root.innerHTML = empty('Проверка недоступна', 'Экран «Работы» не настроен.'); return; }
 
     if (undefined === nav.g && p.dashboard) {
         const current = state;
-        const dashboard = createApi(p.dashboard, { cache: { getDashboard: 30000 } });
+        const dashboard = createApi(p.dashboard);
         dashboard('getDashboard').then(data => {
             if (state !== current) { return; }
             const live = (data.today || []).find(item => item.state === 'now' && item.end && current.groups.some(g => Number(g.id) === Number(item.group_id)));
@@ -205,10 +200,9 @@ function patchSelected(students) {
     it.pending = students.filter((st) => PENDING_STATUSES.includes(st.status)).length;
 }
 
-/** «Обновить»: сброс кеша и перезагрузка — списка с первой порции либо учеников открытой работы. */
+/** «Обновить»: перезагрузка списка с первой порции либо учеников открытой работы. */
 async function refresh() {
     if (state.refreshing) { return; }
-    clearApiCache();
     state.refreshing = true;
     render(); // «Обновление…» сразу, не дожидаясь ответа сервера
     try {
@@ -499,10 +493,6 @@ function wireStepTwo() {
         el.addEventListener('click', () => {
             if (openWorkReviewCb) { openWorkReviewCb(el.dataset.srcType, +el.dataset.srcId); }
         });
-        // Пока курсор над строкой, деталь работы уже грузится: к клику она обычно в кеше.
-        const warm = () => prefetchWorkReview(el.dataset.srcType, +el.dataset.srcId);
-        el.addEventListener('pointerenter', warm);
-        el.addEventListener('focus', warm);
     });
 
     root.querySelectorAll('[data-credit]').forEach((btn) =>

@@ -47,8 +47,8 @@ export function renderExamStats(r, h = {}) {
         root.innerHTML = noSubjectsHtml();
         return;
     }
-    // Чтение статистики кешируется на минуту (со сверкой в фоне): переключение «ученики / гости / все» и возврат на экран не ходят в БД.
-    api = createApi(cfg, { cache: { getStats: { ttl: 60000, swr: true } } });
+    // Кеш чтения отключён (решение 2026-11): переключение «ученики / гости / все» и возврат на экран каждый раз читают свежие данные.
+    api = createApi(cfg);
     load();
 }
 

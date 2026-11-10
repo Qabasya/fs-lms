@@ -49,7 +49,7 @@ export function renderKTP(r) {
         indiSelected: null,  // выбранный слот (group_lesson_id) для назначения урока
         indiCandidates: null, // кандидаты-уроки для выбранного слота (null = не загружены)
     };
-    api = createApi(state.sched, { cache: { getCalendar: 60000 } });
+    api = createApi(state.sched);
     coursesApi = p.courses ? createApi(p.courses) : null;
     indiCtx = { root, state, api, openGroupMenu };
 
