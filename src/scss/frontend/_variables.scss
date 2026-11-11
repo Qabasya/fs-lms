@@ -251,6 +251,7 @@ $exam-report-btn-padding-x: rem(20);
 // Компактная сетка матрицы «ученики × задания»: ФИО и баллы — фиксированные, колонки заданий делят остаток.
 $exam-report-width: rem(1400); // контейнер школьного отчёта
 $exam-report-cell-min: rem(25);
+$exam-report-mobile-cell-width: rem(40);
 $exam-report-cell-height: rem(30);
 $exam-report-cell-padding-y: rem(4);
 $exam-report-cell-padding-x: rem(2);
