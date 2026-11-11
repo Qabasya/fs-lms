@@ -103,7 +103,7 @@ if ( ! isset( $fs_seq ) ) {
 				<div class="fs-attempt-files__chips"></div>
 				<div class="fs-attempt-files__controls">
 					<input type="file" class="fs-attempt-files__input" hidden multiple
-						accept=".jpg,.jpeg,.png,.gif,.webp,.heic,.pdf,.doc,.docx,.pptx,.txt,.py,.zip,.rar">
+						accept=".jpg,.jpeg,.png,.gif,.webp,.heic,.pdf,.doc,.docx,.pptx,.xls,.xlsx,.ods,.odt,.odp,.kum,.txt,.py,.zip,.rar">
 					<button type="button" class="fs-btn fs-btn--secondary fs-attempt-files__add">
 						📎 Прикрепить файлы
 					</button>

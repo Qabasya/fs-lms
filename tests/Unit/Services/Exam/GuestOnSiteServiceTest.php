@@ -144,6 +144,17 @@ class GuestOnSiteServiceTest extends TestCase {
 		self::assertSame( 'phone', $result['candidates'][0]['match'] );
 	}
 
+	public function test_guest_without_phone_still_checks_duplicate_name(): void {
+		$this->applications->expects( self::once() )->method( 'duplicateCandidatesByHashes' )->willReturn( array( array( 'participant_id' => 2, 'participation_id' => 5, 'match' => 'name' ) ) );
+		$this->applications->expects( self::never() )->method( 'apply' );
+		$form = $this->form();
+		$form['phone'] = '';
+
+		$result = $this->build()->add( 10, 7, 14, $form, $this->ctx(), 'rk', false );
+		self::assertSame( 'needs_confirmation', $result['status'] );
+		self::assertSame( 'name', $result['candidates'][0]['match'] );
+	}
+
 	public function test_confirmed_not_duplicate_skips_candidate_check(): void {
 		$this->applications->expects( self::never() )->method( 'duplicateCandidatesByHashes' );
 

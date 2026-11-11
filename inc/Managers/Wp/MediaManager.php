@@ -30,6 +30,7 @@ class MediaManager {
 		// .docx/.pptx выше, некоторые ученики/авторы работают только в нём.
 		'application/vnd.oasis.opendocument.text',
 		'application/vnd.oasis.opendocument.presentation',
+		'application/vnd.oasis.opendocument.spreadsheet',
 		'text/plain',
 		// Файлы данных с дробями через запятую («1,5») libmagic принимает за CSV —
 		// это тот же плейнтекст (данные ЕГЭ, задание 27).
@@ -146,6 +147,15 @@ class MediaManager {
 	 * @return array<string,string>
 	 */
 	public function extendUploadMimes( array $mimes ): array {
+		$mimes['ods']  = 'application/vnd.oasis.opendocument.spreadsheet';
+		$mimes['odt']  = 'application/vnd.oasis.opendocument.text';
+		$mimes['odp']  = 'application/vnd.oasis.opendocument.presentation';
+		$mimes['xls']  = 'application/vnd.ms-excel';
+		$mimes['xlsx'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+		$mimes['doc']  = 'application/msword';
+		$mimes['docx'] = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+		$mimes['pptx'] = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+		$mimes['txt']  = 'text/plain';
 		$mimes['py']   = 'text/x-python';
 		$mimes['heic'] = 'image/heic';
 		$mimes['heif'] = 'image/heif';

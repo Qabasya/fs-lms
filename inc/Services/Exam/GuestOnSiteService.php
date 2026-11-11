@@ -137,7 +137,7 @@ class GuestOnSiteService {
 		$last  = trim( (string) ( $form['last_name'] ?? '' ) );
 		$first = trim( (string) ( $form['first_name'] ?? '' ) );
 		$phone = trim( (string) ( $form['phone'] ?? '' ) );
-		if ( '' === $last || '' === $first || '' === $phone ) {
+		if ( '' === $last || '' === $first ) {
 			return array(); // форма неполная — её отвергнет проверка полей, дубль искать не по чему
 		}
 

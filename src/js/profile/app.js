@@ -2,7 +2,7 @@ import { canHideMenu, orderedMenu, menuItemHtml, wireMenuEditor } from './menu-c
 import { persistHomeLayout } from './home-layout-preferences.js';
 import { createApi } from './api.js';
 import { getChildId } from './learner-child.js';
-import { esc, shortName, chipBg, chipHtml, closeGradePop, closeCtxMenu, openCtxMenuRaw } from './utils.js';
+import { esc, shortName, chipBg, chipHtml, closeGradePop, closeCtxMenu, openCtxMenuRaw, toast } from './utils.js';
 import { icoHome, icoUsers, icoJournal, icoDocCheck, icoInbox, icoSwap, icoCalendarBoard, icoBook, icoStar, icoClock, icoCaret, icoGear, icoLogout, icoPencil } from '../common/icons.js';
 import { renderRanking } from './ranking.js';
 import { renderDashboard, enterDashboardCustomize } from './dashboard.js';
@@ -16,6 +16,7 @@ import { renderKTP, selectKtpGroup } from './ktp.js';
 import { renderActivity } from './activity.js';
 import { renderLearnerHome, enterHomeCustomize, renderLearnerLessons, renderLearnerGrades, renderLearnerAttendance } from './learner.js';
 import { renderLearnerExams, openLearnerExam } from './exams/learner-exams.js';
+import { showExamSignupNotice } from './exams/exam-signup-notice.js';
 import { renderExamPlan } from './exams/exam-plan.js';
 import { renderExamConduct, openExamConductFor } from './exams/exam-conduct.js';
 import { renderExamResults } from './exams/exam-results.js';
@@ -670,6 +671,7 @@ export function initProfile() {
     // С gid (?screen=groups&gid=2) — открыть «Группы» на конкретной группе, как клик
     // по группе в сайдбаре (ссылки из сайдбара предпросмотра курса).
     const params = new URLSearchParams(window.location.search);
+    showExamSignupNotice(window.location, window.history, toast);
     const wanted = canonicalScreen(params.get('screen'));
     const gid = params.get('gid');
     const pid = params.get('pid');

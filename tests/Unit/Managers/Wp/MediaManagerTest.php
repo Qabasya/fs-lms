@@ -101,6 +101,12 @@ class MediaManagerTest extends TestCase {
 		self::assertSame( 'application/vnd.rar', $mimes['rar'] );
 		self::assertSame( 'image/heic', $mimes['heic'] );
 		self::assertSame( 'text/plain', $mimes['kum'] ); // программы КуМир: станция КЕГЭ принимает .kum
+		self::assertSame( 'application/vnd.oasis.opendocument.spreadsheet', $mimes['ods'] );
+		self::assertTrue( $this->manager->isAllowedMime( $mimes['ods'] ) );
+		foreach ( array( 'odt', 'odp', 'xls', 'xlsx', 'doc', 'docx', 'pptx', 'txt' ) as $extension ) {
+			self::assertArrayHasKey( $extension, $mimes );
+			self::assertTrue( $this->manager->isAllowedMime( $mimes[ $extension ] ) );
+		}
 	}
 
 	public function test_describe_returns_null_without_attachment(): void {

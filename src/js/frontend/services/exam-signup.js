@@ -134,12 +134,24 @@ function initSignupForm( vars ) {
             // Ловушка отказала человеку (расширение вписало скрытое поле): повтор уходит с пустым полем.
             resetTrap( form );
             const err = res.data || {};
-            if ( err.cabinet_url ) { tracker.succeeded(); window.location.assign( err.cabinet_url ); return; }
+            if ( err.cabinet_url ) {
+                const cabinet = new URL( err.cabinet_url, window.location.origin );
+                if ( cabinet.origin === window.location.origin ) {
+                    cabinet.searchParams.set( 'exam_signup_notice', 'cabinet' );
+                    tracker.succeeded();
+                    window.location.assign( cabinet.href );
+                    return;
+                }
+            }
             if ( err.new_request_key ) { requestKey = newRequestKey(); }
             const message = err.message || 'Не удалось отправить форму. Попробуйте ещё раз.';
             // Сервер уже записал свой отказ (проверка формы, лимит, поле); событие браузера нужно, когда ответ не разобран.
             if ( ! err.message ) { tracker.failed( message, err.field || '' ); }
-            if ( ! err.field || ! showError( err.field, message ) ) { showFormError( message ); }
+            if ( ! err.field || ! showError( err.field, message ) ) {
+                showFormError( message );
+                formBox.scrollIntoView( { behavior: 'smooth', block: 'center' } );
+                formBox.focus();
+            }
         } catch {
             tracker.failed( '' );
             // Сеть упала: тот же request_key — повтор вернёт ту же бронь, а не вторую.
