@@ -46,7 +46,7 @@ class ProgramCompositionServiceTest extends TestCase {
 			$this->groups,
 			new ScheduleEventPublisher( $this->dispatcher ),
 			$this->schedule,
-			$this->usage,
+			$this->usage, captureRankingAssignments: false
 		);
 	}
 
@@ -293,6 +293,19 @@ class ProgramCompositionServiceTest extends TestCase {
 
 		self::assertCount( 1, $warnings );
 		self::assertStringContainsString( '7', $warnings[0] );
+	}
+
+	public function test_enabled_ranking_swap_uses_selective_result_transfer(): void {
+		$this->groupLessons->method( 'find' )->willReturnMap( array( array( 10, $this->themeRow( 10, 111, '2026-10-15 16:15:00' ) ), array( 20, $this->themeRow( 20, 222, null ) ) ) );
+		$this->groupLessons->method( 'setLessonId' )->willReturn( true );
+		$this->groupLessons->method( 'setVisibility' )->willReturn( true );
+		$this->groupLessons->method( 'setExtraWorkIds' )->willReturn( true );
+		$this->groupLessons->expects( self::never() )->method( 'swapLearningData' );
+		$this->groupLessons->expects( self::once() )->method( 'swapLearningDataForTopics' )->with( 10, 20, array( 7 ), array( 8 ) );
+		$rankingSwap = $this->createMock( \Inc\Services\Course\RankingTopicSwapService::class );
+		$rankingSwap->expects( self::once() )->method( 'swap' )->willReturnCallback( static function ( $first, $second, $firstIds, $secondIds, callable $write ): void { $write( array( 7 ), array( 8 ) ); } );
+		$service = new ProgramCompositionService( $this->groupLessons, $this->lessonManager, $this->groups, new ScheduleEventPublisher( $this->dispatcher ), $this->schedule, $this->usage, $rankingSwap, true );
+		$service->swapTopic( 10, 20, 99 );
 	}
 
 	public function test_swap_topic_requires_pool_row_without_date(): void {

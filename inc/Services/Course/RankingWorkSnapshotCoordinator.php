@@ -8,6 +8,7 @@ use Inc\Contracts\ClockInterface;
 use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\WorkDTO;
 use Inc\Enums\Course\LessonVisibility;
+use Inc\Enums\Course\RankingAssignmentOrigin;
 use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\OptionsRepositories\RankingAssignmentSnapshotRepository;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
@@ -25,14 +26,15 @@ class RankingWorkSnapshotCoordinator {
 	public function captureBeforeChange( WorkDTO $work ): void {
 		$now = $this->clock->now();
 		foreach ( $this->groupLessons->listBySubject( $work->subjectKey ) as $row ) {
-			if ( ! $row->isPublished() || ! $this->isOpen( $row, $now ) ) {
+			if ( ! $this->isOpen( $row, $now ) ) {
 				continue;
 			}
-			$ids = array_merge( $row->workIdsSnapshot ?? array(), $row->extraWorkIds );
+			$lessonIds = $row->workIdsSnapshot ?? array();
 			if ( $row->lessonId ) {
 				wp_cache_delete( $row->lessonId, 'post_meta' );
-				$ids = array_merge( $ids, $this->lessons->get( $row->lessonId )?->workIds() ?? array() );
+				$lessonIds = array_merge( $lessonIds, $this->lessons->get( $row->lessonId )?->workIds() ?? array() );
 			}
+			$ids = array_merge( $lessonIds, $row->extraWorkIds );
 			if ( ! in_array( $work->id, $ids, true ) ) {
 				continue;
 			}
@@ -48,11 +50,16 @@ class RankingWorkSnapshotCoordinator {
 			if ( ! empty( $existing['pending'] ) ) {
 				$issued = max( $opened, $existing['issued_at'] );
 			}
-			$this->snapshots->addMissing( $row->id, array( $work->id => array(
+			$snapshot = array(
 				'issued_at' => $issued,
 				'source' => $work->workType->value,
 				'task_points' => $work->taskPoints,
-			) ) );
+			);
+			$origin = RankingAssignmentOrigin::resolve( $work->id, $lessonIds, $row->extraWorkIds, $existing );
+			if ( $origin ) {
+				$snapshot['origin'] = $origin->value;
+			}
+			$this->snapshots->addMissing( $row->id, array( $work->id => $snapshot ) );
 		}
 	}
 

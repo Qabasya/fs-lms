@@ -101,7 +101,7 @@ if (!function_exists('home_url')) {
 }
 if (!function_exists('site_url')) {
     function site_url(string $path = '', ?string $scheme = null): string {
-        return 'http://example.com/' . ltrim($path, '/');
+        return ($GLOBALS['_fs_test_site_url'] ?? 'http://example.com/') . ltrim($path, '/');
     }
 }
 if (!function_exists('set_url_scheme')) {
@@ -350,6 +350,8 @@ if (!class_exists('WP_Post')) {
         public string $post_content = '';
         public string $post_name = '';
         public string $post_excerpt = '';
+		public string $post_date = '';
+		public string $post_date_gmt = '';
         public int $post_parent = 0;
         public int $menu_order = 0;
         public function __construct(array $data = []) {

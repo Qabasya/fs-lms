@@ -6,6 +6,7 @@ namespace Inc\Services\Course;
 
 use Inc\Contracts\ClockInterface;
 use Inc\Enums\Course\LessonVisibility;
+use Inc\Enums\Course\RankingAssignmentOrigin;
 use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 
@@ -32,18 +33,26 @@ class RankingLessonPublicationService {
 					if ( ! $row->isPublished() || LessonVisibility::Hidden->value !== $row->visibility || null === $row->scheduledAt || $row->scheduledAt > $this->clock->now() ) {
 						continue;
 					}
-					$ids = array_values( array_unique( array_merge( $row->workIdsSnapshot ?? array(), $row->extraWorkIds, $lesson->workIds() ) ) );
+					$lessonIds = array_values( array_unique( array_merge( $row->workIdsSnapshot ?? array(), $lesson->workIds() ) ) );
+					$ids = array_values( array_unique( array_merge( $lessonIds, $row->extraWorkIds ) ) );
 					$startedAt ??= $this->clock->now();
-					$rows[ $row->id ] = $ids;
-					$this->snapshots->markPublicationUnconfirmed( $row->id, $ids );
+					foreach ( $ids as $id ) {
+						$origin = RankingAssignmentOrigin::resolve( $id, $lessonIds, $row->extraWorkIds );
+						$rows[ $row->id ][ $origin?->value ?? '' ][] = $id;
+					}
+					foreach ( $rows[ $row->id ] ?? array() as $origin => $workIds ) {
+						$this->snapshots->markPublicationUnconfirmed( $row->id, $workIds, RankingAssignmentOrigin::tryFrom( $origin ) );
+					}
 				}
 			},
 			function () use ( $lessonId, $publish, &$result, &$rows, &$startedAt ): void {
 				$result = $publish();
 				if ( $result && $rows && $this->lessons->isPublished( $lessonId ) && $this->samePeriod( $startedAt, $this->clock->now() ) ) {
 					$this->snapshots->synchronized( function () use ( $rows ): void {
-						foreach ( $rows as $id => $ids ) {
-							$this->snapshots->capture( $id, $ids );
+						foreach ( $rows as $id => $origins ) {
+							foreach ( $origins as $origin => $ids ) {
+								$this->snapshots->capture( $id, $ids, null, RankingAssignmentOrigin::tryFrom( $origin ) );
+							}
 						}
 					} );
 				}
@@ -52,7 +61,7 @@ class RankingLessonPublicationService {
 		return $result;
 	}
 
-	private function samePeriod( string $first, string $second ): bool {
+	public function samePeriod( string $first, string $second ): bool {
 		$period = static function ( string $date ): string {
 			$time = new \DateTimeImmutable( $date );
 			$month = (int) $time->format( 'n' );

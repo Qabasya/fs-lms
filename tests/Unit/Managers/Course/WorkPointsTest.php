@@ -22,7 +22,7 @@ class WorkPointsTest extends TestCase {
 		$snapshots->expects( self::never() )->method( 'acquireLock' );
 		$coordinator = $this->createMock( RankingWorkSnapshotCoordinator::class );
 		$coordinator->expects( self::never() )->method( 'captureBeforeChange' );
-		$manager = new WorkManager( $posts, null, $snapshots, $coordinator );
+		$manager = new WorkManager( $posts, null, $snapshots, $coordinator, false );
 		self::assertTrue( $manager->setItemIds( 5, array( 20 ) ) );
 		self::assertTrue( $manager->delete( 5 ) );
 	}

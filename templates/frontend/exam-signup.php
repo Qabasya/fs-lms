@@ -177,7 +177,7 @@ $contact_phone = (string) ( $contacts['phone'] ?? '' );
 					<p class="description error fs-field-error" data-error="session_id" role="alert" hidden></p>
 				</fieldset>
 
-				<!-- Согласия: обработка ПД обязательна; передача результата преподавателю и маркетинг — не отмечены по умолчанию -->
+				<!-- Согласия на обработку и передачу обязательны; маркетинговое — добровольное. -->
 				<fieldset class="fs-join-card__section fs-join-card__section--consents">
 					<legend class="screen-reader-text"><?php esc_html_e( 'Согласия', 'fs-lms' ); ?></legend>
 					<?php foreach ( $consents as $consent ) : ?>
@@ -239,7 +239,7 @@ $contact_phone = (string) ( $contacts['phone'] ?? '' );
 				<?php include __DIR__ . '/partials/form-trap.php'; ?>
 				<input type="hidden" name="form_token" value="<?php echo esc_attr( $form_token ); ?>">
 
-				<p class="description error fs-field-error" id="fs-exam-form-error" role="alert" hidden></p>
+				<p class="description error fs-field-error" id="fs-exam-form-error" role="alert" tabindex="-1" hidden></p>
 				<button type="submit" id="fs-exam-submit" class="fs-join-card__submit"><?php echo esc_html( ! empty( $source['free'] ) ? __( 'Записаться', 'fs-lms' ) : __( 'Перейти к оплате', 'fs-lms' ) ); ?></button>
 				<p class="fs-exam-signup__status" id="fs-exam-status" role="status" hidden></p>
 			</form>

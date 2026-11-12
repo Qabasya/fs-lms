@@ -913,8 +913,9 @@ function renderGuestTab(pop, body) {
         : `<label class="gp-field"><span>${label}</span><input type="text" name="${name}" maxlength="100"${required ? ' required' : ''}></label>`;
     body.innerHTML = `<form id="ecGuestForm">
         <label class="gp-field"><span>Источник</span><select name="source_id">${board.sources.map(x => `<option value="${x.id}">${esc(x.label)}</option>`).join('')}</select></label>
-        ${field('last_name', 'Фамилия', true)}${field('first_name', 'Имя', true)}${field('middle_name', 'Отчество')}${field('phone', 'Телефон', true)}${field('messenger', 'Мессенджер')}
-        <label class="gp-field gp-field--check gp-field--line"><input type="checkbox" name="consents[]" value="pd_processing"><span>Согласие на обработку персональных данных получено</span></label>
+        ${field('last_name', 'Фамилия', true)}${field('first_name', 'Имя', true)}${field('middle_name', 'Отчество')}${field('phone', 'Телефон')}${field('messenger', 'Мессенджер')}
+        <label class="gp-field gp-field--check gp-field--line"><input type="checkbox" name="consents[]" value="pd_processing" checked><span>Согласие на обработку персональных данных получено</span></label>
+        <label class="gp-field gp-field--check gp-field--line"><input type="checkbox" name="consents[]" value="pd_transfer" checked><span>Согласие на передачу результата школе получено</span></label>
         <div class="gp-error" id="ecGuestError" role="alert" hidden></div>
         <div class="gp-row">
             <button type="submit" class="prof-btn prof-btn-sm prof-btn-primary">Добавить</button>
@@ -931,12 +932,13 @@ function renderGuestTab(pop, body) {
         ev.preventDefault();
         errorBox.hidden = true;
         // Телефон — ровно 11 цифр (маска +7 (999) 000-00-00), как на публичных формах.
-        if (11 !== String(form.elements.phone.value).replace(/\D/g, '').length) { showError('Укажите телефон полностью: 11 цифр.'); return; }
+        const phoneDigits = String(form.elements.phone.value).replace(/\D/g, '');
+        if ('7' === phoneDigits && '+7 (' === form.elements.phone.value) { form.elements.phone.value = ''; }
+        else if (phoneDigits && 11 !== phoneDigits.length) { showError('Укажите телефон полностью: 11 цифр.'); return; }
         const data = new FormData(form);
         const params = { session_id: sessionId, request_key: requestKey, confirmed };
         data.forEach((v, k) => { if ('consents[]' !== k) { params[k] = v; } });
-        // Транспорт — URLSearchParams из объекта: массив уходит одним ключом `consents[]`.
-        if (data.getAll('consents[]').length) { params['consents[]'] = 'pd_processing'; }
+        params.consents = data.getAll('consents[]');
         try {
             const r = await api('addGuest', params);
             if ('needs_confirmation' === r.status) {

@@ -21,6 +21,18 @@ class SubjectRankingPolicyTest extends TestCase {
 
 	protected function tearDown(): void {
 		$GLOBALS['wpdb'] = $this->previousDb;
+		unset( $GLOBALS['_fs_test_site_url'] );
+	}
+
+	public function test_assignment_calculation_is_enabled_on_a_regular_site(): void {
+		$GLOBALS['_fs_test_site_url'] = 'https://example.com/';
+		$repo = $this->createStub( LearnerRankingRepository::class );
+		$repo->method( 'studentIds' )->willReturn( array( 1 ) );
+		$assignments = $this->createMock( \Inc\Services\Profile\RankingAssignmentsService::class );
+		$assignments->expects( self::once() )->method( 'tasks' )->willReturn( array( array( 'student_person_id' => 1, 'group_lesson_id' => 2, 'work_id' => 3, 'task_id' => 4, 'source' => 'practice', 'task_points' => 2, 'credited' => true ) ) );
+		$calculator = new RankingCalculationService( $repo, new RankingPointsPolicy( new PluginConfig( new PluginConfigRepository() ) ), $assignments );
+		$row = $calculator->scoresForSubject( 'math', '2026-11-01 12:00:00', null, true, array( 'excluded_students' => array(), 'practice' => 1, 'attendance_bonus' => 0, 'attendance_streak_length' => 3 ) )[1];
+		self::assertSame( 2.0, $row['max_score'] );
 	}
 
 	public function test_assigned_tasks_determine_score_and_maximum_including_unsolved_tasks(): void {
@@ -53,13 +65,27 @@ class SubjectRankingPolicyTest extends TestCase {
 		self::assertTrue( $row['breakdown'][0]['max_unknown'] );
 	}
 
-	public function test_injected_unfinished_assignment_path_is_off_without_explicit_opt_in(): void {
+	public function test_incomplete_score_never_produces_authoritative_places(): void {
+		$repo = $this->createStub( LearnerRankingRepository::class );
+		$repo->method( 'studentIds' )->willReturn( array( 1, 2 ) );
+		$assignments = $this->createStub( \Inc\Services\Profile\RankingAssignmentsService::class );
+		$assignments->method( 'tasks' )->willReturn( array( array( 'student_person_id' => 1, 'group_lesson_id' => 2, 'work_id' => 3, 'task_id' => 0, 'source' => 'homework', 'task_points' => 0, 'credited' => false, 'max_unknown' => true, 'score_unknown' => true ) ) );
+		$calculator = new RankingCalculationService( $repo, new RankingPointsPolicy( new PluginConfig( new PluginConfigRepository() ) ), $assignments, true );
+		$policy = array( 'excluded_students' => array(), 'homework' => 2, 'attendance_bonus' => 0, 'attendance_streak_length' => 3 );
+		$rows = $calculator->scoresForSubject( 'math', '2026-11-01 12:00:00', null, false, $policy );
+		self::assertTrue( $rows[1]['score_unknown'] );
+		self::assertFalse( $rows[2]['score_unknown'] );
+		self::assertNull( $rows[1]['rank'] );
+		self::assertNull( $rows[2]['rank'] );
+	}
+
+	public function test_assignment_calculation_can_be_explicitly_disabled(): void {
 		$repo = $this->createStub( LearnerRankingRepository::class );
 		$repo->method( 'studentIds' )->willReturn( array( 1 ) );
 		$repo->method( 'workEvents' )->willReturn( array( array( 'student_person_id' => 1, 'source' => 'practice', 'task_points' => 2 ) ) );
 		$assignments = $this->createMock( \Inc\Services\Profile\RankingAssignmentsService::class );
 		$assignments->expects( self::never() )->method( 'tasks' );
-		$calculator = new RankingCalculationService( $repo, new RankingPointsPolicy( new PluginConfig( new PluginConfigRepository() ) ), $assignments );
+		$calculator = new RankingCalculationService( $repo, new RankingPointsPolicy( new PluginConfig( new PluginConfigRepository() ) ), $assignments, false );
 		$policy = array( 'excluded_students' => array(), 'practice' => 2, 'attendance_bonus' => 0, 'attendance_streak_length' => 3 );
 		$row = $calculator->scoresForSubject( 'math', '2026-11-01 12:00:00', null, true, $policy )[1];
 		self::assertSame( 4.0, $row['score'] );

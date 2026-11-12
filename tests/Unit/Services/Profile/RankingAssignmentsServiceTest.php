@@ -59,6 +59,59 @@ class RankingAssignmentsServiceTest extends TestCase {
 		self::assertCount( 4, $tasks );
 		self::assertSame( array( true, false, true, false ), array_column( $tasks, 'credited' ) );
 	}
+
+	public function test_exam_uses_primary_score_and_published_maximum(): void {
+		$repository = $this->createStub( LearnerRankingRepository::class );
+		$repository->method( 'assignedExams' )->willReturn( array( array(
+			'student_person_id' => 1, 'participation_id' => 5, 'assessment_id' => 8,
+			'issued_at_utc' => '2026-11-30 12:00:00',
+			'variant_snapshot' => '{"8":{"task_ids":[12,13],"primary_max":29}}',
+			'total_score' => 15, 'approved_at' => '2026-12-02 12:00:00', 'attempt_status' => 'graded',
+		) ) );
+		$service = new RankingAssignmentsService( $repository, $this->createStub( WorkManager::class ), $this->createStub( LessonManager::class ), null, $this->createStub( \Inc\Managers\Assessment\AssessmentManager::class ) );
+		$rows = $service->tasks( 'math', '2026-09-01 00:00:00', '2026-12-01 00:00:00', '2026-12-05 00:00:00' );
+		$parts = ( new \Inc\Services\Profile\RankingAssignmentProjection() )->build( $rows );
+		self::assertSame( 15.0, $parts[1]['assessment']['amount'] );
+		self::assertSame( 29.0, $parts[1]['assessment']['max_amount'] );
+	}
+
+	public function test_unapproved_exam_keeps_maximum_without_disclosing_score(): void {
+		$repository = $this->createStub( LearnerRankingRepository::class );
+		$repository->method( 'assignedExams' )->willReturn( array( array(
+			'student_person_id' => 1, 'participation_id' => 5, 'assessment_id' => 8,
+			'issued_at_utc' => '2026-11-30 12:00:00', 'variant_snapshot' => '{"8":{"primary_max":29}}',
+			'total_score' => 15, 'approved_at' => null, 'attempt_status' => 'graded',
+		) ) );
+		$service = new RankingAssignmentsService( $repository, $this->createStub( WorkManager::class ), $this->createStub( LessonManager::class ), null, $this->createStub( \Inc\Managers\Assessment\AssessmentManager::class ) );
+		$parts = ( new \Inc\Services\Profile\RankingAssignmentProjection() )->build( $service->tasks( 'math', '2026-09-01 00:00:00', '2026-12-01 00:00:00', '2026-12-05 00:00:00' ) );
+		self::assertSame( 0.0, $parts[1]['assessment']['amount'] );
+		self::assertSame( 29.0, $parts[1]['assessment']['max_amount'] );
+	}
+
+	public function test_registered_exam_uses_published_variant_task_snapshot(): void {
+		$repository = $this->createStub( LearnerRankingRepository::class );
+		$repository->method( 'assignedExams' )->willReturn( array( array(
+			'student_person_id' => 1, 'participation_id' => 5, 'assessment_id' => 8,
+			'issued_at_utc' => '2026-11-30 12:00:00',
+			'variant_snapshot' => '{"8":{"task_ids":[12,13]}}',
+		) ) );
+		$assessments = $this->createStub( \Inc\Managers\Assessment\AssessmentManager::class );
+		$assessments->method( 'get' )->willReturn( new \Inc\DTO\Assessment\AssessmentDTO( 8, 'math', 'Контрольная', array( 14 ), 0, 1, 0, \Inc\Enums\Assessment\ScoringPolicy::Highest, 'publish', \Inc\Enums\Assessment\AssessmentKind::Control, array(), array() ) );
+		$service = new RankingAssignmentsService( $repository, $this->createStub( WorkManager::class ), $this->createStub( LessonManager::class ), null, $assessments );
+		$tasks = $service->tasks( 'math', '2026-09-01 00:00:00', '2026-12-01 00:00:00', '2026-12-05 00:00:00' );
+		self::assertSame( array( 12, 13 ), array_column( $tasks, 'task_id' ) );
+	}
+
+	public function test_registered_exam_preserves_snapshot_if_assessment_deleted(): void {
+		$repository = $this->createStub( LearnerRankingRepository::class );
+		$repository->method( 'assignedExams' )->willReturn( array( array(
+			'student_person_id' => 1, 'participation_id' => 5, 'assessment_id' => 8,
+			'issued_at_utc' => '2026-11-30 12:00:00', 'variant_snapshot' => '{"8":{"task_ids":[12]}}',
+		) ) );
+		$service = new RankingAssignmentsService( $repository, $this->createStub( WorkManager::class ), $this->createStub( LessonManager::class ), null, $this->createStub( \Inc\Managers\Assessment\AssessmentManager::class ) );
+		$tasks = $service->tasks( 'math', '2026-09-01 00:00:00', '2026-12-01 00:00:00', '2026-12-05 00:00:00' );
+		self::assertSame( array( 12 ), array_column( $tasks, 'task_id' ) );
+	}
 	public function test_extra_work_uses_issue_date_and_frozen_tasks(): void {
 		$repository = $this->createStub( LearnerRankingRepository::class );
 		$repository->method( 'assignmentLessons' )->willReturn( array( array( 'student_person_id' => 1, 'group_lesson_id' => 3, 'lesson_id' => null, 'scheduled_at' => '2026-11-30 12:00:00', 'opened_at' => null, 'visibility' => 'open', 'work_ids_snapshot' => '[]', 'extra_work_ids' => '[7]' ) ) );
@@ -118,6 +171,19 @@ class RankingAssignmentsServiceTest extends TestCase {
 		self::assertCount( 1, $autumn );
 		self::assertTrue( $autumn[0]['credited'] );
 		self::assertSame( array(), $service->tasks( 'math', '2026-12-01 00:00:00', '2027-03-01 00:00:00', '2026-12-05 00:00:00' ) );
+	}
+
+	public function test_issued_history_in_hidden_pool_with_no_date_remains_ranked(): void {
+		$repo = $this->createStub( LearnerRankingRepository::class );
+		$repo->method( 'assignmentLessons' )->willReturn( array( array( 'student_person_id' => 1, 'group_lesson_id' => 3, 'lesson_id' => null, 'scheduled_at' => null, 'opened_at' => null, 'visibility' => 'hidden', 'work_ids_snapshot' => '[]', 'extra_work_ids' => '[]' ) ) );
+		$repo->method( 'workEvents' )->willReturn( array( array( 'student_person_id' => 1, 'group_lesson_id' => 3, 'work_id' => 7, 'task_id' => 12 ) ) );
+		$snapshots = $this->createStub( \Inc\Repositories\OptionsRepositories\RankingAssignmentSnapshotRepository::class );
+		$snapshots->method( 'forLesson' )->willReturn( array( 7 => array( 'issued_at' => '2026-11-30 12:00:00', 'source' => 'homework', 'task_points' => array( 12 => 3 ) ) ) );
+		$service = new RankingAssignmentsService( $repo, $this->createStub( WorkManager::class ), $this->createStub( LessonManager::class ), $snapshots );
+		$rows = $service->tasks( 'math', '2026-09-01 00:00:00', '2026-12-01 00:00:00', '2026-12-05 00:00:00' );
+		self::assertCount( 1, $rows );
+		self::assertTrue( $rows[0]['credited'] );
+		self::assertSame( 3.0, $rows[0]['task_points'] );
 	}
 
 	public function test_frozen_work_remains_assigned_after_its_post_is_deleted(): void {
@@ -200,6 +266,31 @@ class RankingAssignmentsServiceTest extends TestCase {
 		self::assertCount( 1, $autumn );
 		self::assertTrue( $autumn[0]['credited'] );
 		self::assertSame( array(), $service->tasks( 'math', '2026-12-01 00:00:00', '2027-03-01 00:00:00', '2026-12-05 00:00:00' ) );
+	}
+
+	public static function seasonBoundaries(): array {
+		return array(
+			'зима' => array( '2026-11-30 23:59:59', '2026-09-01 00:00:00', '2026-12-01 00:00:00', '2027-03-01 00:00:00' ),
+			'весна' => array( '2027-02-28 23:59:59', '2026-12-01 00:00:00', '2027-03-01 00:00:00', '2027-06-01 00:00:00' ),
+			'високосный февраль' => array( '2028-02-29 23:59:59', '2027-12-01 00:00:00', '2028-03-01 00:00:00', '2028-06-01 00:00:00' ),
+			'лето' => array( '2027-05-31 23:59:59', '2027-03-01 00:00:00', '2027-06-01 00:00:00', '2027-09-01 00:00:00' ),
+			'осень' => array( '2027-08-31 23:59:59', '2027-06-01 00:00:00', '2027-09-01 00:00:00', '2027-12-01 00:00:00' ),
+		);
+	}
+
+	#[\PHPUnit\Framework\Attributes\DataProvider( 'seasonBoundaries' )]
+	public function test_late_solution_counts_in_assignment_season_at_every_boundary( string $issued, string $from, string $until, string $nextUntil ): void {
+		$repo = $this->createStub( LearnerRankingRepository::class );
+		$repo->method( 'assignmentLessons' )->willReturn( array( array( 'student_person_id' => 1, 'group_lesson_id' => 3, 'lesson_id' => null, 'scheduled_at' => $issued, 'opened_at' => null, 'visibility' => 'open', 'work_ids_snapshot' => '[7]', 'extra_work_ids' => '[]' ) ) );
+		$repo->method( 'workEvents' )->willReturn( array( array( 'student_person_id' => 1, 'group_lesson_id' => 3, 'work_id' => 7, 'task_id' => 12 ) ) );
+		$works = $this->createStub( WorkManager::class );
+		$works->method( 'get' )->willReturn( new WorkDTO( 7, 'math', 'Работа', WorkType::Practice, array( 12 ), '', 1, 'publish' ) );
+		$service = new RankingAssignmentsService( $repo, $works, $this->createStub( LessonManager::class ) );
+		$now = ( new \DateTimeImmutable( $until ) )->modify( '+1 day' )->format( 'Y-m-d H:i:s' );
+		$rows = $service->tasks( 'math', $from, $until, $now );
+		self::assertCount( 1, $rows );
+		self::assertTrue( $rows[0]['credited'] );
+		self::assertSame( array(), $service->tasks( 'math', $until, $nextUntil, $now ) );
 	}
 
 	public function test_old_work_uses_lesson_date_and_one_credit_despite_retries(): void {

@@ -39,7 +39,7 @@ class GuestSignupViewService {
 	/** Согласия формы: ключ => обязательное. */
 	private const CONSENTS = array(
 		GuestApplicationService::CONSENT_PD        => true,
-		GuestApplicationService::CONSENT_TRANSFER  => false,
+		GuestApplicationService::CONSENT_TRANSFER  => true,
 		GuestApplicationService::CONSENT_MARKETING => false,
 	);
 
@@ -101,13 +101,13 @@ class GuestSignupViewService {
 				'address'        => $this->contacts->addressWithoutRoom(),
 				'hold_minutes'   => $this->config->examHoldMinutes(),
 				'retention_days' => $this->config->examGuestRetentionDays(),
-				'consents'       => $this->consentList( $source->isPublic() ),
+				'consents'       => $this->consentList(),
 				'honeypot'       => $this->guard->honeypotField(),
 				'form_token'     => $this->guard->timestampToken(),
 			)
 		);
 
-		if ( null === $price || array() === $base['consents'] || ! $this->hasPdConsent( $base['consents'] ) ) {
+		if ( null === $price || ! $this->hasRequiredConsents( $base['consents'] ) ) {
 			return array_merge( $base, array( 'state' => 'unavailable' ) );
 		}
 		if ( array() === array_filter( $sessions, static fn ( array $s ): bool => $s['selectable'] ) ) {
@@ -226,13 +226,9 @@ class GuestSignupViewService {
 	 *
 	 * @return list<array{key: string, title: string, url: string, required: bool}>
 	 */
-	private function consentList( bool $isPublic = false ): array {
+	private function consentList(): array {
 		$list = array();
 		foreach ( self::CONSENTS as $key => $required ) {
-			// Открытая запись не связана со школой: передавать результат преподавателю некому.
-			if ( $isPublic && GuestApplicationService::CONSENT_TRANSFER === $key ) {
-				continue;
-			}
 			$page = $this->consents->getPageForType( $key );
 			if ( null === $page ) {
 				continue;
@@ -249,17 +245,13 @@ class GuestSignupViewService {
 	}
 
 	/**
-	 * Проверяет наличие согласия на обработку персональных данных в списке формы.
+	 * Проверяет наличие обязательных согласий в списке формы.
 	 *
 	 * @param list<array{key: string}> $consents
 	 */
-	private function hasPdConsent( array $consents ): bool {
-		foreach ( $consents as $consent ) {
-			if ( GuestApplicationService::CONSENT_PD === $consent['key'] ) {
-				return true;
-			}
-		}
-
-		return false;
+	private function hasRequiredConsents( array $consents ): bool {
+		$keys = array_column( $consents, 'key' );
+		return in_array( GuestApplicationService::CONSENT_PD, $keys, true )
+			&& in_array( GuestApplicationService::CONSENT_TRANSFER, $keys, true );
 	}
 }

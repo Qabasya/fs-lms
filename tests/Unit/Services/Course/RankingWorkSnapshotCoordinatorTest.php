@@ -22,9 +22,37 @@ class RankingWorkSnapshotCoordinatorTest extends TestCase {
 		$clock->method( 'now' )->willReturn( '2026-12-01 10:00:00' );
 		$repository = $this->createMock( RankingAssignmentSnapshotRepository::class );
 		$repository->method( 'forLessonFresh' )->willReturn( array() );
-		$repository->expects( self::once() )->method( 'addMissing' )->with( 1, array( 17 => array( 'issued_at' => '2026-11-30 09:00:00', 'source' => 'homework', 'task_points' => array( 3 => 2 ) ) ) );
+		$repository->expects( self::once() )->method( 'addMissing' )->with( 1, array( 17 => array( 'issued_at' => '2026-11-30 09:00:00', 'source' => 'homework', 'task_points' => array( 3 => 2 ), 'origin' => 'lesson' ) ) );
 		$work = new WorkDTO( 17, 'math', 'Test', WorkType::Homework, array( 3 ), '', 1, 'publish', 0, array( 3 => 2 ) );
 		( new RankingWorkSnapshotCoordinator( $rows, $this->createMock( LessonManager::class ), $repository, $clock ) )->captureBeforeChange( $work );
+	}
+
+	public function test_overlap_without_recorded_origin_remains_explicitly_unknown(): void {
+		$rows = $this->createStub( GroupLessonRepository::class );
+		$rows->method( 'listBySubject' )->willReturn( array( GroupLessonDTO::fromArray( array( 'id' => 1, 'group_id' => 1, 'position' => 1, 'scheduled_at' => '2026-11-30 09:00:00', 'visibility' => 'hidden', 'work_ids_snapshot' => '[17]', 'extra_work_ids' => '[17]' ) ) ) );
+		$clock = $this->createStub( ClockInterface::class );
+		$clock->method( 'now' )->willReturn( '2026-12-01 10:00:00' );
+		$repo = $this->createMock( RankingAssignmentSnapshotRepository::class );
+		$repo->method( 'forLessonFresh' )->willReturn( array() );
+		$repo->expects( self::once() )->method( 'addMissing' )->with( 1, self::callback( static fn( array $snapshots ): bool => ! array_key_exists( 'origin', $snapshots[17] ) ) );
+		( new RankingWorkSnapshotCoordinator( $rows, $this->createStub( LessonManager::class ), $repo, $clock ) )->captureBeforeChange( new WorkDTO( 17, 'math', 'Test', WorkType::Homework, array( 3 ), '', 1, 'publish' ) );
+	}
+
+	public function test_open_individual_work_without_snapshot_keeps_pre_edit_points(): void {
+		$rows = $this->createStub( GroupLessonRepository::class );
+		$rows->method( 'listBySubject' )->willReturn( array( GroupLessonDTO::fromArray( array(
+			'id' => 1, 'group_id' => 1, 'lesson_id' => 8, 'position' => 1, 'kind' => 'individual',
+			'scheduled_at' => '2026-11-30 09:00:00', 'visibility' => 'hidden', 'work_ids_snapshot' => null,
+		) ) ) );
+		$lessons = $this->createStub( LessonManager::class );
+		$lessons->method( 'isPublished' )->willReturn( true );
+		$lessons->method( 'get' )->willReturn( new \Inc\DTO\Course\LessonDTO( 8, 'math', 'Тема', array( new \Inc\DTO\Course\StepDTO( 'w17', \Inc\Enums\Course\StepType::Work, array( 'ref' => 17 ) ) ), 1, 'publish' ) );
+		$clock = $this->createStub( ClockInterface::class );
+		$clock->method( 'now' )->willReturn( '2026-12-01 10:00:00' );
+		$repo = $this->createMock( RankingAssignmentSnapshotRepository::class );
+		$repo->method( 'forLessonFresh' )->willReturn( array() );
+		$repo->expects( self::once() )->method( 'addMissing' )->with( 1, self::callback( static fn( array $snapshots ): bool => $snapshots[17]['issued_at'] === '2026-11-30 09:00:00' && $snapshots[17]['task_points'] === array( 3 => 2 ) ) );
+		( new RankingWorkSnapshotCoordinator( $rows, $lessons, $repo, $clock ) )->captureBeforeChange( new WorkDTO( 17, 'math', 'Test', WorkType::Homework, array( 3 ), '', 1, 'publish', 0, array( 3 => 2 ) ) );
 	}
 
 	public function test_pending_extra_keeps_its_own_issue_date(): void {

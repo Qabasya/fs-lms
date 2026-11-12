@@ -32,6 +32,7 @@ class LearnerRankingSection {
 				'subject_key'  => $key,
 				'subject'      => (string) ( $group['subject'] ?? $key ),
 				'score'        => $scores[ $personId ]['score'],
+				'score_unknown' => $scores[ $personId ]['score_unknown'] ?? false,
 				'rank'         => $scores[ $personId ]['rank'],
 				'period'       => $period['label'],
 				'period_start' => $period['from'],

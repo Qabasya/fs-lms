@@ -10,6 +10,7 @@ declare( strict_types=1 );
 namespace Inc\Repositories\WPDBRepositories;
 
 use Inc\Enums\Settings\TableName;
+use Inc\Enums\Exam\ManualResolutionKind;
 
 /**
  * Удаляет строки гостя из таблиц экзаменов одним методом {@see purge()}; вызывается только из транзакции сервиса удаления.
@@ -28,8 +29,8 @@ class ExamGuestPurgeRepository extends AbstractExamRepository {
 		if ( array() !== $applications && $this->count( TableName::ExamPaymentLinks, 'application_id', $applications ) > 0 ) {
 			return 'По заявке есть заказ оплаты: такую заявку удалять нельзя.';
 		}
-		if ( ( array() !== $applications && $this->count( TableName::ExamManualResolutions, 'application_id', $applications ) > 0 )
-			|| ( array() !== $participations && $this->count( TableName::ExamManualResolutions, 'participation_id', $participations ) > 0 ) ) {
+		if ( ( array() !== $applications && $this->countPaymentResolutions( 'application_id', $applications ) > 0 )
+			|| ( array() !== $participations && $this->countPaymentResolutions( 'participation_id', $participations ) > 0 ) ) {
 			return 'По заявке есть ручное урегулирование оплаты: удалять нельзя.';
 		}
 		if ( array() !== $participations && $this->count( TableName::ExamReportMembers, 'participation_id', $participations ) > 0 ) {
@@ -71,6 +72,10 @@ class ExamGuestPurgeRepository extends AbstractExamRepository {
 		if ( array() !== $applications ) {
 			$this->deleteTokens( array( 'payment' ), $applications );
 			$this->deleteOutbox( 'application', $applications );
+			$this->deleteIn( TableName::ExamManualResolutions, 'application_id', $applications );
+		}
+		if ( array() !== $participations ) {
+			$this->deleteIn( TableName::ExamManualResolutions, 'participation_id', $participations );
 		}
 		if ( array() !== $registrations ) {
 			$this->deleteIn( TableName::ExamLog, 'registration_id', $registrations );
@@ -147,6 +152,16 @@ class ExamGuestPurgeRepository extends AbstractExamRepository {
 	/** @param int[] $ids */
 	private function count( TableName $table, string $column, array $ids ): int {
 		return $this->readInt( $this->wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE %i IN ( ' . $this->list( $ids ) . ' )', $table->prefixed(), $column ) );
+	}
+
+	/** @param int[] $ids */
+	private function countPaymentResolutions( string $column, array $ids ): int {
+		return $this->readInt( $this->wpdb->prepare(
+			'SELECT COUNT(*) FROM %i WHERE %i IN ( ' . $this->list( $ids ) . ' ) AND kind <> %s',
+			TableName::ExamManualResolutions->prefixed(),
+			$column,
+			ManualResolutionKind::AcceptedManually->value
+		) );
 	}
 
 	/** @param int[] $ids */

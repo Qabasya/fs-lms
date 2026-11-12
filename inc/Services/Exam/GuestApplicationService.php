@@ -212,7 +212,7 @@ class GuestApplicationService {
 		}
 
 		// Открытая запись: у неё нет школы-организатора, поэтому гость обязан назвать свою. Сотрудник на площадке школу не вводит.
-		$fields = $this->validate( $form, $source->isPublic() && null === $staffUserId );
+		$fields = $this->validate( $form, $source->isPublic() && null === $staffUserId, null === $staffUserId );
 
 		$event = $this->events->find( $source->eventId );
 		if ( ! $source->isActive || null !== $source->keyRevokedAt || null === $event || 'published' !== $event->status || ! $event->guestRegistrationEnabled ) {
@@ -348,7 +348,7 @@ class GuestApplicationService {
 	public function hashesOf( string $last, string $first, string $middle, string $phone ): array {
 		return array(
 			'name'  => $this->identity->nameHash( $last, $first, $middle ),
-			'phone' => $this->identity->phoneHash( $phone ),
+			'phone' => '' === trim( $phone ) ? '' : $this->identity->phoneHash( $phone ),
 		);
 	}
 
@@ -375,12 +375,13 @@ class GuestApplicationService {
 	 *
 	 * @param array<string, mixed> $form
 	 * @param bool                 $schoolRequired Школа обязательна (гость открытой записи сам называет школу).
+	 * @param bool                 $contactRequired Телефон и мессенджер обязательны при самостоятельной записи.
 	 *
 	 * @return array{last_name: string, first_name: string, middle_name: string, phone: string, messenger: string, school: string, session_id: int, consents: list<string>}
 	 *
 	 * @throws GuestFormException Поля формы некорректны, сеанс не выбран или обязательное согласие отсутствует.
 	 */
-	private function validate( array $form, bool $schoolRequired = false ): array {
+	private function validate( array $form, bool $schoolRequired = false, bool $contactRequired = true ): array {
 		$last      = trim( (string) ( $form['last_name'] ?? '' ) );
 		$first     = trim( (string) ( $form['first_name'] ?? '' ) );
 		$middle    = trim( (string) ( $form['middle_name'] ?? '' ) );
@@ -398,10 +399,10 @@ class GuestApplicationService {
 		if ( mb_strlen( $middle ) > self::MAX_NAME_LENGTH ) {
 			throw new GuestFormException( ErrorCode::ExamInput, 'Отчество слишком длинное.', 'middle_name' );
 		}
-		if ( self::PHONE_DIGITS !== strlen( $this->identity->normalizePhone( $phone ) ) ) {
+		if ( ( $contactRequired || '' !== $phone ) && self::PHONE_DIGITS !== strlen( $this->identity->normalizePhone( $phone ) ) ) {
 			throw new GuestFormException( ErrorCode::ExamInput, 'Укажите телефон: 11 цифр.', 'phone' );
 		}
-		if ( '' === $messenger || mb_strlen( $messenger ) > self::MAX_MESSENGER_LENGTH ) {
+		if ( ( $contactRequired && '' === $messenger ) || mb_strlen( $messenger ) > self::MAX_MESSENGER_LENGTH ) {
 			throw new GuestFormException( ErrorCode::ExamInput, 'Укажите ссылку на аккаунт или логин в мессенджере (до 100 символов).', 'messenger' );
 		}
 		if ( $schoolRequired && '' === $school ) {
@@ -415,8 +416,11 @@ class GuestApplicationService {
 		}
 
 		$consents = array_values( array_intersect( self::ALLOWED_CONSENTS, array_map( 'strval', (array) ( $form['consents'] ?? array() ) ) ) );
-		if ( ! in_array( self::CONSENT_PD, $consents, true ) ) {
+		if ( $contactRequired && ! in_array( self::CONSENT_PD, $consents, true ) ) {
 			throw new GuestFormException( ErrorCode::ExamConsent, 'Для записи нужно согласие на обработку персональных данных.', 'consent_' . self::CONSENT_PD );
+		}
+		if ( $contactRequired && ! in_array( self::CONSENT_TRANSFER, $consents, true ) ) {
+			throw new GuestFormException( ErrorCode::ExamConsent, 'Для записи нужно согласие на передачу результата школе.', 'consent_' . self::CONSENT_TRANSFER );
 		}
 
 		return array(

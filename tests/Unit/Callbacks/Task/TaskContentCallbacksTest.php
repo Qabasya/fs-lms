@@ -19,6 +19,20 @@ use PHPUnit\Framework\TestCase;
  * `PostTypeResolver::tasks()`, поэтому тесты ниже ловят такую регрессию.
  */
 class TaskContentCallbacksTest extends TestCase {
+	public function test_saved_task_normalizes_files_after_fields_are_saved(): void {
+		fs_test_seed_post( array( 'ID' => 5, 'post_type' => 'inf_tasks', 'post_status' => 'publish', 'post_title' => 'Задача' ) );
+		$saved = false;
+		$boxes = $this->createMock( MetaBoxManager::class );
+		$boxes->method( 'saveFields' )->willReturnCallback( static function () use ( &$saved ): void { $saved = true; } );
+		$normalizer = $this->createMock( \Inc\Services\Task\TaskFileNormalizationService::class );
+		$normalizer->expects( self::once() )->method( 'apply' )->with( 5 )->willReturnCallback( static function () use ( &$saved ): array {
+			self::assertTrue( $saved );
+			return array( 'updated' => 1, 'warnings' => array() );
+		} );
+		$callbacks = new TaskContentCallbacks( new TemplateRegistry(), $boxes, new PostManager(), $this->guard, $normalizer );
+		$_POST = array( 'subject_key' => 'inf', 'template' => 'standard_task', 'title' => 'Задача', 'post_id' => 5 );
+		self::assertTrue( fs_test_capture_json( fn() => $callbacks->ajaxSaveTaskContent() )->success );
+	}
 
 	private TaskContentCallbacks $callbacks;
 	private \Inc\Services\Exam\ExamVariantGuard&\PHPUnit\Framework\MockObject\MockObject $guard;

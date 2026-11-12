@@ -8,6 +8,7 @@ use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\GroupLessonInputDTO;
 use Inc\Enums\Course\LessonKind;
 use Inc\Enums\Course\LessonStatus;
+use Inc\Enums\Course\AttemptSource;
 use Inc\Enums\Settings\TableName;
 
 class GroupLessonRepository {
@@ -36,7 +37,7 @@ class GroupLessonRepository {
 	 *
 	 * @return GroupLessonDTO[]
 	 */
-	public function listByGroup( int $groupId ): array {
+	public function listByGroup( int $groupId, bool $strict = false ): array {
 		$rows = $this->wpdb->get_results(
 			$this->wpdb->prepare(
 				'SELECT gl.*, ' . self::HAS_ATTENDANCE . ' FROM %i gl WHERE gl.group_id = %d ORDER BY gl.position ASC',
@@ -46,6 +47,9 @@ class GroupLessonRepository {
 			),
 			ARRAY_A
 		);
+		if ( $strict && ( '' !== $this->wpdb->last_error || ! is_array( $rows ) ) ) {
+			throw new \RuntimeException( 'Не удалось прочитать занятия группы.' );
+		}
 		return array_map( [ GroupLessonDTO::class, 'fromArray' ], $rows ?: array() );
 	}
 
@@ -332,8 +336,8 @@ class GroupLessonRepository {
 	}
 
 	/** Bulk-assign slots from SessionCalendarService::generate(); skips pinned rows. */
-	public function applySlots( int $groupId, array $slots ): void {
-		$rows = $this->listByGroup( $groupId );
+	public function applySlots( int $groupId, array $slots, bool $strict = false ): void {
+		$rows = $strict ? $this->listByGroup( $groupId, true ) : $this->listByGroup( $groupId );
 		$i    = 0;
 		foreach ( $rows as $row ) {
 			// Индивидуальные и пиннутые привязаны к своей дате, а не к последовательности — не двигаем.
@@ -352,7 +356,15 @@ class GroupLessonRepository {
 			// свою дату — это факт журнала, но ЗАНИМАЕТ слот в последовательности —
 			// нерассказанный хвост раскладывается после него.
 			if ( $row->isFact() ) {
-				++$i;
+				$previous = $i;
+				if ( $row->scheduledAt ) {
+					while ( isset( $slots[ $i ] ) && $slots[ $i ]['scheduled_at'] <= $row->scheduledAt ) {
+						++$i;
+					}
+				}
+				if ( $i === $previous ) {
+					++$i;
+				}
 				continue;
 			}
 			// T11.6: отменённое/перенесённое ОСВОБОЖДАЕТ слот — хвост сдвигается вперёд
@@ -366,10 +378,12 @@ class GroupLessonRepository {
 				// «Темы курса» без даты и закрепления, чтобы автор мог разместить его вручную
 				// или вне расписания (Этап 4). held/индивидуальные сюда не попадают — они уже
 				// отфильтрованы выше.
-				$this->clearSchedule( $row->id );
+				if ( ! $this->clearSchedule( $row->id ) && $strict ) {
+					throw new \RuntimeException( 'Не удалось снять дату занятия.' );
+				}
 				continue;
 			}
-			$this->wpdb->update(
+			$updated = $this->wpdb->update(
 				$this->table,
 				array_merge(
 					array(
@@ -382,6 +396,9 @@ class GroupLessonRepository {
 				),
 				array( 'id' => $row->id )
 			);
+			if ( false === $updated && $strict ) {
+				throw new \RuntimeException( 'Не удалось изменить дату занятия.' );
+			}
 			$i++;
 		}
 	}
@@ -394,9 +411,9 @@ class GroupLessonRepository {
 	 *
 	 * @return int Количество затронутых строк.
 	 */
-	public function unscheduleAll( int $groupId ): int {
+	public function unscheduleAll( int $groupId, bool $strict = false ): int {
 		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
-		return (int) $this->wpdb->query(
+		$result = $this->wpdb->query(
 			$this->wpdb->prepare(
 				"UPDATE %i gl SET gl.scheduled_at = NULL, gl.ends_at = NULL, gl.room_id = NULL, gl.is_pinned = 0, gl.status = 'scheduled'
 				 WHERE gl.group_id = %d AND gl.kind != %s AND gl.status != 'held'
@@ -407,6 +424,10 @@ class GroupLessonRepository {
 				TableName::Attendance->prefixed()
 			)
 		);
+		if ( false === $result && $strict ) {
+			throw new \RuntimeException( 'Не удалось снять распределение занятий.' );
+		}
+		return (int) $result;
 	}
 
 	public function setVisibility( int $id, string $visibility, ?string $openedAt ): bool {
@@ -728,6 +749,45 @@ class GroupLessonRepository {
 		}
 	}
 
+	/** Перемещает только результаты темы; дополнительные работы остаются на своей дате. */
+	public function swapLearningDataForTopics( int $a, int $b, array $firstExtras, array $secondExtras ): void {
+		$tables = array(
+			array( TableName::Submissions->prefixed(), 'work' ),
+			array( TableName::LessonProgress->prefixed(), 'lesson' ),
+			array( TableName::TaskAttempts->prefixed(), 'attempt' ),
+			array( TableName::WorkTaskChecks->prefixed(), 'work' ),
+			array( TableName::AssessmentAttempts->prefixed(), 'assessment' ),
+		);
+		foreach ( $tables as [ $table, $kind ] ) {
+			$count = $this->wpdb->get_var( $this->wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE group_lesson_id = %d', $table, 0 ) );
+			if ( null === $count || (int) $count > 0 ) {
+				throw new \RuntimeException( 'Временное место для переноса результатов занято или недоступно.' );
+			}
+		}
+		foreach ( $tables as [ $table, $kind ] ) {
+			$this->reassignTopic( $table, $kind, $a, 0, $firstExtras );
+			$this->reassignTopic( $table, $kind, $b, $a, $secondExtras );
+			$this->reassignTopic( $table, $kind, 0, $b, array() );
+		}
+	}
+
+	private function reassignTopic( string $table, string $kind, int $from, int $to, array $extraIds ): void {
+		$extraIds = array_values( array_unique( array_filter( array_map( 'intval', $extraIds ), static fn( int $id ): bool => $id > 0 ) ) );
+		$sql = 'UPDATE %i SET group_lesson_id = %d WHERE group_lesson_id = %d';
+		$args = array( $table, $to, $from );
+		if ( 'assessment' === $kind ) {
+			$sql .= ' AND exam_participation_id IS NULL';
+		} elseif ( $extraIds && 'work' === $kind ) {
+			$sql .= ' AND work_id NOT IN (' . implode( ',', $extraIds ) . ')';
+		} elseif ( $extraIds && 'attempt' === $kind ) {
+			$sql .= ' AND step_key NOT IN (' . implode( ',', array_fill( 0, count( $extraIds ), '%s' ) ) . ')';
+			array_push( $args, ...array_map( static fn( int $id ): string => AttemptSource::workStepKey( $id ), $extraIds ) );
+		}
+		if ( false === $this->wpdb->query( $this->wpdb->prepare( $sql, ...$args ) ) ) {
+			throw new \RuntimeException( 'Не удалось перенести результаты темы.' );
+		}
+	}
+
 	private function reassign( string $table, int $from, int $to, string $extra ): void {
 		// $extra — константный фрагмент из swapLearningData(), не пользовательский ввод.
 		$this->wpdb->query(
@@ -769,7 +829,7 @@ class GroupLessonRepository {
 	}
 
 	/** @return GroupLessonDTO[] Все строки программы (всех групп), ссылающиеся на эталонный урок. */
-	public function listByLessonId( int $lessonId ): array {
+	public function listByLessonId( int $lessonId, bool $strict = false ): array {
 		$rows = $this->wpdb->get_results(
 			$this->wpdb->prepare(
 				'SELECT * FROM %i WHERE lesson_id = %d',
@@ -778,6 +838,9 @@ class GroupLessonRepository {
 			),
 			ARRAY_A
 		);
+		if ( $strict && ( '' !== $this->wpdb->last_error || ! is_array( $rows ) ) ) {
+			throw new \RuntimeException( 'Не удалось прочитать занятия урока.' );
+		}
 		return array_map( [ GroupLessonDTO::class, 'fromArray' ], $rows ?: array() );
 	}
 

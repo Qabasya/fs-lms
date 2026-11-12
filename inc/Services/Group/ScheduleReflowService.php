@@ -11,6 +11,8 @@ use Inc\Enums\Course\LessonStatus;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Services\Course\RoomAvailabilityService;
+use Inc\Services\Course\RankingAssignmentSnapshotService;
+use Inc\Services\Course\RankingScheduleHistoryService;
 
 /**
  * Class ScheduleReflowService
@@ -40,6 +42,9 @@ readonly class ScheduleReflowService {
 		private RoomAvailabilityService $roomAvailability,
 		private ScheduleEventPublisher  $events,
 		private ClockInterface          $clock,
+		private ?RankingAssignmentSnapshotService $rankingSnapshots = null,
+		private ?RankingScheduleHistoryService $rankingHistory = null,
+		private bool $captureRankingAssignments = true,
 	) {}
 
 	/**
@@ -57,7 +62,17 @@ readonly class ScheduleReflowService {
 	public function schedule( int $groupLessonId, ?string $scheduledAt, ?int $teacherUserId, int $actorUserId ): void {
 		$row = $this->requireRow( $groupLessonId );
 
-		$this->groupLessons->updateSchedule( $groupLessonId, $scheduledAt, $teacherUserId );
+		if ( $this->captureRankingAssignments && $this->rankingSnapshots && $this->rankingHistory ) {
+			$this->rankingSnapshots->synchronized( function () use ( $groupLessonId, $scheduledAt, $teacherUserId ): void {
+				$current = $this->requireRow( $groupLessonId );
+				$this->rankingHistory->captureBeforeMutation( $current );
+				if ( ! $this->groupLessons->updateSchedule( $groupLessonId, $scheduledAt, $teacherUserId ) ) {
+					throw new \RuntimeException( 'Не удалось изменить дату занятия.' );
+				}
+			} );
+		} else {
+			$this->groupLessons->updateSchedule( $groupLessonId, $scheduledAt, $teacherUserId );
+		}
 		$this->events->lessonChanged( $row->groupId, $groupLessonId, $actorUserId );
 	}
 
@@ -91,7 +106,9 @@ readonly class ScheduleReflowService {
 		$this->assertOrdinaryGroup( $groupId );
 		$this->assertNotIndividual( $groupId, 'Автораспределения в индивидуальной группе нет — занятия ставятся вручную.' );
 
-		$result = $this->calendar->reflow( $groupId );
+		$result = $this->withGroupHistory( $groupId, fn(): ScheduleReflowResultDTO => $this->captureRankingAssignments
+			? $this->calendar->reflow( $groupId, true )
+			: $this->calendar->reflow( $groupId ) );
 		$this->events->groupChanged( $groupId, $actorUserId );
 
 		return $result;
@@ -110,7 +127,9 @@ readonly class ScheduleReflowService {
 		$this->assertOrdinaryGroup( $groupId );
 		$this->assertNotIndividual( $groupId, 'В индивидуальной группе занятия ставятся вручную — снимать распределение нечего.' );
 
-		$affected = $this->groupLessons->unscheduleAll( $groupId );
+		$affected = $this->withGroupHistory( $groupId, fn(): int => $this->captureRankingAssignments
+			? $this->groupLessons->unscheduleAll( $groupId, true )
+			: $this->groupLessons->unscheduleAll( $groupId ) );
 		$this->events->groupChanged( $groupId, $actorUserId );
 
 		return $affected;
@@ -191,23 +210,23 @@ readonly class ScheduleReflowService {
 			}
 		}
 
-		$this->groupLessons->updateSchedule( $groupLessonId, $scheduledAt, $row->teacherUserId, $endsAt );
-		$this->groupLessons->setPinned( $groupLessonId, true );
-
-		$allRows = null;
-		// «Вместе»: занятие, стоявшее на дате, остаётся — вытеснять нечего.
-		foreach ( $together ? array() : $displaced as $d ) {
-			$this->groupLessons->clearSchedule( $d->id );
-
-			// T12.6: вытеснение исходной части не должно осиротить вторую — вытесняем
-			// обе вместе (продолжение без даты «оригинала» рядом смотрелось бы разрозненно).
-			$allRows ??= $this->groupLessons->listByGroup( $row->groupId );
-			foreach ( $allRows as $r ) {
-				if ( $r->continuedFromId === $d->id && null !== $r->scheduledAt && ! $r->isFact() ) {
-					$this->groupLessons->clearSchedule( $r->id );
+		$this->withGroupHistory( $row->groupId, function () use ( $groupLessonId, $scheduledAt, $row, $endsAt, $together, $displaced ): void {
+			$this->requireScheduleWrite( $this->groupLessons->updateSchedule( $groupLessonId, $scheduledAt, $row->teacherUserId, $endsAt ) );
+			$this->requireScheduleWrite( $this->groupLessons->setPinned( $groupLessonId, true ) );
+			$allRows = null;
+			// «Вместе»: занятие, стоявшее на дате, остаётся — вытеснять нечего.
+			foreach ( $together ? array() : $displaced as $d ) {
+				$this->requireScheduleWrite( $this->groupLessons->clearSchedule( $d->id ) );
+				$allRows ??= $this->captureRankingAssignments
+					? $this->groupLessons->listByGroup( $row->groupId, true )
+					: $this->groupLessons->listByGroup( $row->groupId );
+				foreach ( $allRows as $r ) {
+					if ( $r->continuedFromId === $d->id && null !== $r->scheduledAt && ! $r->isFact() ) {
+						$this->requireScheduleWrite( $this->groupLessons->clearSchedule( $r->id ) );
+					}
 				}
 			}
-		}
+		} );
 
 		$this->events->lessonChanged( $row->groupId, $groupLessonId, $actorUserId );
 
@@ -249,27 +268,25 @@ readonly class ScheduleReflowService {
 			return 0;
 		}
 
-		$allRows    = $this->groupLessons->listByGroup( $row->groupId );
-		$freeSlots  = array( $this->slotOf( $row ) );
-		$individual = $this->isIndividualGroup( $row->groupId );
-
-		$this->groupLessons->clearSchedule( $groupLessonId );
-
-		// T12.6: вторая часть темы без первой висела бы в календаре разрозненно —
-		// продолжения уходят в пул вместе с оригиналом, их окна тоже освобождаются.
-		foreach ( $allRows as $r ) {
-			if ( $r->continuedFromId === $groupLessonId && null !== $r->scheduledAt && ! $r->isFact() ) {
-				$freeSlots[] = $this->slotOf( $r );
-				$this->groupLessons->clearSchedule( $r->id );
+		$shifted = $this->withGroupHistory( $row->groupId, function () use ( $row, $groupLessonId ): int {
+			if ( $this->captureRankingAssignments && $this->requireRow( $groupLessonId ) != $row ) {
+				throw new \RuntimeException( 'Занятие изменилось, повторите операцию.' );
 			}
-		}
-
-		usort( $freeSlots, static fn( $a, $b ) => strcmp( $a['scheduled_at'], $b['scheduled_at'] ) );
-
-		// Хвост считаем от самого раннего освободившегося окна: часть темы могла
-		// стоять и раньше оригинала, и эта дырка тоже должна закрыться. В индивидуальной
-		// группе окон-слотов нет: у каждого занятия своя дата, подтягивать нечего.
-		$shifted = $individual ? 0 : $this->shiftTail( $allRows, $freeSlots[0]['scheduled_at'], $freeSlots, $groupLessonId );
+			$allRows = $this->captureRankingAssignments
+				? $this->groupLessons->listByGroup( $row->groupId, true )
+				: $this->groupLessons->listByGroup( $row->groupId );
+			$freeSlots = array( $this->slotOf( $row ) );
+			$individual = $this->isIndividualGroup( $row->groupId );
+			$this->requireScheduleWrite( $this->groupLessons->clearSchedule( $groupLessonId ) );
+			foreach ( $allRows as $r ) {
+				if ( $r->continuedFromId === $groupLessonId && null !== $r->scheduledAt && ! $r->isFact() ) {
+					$freeSlots[] = $this->slotOf( $r );
+					$this->requireScheduleWrite( $this->groupLessons->clearSchedule( $r->id ) );
+				}
+			}
+			usort( $freeSlots, static fn( $a, $b ) => strcmp( $a['scheduled_at'], $b['scheduled_at'] ) );
+			return $individual ? 0 : $this->shiftTail( $allRows, $freeSlots[0]['scheduled_at'], $freeSlots, $groupLessonId );
+		} );
 
 		$this->events->lessonChanged( $row->groupId, $groupLessonId, $actorUserId );
 
@@ -425,7 +442,7 @@ readonly class ScheduleReflowService {
 			}
 
 			$vacated = $this->slotOf( $r );
-			$this->groupLessons->moveToSlot( $r->id, array_shift( $freeSlots ) );
+			$this->requireScheduleWrite( $this->groupLessons->moveToSlot( $r->id, array_shift( $freeSlots ) ) );
 
 			// Очередь обязана оставаться отсортированной: при возврате в пул темы
 			// с продолжением освобождается больше одного окна, и только что
@@ -537,6 +554,26 @@ readonly class ScheduleReflowService {
 
 		$this->assertOrdinaryGroup( $row->groupId );
 		return $row;
+	}
+
+	private function withGroupHistory( int $groupId, callable $operation ): mixed {
+		if ( ! $this->captureRankingAssignments || ! $this->rankingSnapshots || ! $this->rankingHistory ) {
+			return $operation();
+		}
+		$result = null;
+		$this->rankingSnapshots->synchronized( function () use ( $groupId, $operation, &$result ): void {
+			foreach ( $this->groupLessons->listByGroup( $groupId, true ) as $row ) {
+				$this->rankingHistory->captureBeforeMutation( $row );
+			}
+			$result = $operation();
+		} );
+		return $result;
+	}
+
+	private function requireScheduleWrite( bool $result ): void {
+		if ( $this->captureRankingAssignments && ! $result ) {
+			throw new \RuntimeException( 'Не удалось изменить расписание занятия.' );
+		}
 	}
 
 	private function assertOrdinaryGroup( int $groupId ): void {

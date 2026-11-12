@@ -33,7 +33,7 @@ class CourseBuilderCallbacks extends BaseController {
 		private readonly CoursePublishValidator $publishValidator,
 		private readonly CourseAssignmentService $assignment,
 		private readonly ?RankingLessonPublicationService $rankingPublication = null,
-		private readonly bool $captureRankingAssignments = false,
+		private readonly bool $captureRankingAssignments = true,
 	) {
 		parent::__construct();
 	}

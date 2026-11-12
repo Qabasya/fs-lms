@@ -26,6 +26,20 @@ use RuntimeException;
  * резолв ссылок, дедуп глобального банка и откат.
  */
 class SubjectBundleImportServiceTest extends TestCase {
+	public function test_import_normalizes_public_tasks_after_all_sections_are_restored(): void {
+		$nextId = 100;
+		$count = 0;
+		$restorer = $this->createStub( PostRestorer::class );
+		$restorer->method( 'restore' )->willReturnCallback( static function ( string $type, array $data, ImportedEntitiesCollector $created ) use ( &$nextId, &$count ): int { ++$count; $created->addPost( ++$nextId ); return $nextId; } );
+		$posts = $this->createStub( \Inc\Managers\Wp\PostManager::class );
+		$posts->method( 'get' )->willReturnCallback( static fn( int $id ): \WP_Post => new \WP_Post( array( 'ID' => $id, 'post_type' => $id <= 102 ? 'math_tasks' : 'other', 'post_status' => 'publish' ) ) );
+		$normalizer = $this->createMock( \Inc\Services\Task\TaskFileNormalizationService::class );
+		$normalizer->expects( self::exactly( 2 ) )->method( 'apply' )->willReturnCallback( static function () use ( &$count ): array {
+			self::assertSame( 6, $count );
+			return array( 'updated' => 1, 'warnings' => array() );
+		} );
+		$this->makeService( restorer: $restorer, normalizer: $normalizer, posts: $posts )->import( $this->manifest(), '/tmp/none', new ImportedEntitiesCollector(), new ExportIdMapper() );
+	}
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -214,7 +228,9 @@ class SubjectBundleImportServiceTest extends TestCase {
 		?SubjectRepository $subjects = null,
 		?PostRestorer $restorer = null,
 		?ProblemDeduplicator $problems = null,
-		?ImportRollbackService $rollback = null
+		?ImportRollbackService $rollback = null,
+		?\Inc\Services\Task\TaskFileNormalizationService $normalizer = null,
+		?\Inc\Managers\Wp\PostManager $posts = null,
 	): SubjectBundleImportService {
 		if ( null === $subjects ) {
 			$subjects = $this->createMock( SubjectRepository::class );
@@ -247,6 +263,8 @@ class SubjectBundleImportServiceTest extends TestCase {
 			$problems,
 			$rollback ?? $this->createMock( ImportRollbackService::class ),
 			$this->createMock( \Inc\Services\Subject\SubjectPagesService::class ),
+			$normalizer,
+			$posts,
 		);
 	}
 

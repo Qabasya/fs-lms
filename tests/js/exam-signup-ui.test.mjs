@@ -7,7 +7,7 @@ import { initExamSignup } from '../../src/js/frontend/services/exam-signup.js';
 function signupForm(t, response) {
     const previous = { window: globalThis.window, document: globalThis.document, fetch: globalThis.fetch };
     t.after(() => Object.assign(globalThis, previous));
-    const formError = { hidden: true, textContent: '' };
+    const formError = { hidden: true, textContent: '', scrollIntoView() { this.scrolled = true; }, focus() {} };
     const status = { hidden: true, textContent: '', classList: { toggle() {} } };
     const submit = { disabled: false };
     const listeners = new Map();
@@ -41,6 +41,7 @@ function signupForm(t, response) {
         messenger: field('messenger', '@ivan', { required: true }),
         session_id: field('session_id', '7', { type: 'hidden' }),
         consent: field('consent', 'pd_processing', { required: true, type: 'checkbox', checked: true, error: 'consent_pd_processing' }),
+        transfer: field('transfer', 'pd_transfer', { required: true, type: 'checkbox', checked: true, error: 'consent_pd_transfer' }),
         form_token: { value: 'token' },
     };
     const inputs = Object.values(elements).filter(input => input.closest);
@@ -55,7 +56,7 @@ function signupForm(t, response) {
         querySelectorAll(selector) {
             if (selector === '[data-field]') return groups;
             if (selector === 'input, select, textarea') return inputs;
-            if (selector === 'input[name="consents[]"]:checked') return elements.consent.checked ? [elements.consent] : [];
+            if (selector === 'input[name="consents[]"]:checked') return [elements.consent, elements.transfer].filter(input => input.checked);
             return [];
         },
         querySelector(selector) {
@@ -79,6 +80,24 @@ function signupForm(t, response) {
     initExamSignup();
     return { errors, formError, submit, elements, trap, requests, send: () => listeners.get('submit')({ preventDefault() {} }) };
 }
+
+test('X-ACCESS без адреса кабинета показывает и прокручивает сообщение', async t => {
+    const ui = signupForm(t, { success: false, data: { code: 'X-ACCESS', field: 'cabinet', message: 'Запись доступна в личном кабинете.' } });
+    await ui.send();
+    assert.equal(ui.formError.hidden, false);
+    assert.equal(ui.formError.textContent, 'Запись доступна в личном кабинете.');
+    assert.equal(ui.formError.scrolled, true);
+});
+
+test('X-ACCESS с адресом кабинета переносит с отметкой для уведомления', async t => {
+    const ui = signupForm(t, { success: false, data: { code: 'X-ACCESS', field: 'cabinet', cabinet_url: '/profile/?screen=learner-exams' } });
+    let destination = '';
+    globalThis.window.location = { origin: 'https://example.test', assign: url => { destination = url; } };
+    await ui.send();
+    const url = new URL(destination, 'https://example.test');
+    assert.equal(url.searchParams.get('screen'), 'learner-exams');
+    assert.equal(url.searchParams.get('exam_signup_notice'), 'cabinet');
+});
 
 test('серверная ошибка согласия видна у соответствующего поля', async t => {
     const ui = signupForm(t, { success: false, data: { field: 'consent_pd_processing', message: 'Нужно согласие' } });
@@ -120,6 +139,14 @@ test('обязательное согласие проверяется общи�
     await ui.send();
     assert.equal(ui.requests.length, 0);
     assert.equal(ui.errors.find(error => error.dataset.error === 'consent_pd_processing').hidden, false);
+});
+
+test('согласие на передачу результата обязательно для формы записи', async t => {
+    const ui = signupForm(t, { success: true });
+    ui.elements.transfer.checked = false;
+    await ui.send();
+    assert.equal(ui.requests.length, 0);
+    assert.equal(ui.errors.find(error => error.dataset.error === 'consent_pd_transfer').hidden, false);
 });
 
 for (const field of ['last_name', 'unknown']) {

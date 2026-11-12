@@ -19,6 +19,29 @@ use PHPUnit\Framework\TestCase;
 
 class SubjectRankingServiceTest extends TestCase {
 
+	public function test_group_places_are_hidden_only_when_that_group_contains_incomplete_score(): void {
+		$GLOBALS['_test_user_can'][7] = [ Capability::ManageLmsTeaching->value => true ];
+		$repo = $this->createStub( LearnerRankingRepository::class );
+		$repo->method( 'studentIds' )->willReturn( [ 1, 2 ] );
+		$repo->method( 'roster' )->willReturn( [
+			[ 'student_person_id' => 1, 'snapshot_last_name' => 'А', 'snapshot_first_name' => 'А', 'snapshot_middle_name' => '', 'group_id' => 1, 'group_name' => 'Группа 1' ],
+			[ 'student_person_id' => 2, 'snapshot_last_name' => 'Б', 'snapshot_first_name' => 'Б', 'snapshot_middle_name' => '', 'group_id' => 2, 'group_name' => 'Группа 2' ],
+		] );
+		$assignments = $this->createStub( \Inc\Services\Profile\RankingAssignmentsService::class );
+		$assignments->method( 'tasks' )->willReturn( [ [ 'student_person_id' => 1, 'group_lesson_id' => 2, 'work_id' => 3, 'task_id' => 0, 'source' => 'homework', 'task_points' => 0, 'credited' => false, 'max_unknown' => true, 'score_unknown' => true ] ] );
+		$config = $this->createStub( PluginConfig::class );
+		$config->method( 'rankingForSubject' )->willReturn( [ 'homework' => 1.0, 'attendance_bonus' => 0.0, 'attendance_streak_length' => 3, 'excluded_students' => [] ] );
+		$ranking = new RankingCalculationService( $repo, new RankingPointsPolicy( $config ), $assignments, true );
+		$clock = $this->createStub( ClockInterface::class );
+		$clock->method( 'now' )->willReturn( '2026-11-01 12:00:00' );
+		$service = new SubjectRankingService( $this->access(), $repo, $ranking, $clock, $this->createStub( \Inc\Services\Profile\RankingSnapshotService::class ) );
+		$all = $service->build( 7, 'inf_ege' );
+		self::assertSame( [ null, null ], array_column( $all['rows'], 'rank' ) );
+		self::assertTrue( $all['rows'][0]['score_unknown'] );
+		self::assertNull( $service->build( 7, 'inf_ege', 1 )['rows'][0]['rank'] );
+		self::assertSame( 1, $service->build( 7, 'inf_ege', 2 )['rows'][0]['rank'] );
+	}
+
 	public function test_practice_breakdown_groups_events_by_points_without_changing_score(): void {
 		$repo = $this->createStub( LearnerRankingRepository::class );
 		$repo->method( 'studentIds' )->willReturn( [1, 2] );

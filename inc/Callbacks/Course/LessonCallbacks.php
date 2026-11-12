@@ -200,9 +200,16 @@ class LessonCallbacks extends BaseController {
 			authorId  : $lesson->authorId,
 			status    : $lesson->status,
 		);
-		$this->lessonManager->update( $lesson_id, $dto );
-		// Уже открытым для групп занятиям — доложить новые работы урока (copy-on-publish).
-		$this->visibilityService->syncExtraWorksForOpenOccurrences( $lesson_id );
+		if ( $this->visibilityService->capturesRankingAssignments() ) {
+			if ( ! $this->visibilityService->saveStepsWithHistory( $lesson_id, $dto ) ) {
+				$this->error( 'Не удалось сохранить шаги урока.' );
+				return;
+			}
+		} else {
+			$this->lessonManager->update( $lesson_id, $dto );
+			// Уже открытым для групп занятиям — доложить новые работы урока (copy-on-publish).
+			$this->visibilityService->syncExtraWorksForOpenOccurrences( $lesson_id );
+		}
 
 		$this->success( array( 'count' => count( $steps ) ) );
 	}

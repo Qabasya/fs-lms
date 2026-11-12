@@ -30,6 +30,7 @@ class MediaManager {
 		// .docx/.pptx выше, некоторые ученики/авторы работают только в нём.
 		'application/vnd.oasis.opendocument.text',
 		'application/vnd.oasis.opendocument.presentation',
+		'application/vnd.oasis.opendocument.spreadsheet',
 		'text/plain',
 		// Файлы данных с дробями через запятую («1,5») libmagic принимает за CSV —
 		// это тот же плейнтекст (данные ЕГЭ, задание 27).
@@ -146,6 +147,15 @@ class MediaManager {
 	 * @return array<string,string>
 	 */
 	public function extendUploadMimes( array $mimes ): array {
+		$mimes['ods']  = 'application/vnd.oasis.opendocument.spreadsheet';
+		$mimes['odt']  = 'application/vnd.oasis.opendocument.text';
+		$mimes['odp']  = 'application/vnd.oasis.opendocument.presentation';
+		$mimes['xls']  = 'application/vnd.ms-excel';
+		$mimes['xlsx'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+		$mimes['doc']  = 'application/msword';
+		$mimes['docx'] = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+		$mimes['pptx'] = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+		$mimes['txt']  = 'text/plain';
 		$mimes['py']   = 'text/x-python';
 		$mimes['heic'] = 'image/heic';
 		$mimes['heif'] = 'image/heif';
@@ -156,6 +166,20 @@ class MediaManager {
 
 	public function delete( int $attachmentId ): bool {
 		return (bool) wp_delete_attachment( $attachmentId, true );
+	}
+
+	/** Регистрирует уже созданную копию, не меняя исходное вложение. */
+	public function createAttachmentForFile( string $path, int $postId ): int {
+		$type = wp_check_filetype( basename( $path ), $this->extendUploadMimes( get_allowed_mime_types() ) );
+		$id = wp_insert_attachment( array(
+			'post_mime_type' => $type['type'] ?: 'application/octet-stream',
+			'post_title' => pathinfo( $path, PATHINFO_FILENAME ),
+			'post_status' => 'inherit',
+		), $path, $postId, true );
+		if ( is_wp_error( $id ) || ! $id ) {
+			throw new \RuntimeException( 'Не удалось зарегистрировать копию вложения.' );
+		}
+		return (int) $id;
 	}
 
 	/**

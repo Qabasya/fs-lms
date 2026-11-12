@@ -18,6 +18,8 @@ use Inc\Repositories\WPDBRepositories\RoomRepository;
 use Inc\Repositories\WPDBRepositories\StudentRecordRepository;
 use Inc\Services\Course\GroupLessonUsageGuard;
 use Inc\Services\Course\RoomAvailabilityService;
+use Inc\Services\Course\RankingAssignmentSnapshotService;
+use Inc\Services\Course\RankingScheduleHistoryService;
 use Inc\Services\Profile\NotificationService;
 use Inc\Shared\Traits\TransactionRunner;
 
@@ -59,6 +61,9 @@ readonly class IndividualLessonService {
 		private RoomAvailabilityService $roomAvailability,
 		private GroupLessonUsageGuard   $usage,
 		private NotificationService     $notifications,
+		private ?RankingAssignmentSnapshotService $rankingSnapshots = null,
+		private ?RankingScheduleHistoryService $rankingHistory = null,
+		private bool $captureRankingAssignments = true,
 	) {}
 
 	/**
@@ -594,7 +599,12 @@ readonly class IndividualLessonService {
 		$row = $this->requireIndividual( $groupLessonId );
 		$this->assertLessonExists( $lessonId );
 
-		$this->groupLessons->setLessonId( $groupLessonId, $lessonId );
+		$this->withIndividualHistory( $row, function () use ( $groupLessonId, $lessonId, $row ): void {
+			$this->requireRankingWrite( $this->groupLessons->setLessonId( $groupLessonId, $lessonId ) );
+			if ( $this->captureRankingAssignments && $this->rankingHistory && $lessonId !== $row->lessonId ) {
+				$this->rankingHistory->captureNewLesson( $this->requireIndividual( $groupLessonId ), $lessonId );
+			}
+		} );
 		$this->events->groupChanged( $row->groupId, $actorUserId );
 	}
 
@@ -625,11 +635,12 @@ readonly class IndividualLessonService {
 	): void {
 		$row = $this->requireIndividual( $groupLessonId );
 
-		// Кабинет после правки — новый или прежний, если время сдвинулось: в обоих случаях проверка и запись идут под его блокировкой.
-		$effectiveRoom = null !== $roomId ? $roomId : ( $row->roomId ?? 0 );
-		$timeChanged   = null !== $scheduledAt && '' !== $scheduledAt;
-		if ( $effectiveRoom > 0 && ( $timeChanged || ( null !== $roomId && $roomId > 0 ) ) ) {
-			$this->inTransaction( function () use ( $groupLessonId, $row, $scheduledAt, $endsAt, $roomId, $effectiveRoom, $timeChanged ): void {
+		$this->withIndividualHistory( $row, function () use ( $groupLessonId, $row, $scheduledAt, $endsAt, $roomId, $studentPersonId, $lessonId ): void {
+			// Кабинет и снимки используют одну транзакцию, без вложенного START TRANSACTION.
+			$effectiveRoom = null !== $roomId ? $roomId : ( $row->roomId ?? 0 );
+			$timeChanged = null !== $scheduledAt && '' !== $scheduledAt;
+			if ( $effectiveRoom > 0 && ( $timeChanged || ( null !== $roomId && $roomId > 0 ) ) ) {
+				$writeRoom = function () use ( $groupLessonId, $row, $scheduledAt, $endsAt, $roomId, $effectiveRoom, $timeChanged ): void {
 				$this->rooms->lockForUpdate( $effectiveRoom );
 				$start = $timeChanged ? (string) $scheduledAt : (string) $row->scheduledAt;
 				$end   = $timeChanged ? $endsAt : $row->endsAt;
@@ -637,20 +648,29 @@ readonly class IndividualLessonService {
 					$this->assertNoExamInRoom( $effectiveRoom, $start, $end );
 				}
 				$this->writeSchedule( $groupLessonId, $row, $scheduledAt, $endsAt, $roomId );
-			} );
-		} else {
-			$this->writeSchedule( $groupLessonId, $row, $scheduledAt, $endsAt, $roomId );
-		}
+				};
+				if ( $this->captureRankingAssignments && $this->rankingSnapshots && $this->rankingHistory ) {
+					$writeRoom();
+				} else {
+					$this->inTransaction( $writeRoom );
+				}
+			} else {
+				$this->writeSchedule( $groupLessonId, $row, $scheduledAt, $endsAt, $roomId );
+			}
 
-		if ( null !== $studentPersonId && $studentPersonId > 0 ) {
-			$this->assertMember( $row->groupId, $studentPersonId );
-			$this->groupLessons->setStudentPersonId( $groupLessonId, $studentPersonId );
-		}
+			if ( null !== $studentPersonId && $studentPersonId > 0 ) {
+				$this->assertMember( $row->groupId, $studentPersonId );
+				$this->requireRankingWrite( $this->groupLessons->setStudentPersonId( $groupLessonId, $studentPersonId ) );
+			}
 
-		if ( null !== $lessonId && $lessonId > 0 ) {
-			$this->assertLessonExists( $lessonId );
-			$this->groupLessons->setLessonId( $groupLessonId, $lessonId );
-		}
+			if ( null !== $lessonId && $lessonId > 0 ) {
+				$this->assertLessonExists( $lessonId );
+				$this->requireRankingWrite( $this->groupLessons->setLessonId( $groupLessonId, $lessonId ) );
+				if ( $this->captureRankingAssignments && $this->rankingHistory && $lessonId !== $row->lessonId ) {
+					$this->rankingHistory->captureNewLesson( $this->requireIndividual( $groupLessonId ), $lessonId );
+				}
+			}
+		} );
 
 		$this->events->groupChanged( $row->groupId, $actorUserId );
 	}
@@ -658,11 +678,32 @@ readonly class IndividualLessonService {
 	/** Запись даты/времени и кабинета правки занятия. */
 	private function writeSchedule( int $groupLessonId, GroupLessonDTO $row, ?string $scheduledAt, ?string $endsAt, ?int $roomId ): void {
 		if ( null !== $scheduledAt && '' !== $scheduledAt ) {
-			$this->groupLessons->updateSchedule( $groupLessonId, $scheduledAt, $row->teacherUserId, $endsAt );
+			$this->requireRankingWrite( $this->groupLessons->updateSchedule( $groupLessonId, $scheduledAt, $row->teacherUserId, $endsAt ) );
 		}
 
 		if ( null !== $roomId ) {
-			$this->groupLessons->setRoom( $groupLessonId, $roomId > 0 ? $roomId : null );
+			$this->requireRankingWrite( $this->groupLessons->setRoom( $groupLessonId, $roomId > 0 ? $roomId : null ) );
+		}
+	}
+
+	private function withIndividualHistory( GroupLessonDTO $row, callable $operation ): void {
+		if ( ! $this->captureRankingAssignments || ! $this->rankingSnapshots || ! $this->rankingHistory ) {
+			$operation();
+			return;
+		}
+		$this->rankingSnapshots->synchronized( function () use ( $row, $operation ): void {
+			$current = $this->requireIndividual( $row->id );
+			if ( $current != $row ) {
+				throw new \RuntimeException( 'Занятие изменилось, повторите операцию.' );
+			}
+			$this->rankingHistory->captureBeforeMutation( $current );
+			$operation();
+		} );
+	}
+
+	private function requireRankingWrite( bool $result ): void {
+		if ( $this->captureRankingAssignments && ! $result ) {
+			throw new \RuntimeException( 'Не удалось обновить индивидуальное занятие.' );
 		}
 	}
 

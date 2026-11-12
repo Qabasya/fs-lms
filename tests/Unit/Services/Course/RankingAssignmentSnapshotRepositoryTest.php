@@ -24,6 +24,28 @@ class RankingAssignmentSnapshotRepositoryTest extends TestCase {
 			$GLOBALS['wpdb'] = $previous;
 		}
 	}
+	public function test_replacing_two_lesson_histories_keeps_unrelated_snapshots(): void {
+		$previous = $GLOBALS['wpdb'] ?? null;
+		$db = $this->createMock( \wpdb::class );
+		$db->options = 'wp_options';
+		$db->method( 'get_var' )->willReturn( serialize( array( 1 => array( 10 => array( 'origin' => 'lesson' ) ), 2 => array(), 3 => array( 30 => array( 'origin' => 'extra' ) ) ) ) );
+		$saved = null;
+		$db->method( 'prepare' )->willReturnCallback( static function ( string $sql, ...$args ) use ( &$saved ): string {
+			if ( str_starts_with( $sql, 'INSERT' ) ) {
+				$saved = unserialize( $args[2] );
+			}
+			return $sql;
+		} );
+		$db->expects( self::once() )->method( 'query' )->willReturn( 1 );
+		$GLOBALS['wpdb'] = $db;
+		try {
+			( new RankingAssignmentSnapshotRepository() )->replaceLessons( array( 1 => array(), 2 => array( 10 => array( 'origin' => 'lesson' ) ) ) );
+			self::assertSame( array( 1 => array(), 2 => array( 10 => array( 'origin' => 'lesson' ) ), 3 => array( 30 => array( 'origin' => 'extra' ) ) ), $saved );
+		} finally {
+			$GLOBALS['wpdb'] = $previous;
+		}
+	}
+
 	public function test_snapshot_commits_before_work_change_while_lock_is_held(): void {
 		$previous = $GLOBALS['wpdb'] ?? null;
 		$db = $this->createMock( \wpdb::class );

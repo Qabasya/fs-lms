@@ -72,3 +72,10 @@ test( 'у пилота серия и «осталось исправить» д�
 
 	assert.deepEqual( tiles.map( ( t ) => [ t.label, t.value ] ), [ [ 'Серия без пропусков', '0' ], [ 'Осталось исправить', '0' ] ] );
 } );
+
+test( 'рейтинг с неполными баллами отмечается на плитке', () => {
+	const tiles = homeTileModels( { deadlines, attendance, rankings: [ { subject_key: 'inf_ege', subject: 'Информатика', rank: null, score: 3, score_unknown: true, period: 'Осень' } ] }, { parent: false } );
+	const ranking = tiles.find( tile => tile.id === 'ranking:inf_ege' );
+	assert.equal( ranking.value, 'Место не определено' );
+	assert.match( ranking.note, /3 балла \(неполный результат\)/ );
+} );

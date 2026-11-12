@@ -38,7 +38,7 @@ class RankingAssignmentProjection {
 					continue;
 				}
 				$part['max_amount']             += $points;
-				$part['amount']                 += empty( $task['credited'] ) ? 0 : $points;
+				$part['amount']                 += isset( $task['earned_points'] ) ? (float) $task['earned_points'] : ( empty( $task['credited'] ) ? 0 : $points );
 				$part['task_groups'][ $group ] ??= array(
 					'points'    => $points,
 					'count'     => 0,

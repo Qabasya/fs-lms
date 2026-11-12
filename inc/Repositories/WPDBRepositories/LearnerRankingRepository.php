@@ -167,8 +167,13 @@ class LearnerRankingRepository {
 				'SELECT a.student_person_id, a.group_lesson_id, a.exam_participation_id, a.assessment_id, answer.task_id, %s AS source,
 			COALESCE(a.approved_at, (SELECT MAX(review.graded_at) FROM %i review WHERE review.attempt_id = a.id), a.submitted_at) AS solved_at
 			FROM %i a JOIN %i answer ON answer.attempt_id = a.id
-			JOIN %i p ON p.ID = a.assessment_id AND p.post_type = %s
+			LEFT JOIN %i p ON p.ID = a.assessment_id
+			LEFT JOIN %i gl ON gl.id = a.group_lesson_id
+			LEFT JOIN %i g ON g.id = gl.group_id
+			LEFT JOIN %i ep ON ep.id = a.exam_participation_id
+			LEFT JOIN %i e ON e.id = ep.event_id
 			WHERE a.student_person_id IS NOT NULL AND a.submitted_at IS NOT NULL AND a.status = %s
+			AND (p.post_type = %s OR (p.ID IS NULL AND ((a.exam_participation_id IS NOT NULL AND e.subject_key = %s) OR (a.exam_participation_id IS NULL AND g.subject_key = %s))))
 			AND answer.is_correct = 1 AND answer.max_score > 0 AND answer.score >= answer.max_score
 			AND (a.approved_at IS NOT NULL OR (a.exam_participation_id IS NULL
 			AND NOT EXISTS (SELECT 1 FROM %i kind WHERE kind.post_id = a.assessment_id AND kind.meta_key = %s AND kind.meta_value = %s)))
@@ -178,8 +183,14 @@ class LearnerRankingRepository {
 				TableName::AssessmentAttempts->prefixed(),
 				TableName::AssessmentAnswers->prefixed(),
 				$this->wpdb->posts,
-				PostTypeResolver::assessments( $subject ),
+				TableName::GroupLessons->prefixed(),
+				TableName::Groups->prefixed(),
+				TableName::ExamParticipations->prefixed(),
+				TableName::ExamEvents->prefixed(),
 				AttemptStatus::Graded->value,
+				PostTypeResolver::assessments( $subject ),
+				$subject,
+				$subject,
 				$this->wpdb->postmeta,
 				PostMetaName::AssessmentKind->value,
 				AssessmentKind::EgeComputer->value,
@@ -194,13 +205,15 @@ class LearnerRankingRepository {
 	public function assignedExams( string $subject ): array {
 		return $this->checkedResults(
 			$this->wpdb->prepare(
-				'SELECT p.person_id AS student_person_id, ep.id AS participation_id, s.assessment_id, s.scheduled_at AS issued_at_utc
+				'SELECT p.person_id AS student_person_id, ep.id AS participation_id, s.assessment_id, s.scheduled_at AS issued_at_utc, e.variant_snapshot, a.total_score, a.max_score, a.approved_at, a.status AS attempt_status
 				FROM %i ep JOIN %i p ON p.id = ep.participant_id
 				JOIN %i r ON r.id = ep.active_registration_id JOIN %i s ON s.id = r.session_id
 				JOIN %i e ON e.id = ep.event_id
+				LEFT JOIN %i a ON a.id = (SELECT MAX(attempt.id) FROM %i attempt WHERE attempt.exam_participation_id = ep.id)
 				WHERE e.subject_key = %s AND r.status = %s AND p.person_id IS NOT NULL',
 				TableName::ExamParticipations->prefixed(), TableName::ExamParticipants->prefixed(),
 				TableName::ExamRegistrations->prefixed(), TableName::ExamSessions->prefixed(), TableName::ExamEvents->prefixed(),
+				TableName::AssessmentAttempts->prefixed(), TableName::AssessmentAttempts->prefixed(),
 				$subject, \Inc\Enums\Exam\ExamRegistrationStatus::Confirmed->value
 			), ARRAY_A
 		);

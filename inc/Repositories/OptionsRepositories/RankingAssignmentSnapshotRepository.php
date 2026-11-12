@@ -71,6 +71,24 @@ class RankingAssignmentSnapshotRepository {
 		$wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $key ) );
 	}
 
+	/** Записывает оба занятия одним UPDATE внутри общей транзакции. */
+	public function replaceLessons( array $lessons ): void {
+		$wpdb = $GLOBALS['wpdb'];
+		$name = OptionName::RankingAssignmentSnapshots->value;
+		$raw = $wpdb->get_var( $wpdb->prepare( 'SELECT option_value FROM %i WHERE option_name = %s', $wpdb->options, $name ) );
+		if ( '' !== $wpdb->last_error ) {
+			throw new \RuntimeException( 'Не удалось прочитать снимки работ.' );
+		}
+		$all = maybe_unserialize( $raw );
+		$all = is_array( $all ) ? $all : array();
+		foreach ( $lessons as $id => $snapshots ) {
+			$all[ (int) $id ] = $snapshots;
+		}
+		if ( false === $wpdb->query( $wpdb->prepare( 'INSERT INTO %i (option_name, option_value, autoload) VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE option_value = VALUES(option_value)', $wpdb->options, $name, maybe_serialize( $all ), 'no' ) ) ) {
+			throw new \RuntimeException( 'Не удалось перенести снимки работ.' );
+		}
+	}
+
 	/** Вызывать только внутри synchronized(). */
 	public function addMissing( int $lessonId, array $snapshots ): void {
 		if ( ! $snapshots ) {

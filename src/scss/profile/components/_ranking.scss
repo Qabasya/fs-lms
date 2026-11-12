@@ -64,29 +64,44 @@
 
 .ranking-score-form { width: min(520px, calc(100vw - 60px)); }
 
-.ranking-score-list { padding: 0; list-style: none; }
+.ranking-score-list {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) repeat(7, max-content);
+  column-gap: 6px;
+  padding: 0;
+  overflow-x: auto;
+  list-style: none;
+  font-variant-numeric: tabular-nums;
+}
 
 .ranking-score-list li {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 4px 16px;
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: baseline;
   padding: 10px 0;
   border-bottom: 1px solid var(--line);
 }
 
 .ranking-score-total { margin: 16px 0; text-align: right; }
 
-.ranking-score-values { flex: 0 0 min(100%, 300px); text-align: right; }
+.ranking-score-values {
+  display: grid;
+  grid-column: 2 / -1;
+  grid-template-columns: subgrid;
+}
 
 .ranking-score-equation {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(4ch, auto);
-  gap: 0 6px;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   align-items: baseline;
-
-  strong { text-align: left; }
 }
+
+.ranking-score-number { text-align: right; white-space: nowrap; }
+
+.ranking-score-prefix,
+.ranking-score-note { grid-column: 1 / -1; text-align: right; }
 
 .ranking-table .col-name { left: 0; }
 

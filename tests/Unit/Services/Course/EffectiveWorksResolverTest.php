@@ -117,7 +117,7 @@ class EffectiveWorksResolverTest extends TestCase {
 		$snapshots = $this->createMock( \Inc\Services\Course\RankingAssignmentSnapshotService::class );
 		$snapshots->expects( self::never() )->method( 'synchronized' );
 		$visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::class );
-		$resolver = new EffectiveWorksResolver( $this->groupLessons, $this->lessonManager, $this->workManager, $this->dispatcher, $snapshots, $visibility );
+		$resolver = new EffectiveWorksResolver( $this->groupLessons, $this->lessonManager, $this->workManager, $this->dispatcher, $snapshots, $visibility, false );
 		$resolver->setExtraWorks( 42, [ 10 ], 1 );
 	}
 
@@ -127,7 +127,7 @@ class EffectiveWorksResolverTest extends TestCase {
 		$this->groupLessons->method( 'setExtraWorkIds' )->willReturn( true );
 		$snapshots = $this->createMock( \Inc\Services\Course\RankingAssignmentSnapshotService::class );
 		$snapshots->method( 'synchronized' )->willReturnCallback( static function ( callable $fn ): void { $fn(); } );
-		$snapshots->expects( self::once() )->method( 'capture' )->with( 42, [ 10 ] );
+		$snapshots->expects( self::once() )->method( 'capture' )->with( 42, [ 10 ], null, \Inc\Enums\Course\RankingAssignmentOrigin::Extra );
 		$visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::class );
 		$visibility->method( 'effectiveVisibility' )->willReturn( 'open' );
 		$resolver = new EffectiveWorksResolver( $this->groupLessons, $this->lessonManager, $this->workManager, $this->dispatcher, $snapshots, $visibility, true );
@@ -140,7 +140,7 @@ class EffectiveWorksResolverTest extends TestCase {
 		$this->groupLessons->method( 'setExtraWorkIds' )->willReturn( true );
 		$snapshots = $this->createMock( \Inc\Services\Course\RankingAssignmentSnapshotService::class );
 		$snapshots->method( 'synchronized' )->willReturnCallback( static function ( callable $fn ): void { $fn(); } );
-		$snapshots->expects( self::once() )->method( 'capture' )->with( 42, [ 10 ] );
+		$snapshots->expects( self::once() )->method( 'capture' )->with( 42, [ 10 ], null, \Inc\Enums\Course\RankingAssignmentOrigin::Extra );
 		$visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::class );
 		$visibility->method( 'effectiveVisibility' )->willReturn( 'archived' );
 		$resolver = new EffectiveWorksResolver( $this->groupLessons, $this->lessonManager, $this->workManager, $this->dispatcher, $snapshots, $visibility, true );
@@ -153,10 +153,25 @@ class EffectiveWorksResolverTest extends TestCase {
 		$this->groupLessons->method( 'setExtraWorkIds' )->willReturn( true );
 		$snapshots = $this->createMock( \Inc\Services\Course\RankingAssignmentSnapshotService::class );
 		$snapshots->method( 'synchronized' )->willReturnCallback( static function ( callable $fn ): void { $fn(); } );
-		$snapshots->expects( self::once() )->method( 'markPending' )->with( 42, [ 10 ] );
+		$snapshots->expects( self::once() )->method( 'markPending' )->with( 42, [ 10 ], \Inc\Enums\Course\RankingAssignmentOrigin::Extra );
 		$visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::class );
 		$visibility->method( 'effectiveVisibility' )->willReturn( 'hidden' );
 		$resolver = new EffectiveWorksResolver( $this->groupLessons, $this->lessonManager, $this->workManager, $this->dispatcher, $snapshots, $visibility, true );
+		$resolver->setExtraWorks( 42, [ 10 ], 1 );
+	}
+
+	public function test_extra_assignment_is_not_saved_when_its_date_cannot_be_recorded(): void {
+		$row = $this->makeRow( workIdsSnapshot: [ 1 ], extraWorkIds: [] );
+		$this->groupLessons->method( 'find' )->willReturn( $row );
+		$this->groupLessons->expects( self::never() )->method( 'setExtraWorkIds' );
+		$this->dispatcher->expects( self::never() )->method( 'dispatch' );
+		$snapshots = $this->createStub( \Inc\Services\Course\RankingAssignmentSnapshotService::class );
+		$snapshots->method( 'synchronized' )->willReturnCallback( static function ( callable $fn ): void { $fn(); } );
+		$snapshots->method( 'markPending' )->willThrowException( new \RuntimeException( 'snapshot failed' ) );
+		$visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::class );
+		$visibility->method( 'effectiveVisibility' )->willReturn( 'hidden' );
+		$resolver = new EffectiveWorksResolver( $this->groupLessons, $this->lessonManager, $this->workManager, $this->dispatcher, $snapshots, $visibility, true );
+		$this->expectException( \RuntimeException::class );
 		$resolver->setExtraWorks( 42, [ 10 ], 1 );
 	}
 

@@ -7,6 +7,8 @@ namespace Inc\Services\Profile;
 use Inc\Managers\Course\LessonManager;
 use Inc\Managers\Course\WorkManager;
 use Inc\Managers\Assessment\AssessmentManager;
+use Inc\Services\Exam\ExamFormatRegistry;
+use Inc\Enums\Assessment\AssessmentKind;
 use Inc\Repositories\WPDBRepositories\LearnerRankingRepository;
 use Inc\Repositories\OptionsRepositories\RankingAssignmentSnapshotRepository;
 
@@ -18,6 +20,7 @@ class RankingAssignmentsService {
 		private readonly LessonManager $lessons,
 		private readonly ?RankingAssignmentSnapshotRepository $snapshots = null,
 		private readonly ?AssessmentManager $assessments = null,
+		private readonly ?ExamFormatRegistry $examFormats = null,
 	) {}
 
 	/** @return list<array<string,mixed>> */
@@ -77,30 +80,34 @@ class RankingAssignmentsService {
 			$originalAssessments[ (int) $original['student_person_id'] ][ $originalId ] = ( $lessonCache[ $lessonId ] ?? null )?->assessmentIds() ?? array();
 		}
 		foreach ( $lessonRows as $lesson ) {
-			$date = $lesson['scheduled_at'] ?? $lesson['opened_at'] ?? null;
-			$opened = $lesson['opened_at'] ?? $lesson['scheduled_at'] ?? null;
-			if ( ! is_string( $date ) || ! is_string( $opened ) || $opened > $now ) {
-				continue;
-			}
-			$lessonId = (int) ( $lesson['lesson_id'] ?? 0 );
-			if ( 'hidden' === $lesson['visibility'] && $lessonId && ! $this->lessons->isPublished( $lessonId ) ) {
-				continue;
-			}
-			$extraIds  = $this->ids( $lesson['extra_work_ids'] );
-			$ids       = array_merge( $this->ids( $lesson['work_ids_snapshot'] ), $extraIds );
-			if ( $lessonId && ! array_key_exists( $lessonId, $lessonCache ) ) {
-				$lessonCache[ $lessonId ] = $this->lessons->get( $lessonId );
-			}
-			$lessonDto = $lessonCache[ $lessonId ] ?? null;
-			$ids       = array_merge( $ids, $lessonDto?->workIds() ?? array() );
 			$groupLessonId = (int) $lesson['group_lesson_id'];
+			$progressId = (int) ( $lesson['continued_from_id'] ?? 0 ) ?: $groupLessonId;
 			if ( ! array_key_exists( $groupLessonId, $snapshotCache ) ) {
 				$snapshotCache[ $groupLessonId ] = $this->snapshots?->forLesson( $groupLessonId ) ?? array();
 			}
 			$snapshots = $snapshotCache[ $groupLessonId ];
-			$issuedSnapshots = array_filter( $snapshots, static fn( array $snapshot ): bool => empty( $snapshot['pending'] ) );
+			$issuedSnapshots = array_filter( $snapshots, static fn( array $snapshot ): bool => empty( $snapshot['pending'] ) && isset( $snapshot['issued_at'] ) );
+			$date = $lesson['scheduled_at'] ?? $lesson['opened_at'] ?? null;
+			$opened = $lesson['opened_at'] ?? $lesson['scheduled_at'] ?? null;
+			$lessonId = (int) ( $lesson['lesson_id'] ?? 0 );
+			$snapshotOnly = ! is_string( $date ) || ! is_string( $opened ) || $opened > $now || ( 'hidden' === $lesson['visibility'] && $lessonId && ! $this->lessons->isPublished( $lessonId ) );
+			if ( $snapshotOnly ) {
+				if ( ! $issuedSnapshots ) {
+					continue;
+				}
+				$date = min( array_column( $issuedSnapshots, 'issued_at' ) );
+				$opened = $date;
+			}
+			$extraIds  = $snapshotOnly ? array() : $this->ids( $lesson['extra_work_ids'] );
+			$ids       = $snapshotOnly ? array() : array_merge( $this->ids( $lesson['work_ids_snapshot'] ), $extraIds );
+			if ( $lessonId && ! array_key_exists( $lessonId, $lessonCache ) ) {
+				$lessonCache[ $lessonId ] = $this->lessons->get( $lessonId );
+			}
+			$lessonDto = $lessonCache[ $lessonId ] ?? null;
+			if ( ! $snapshotOnly ) {
+				$ids = array_merge( $ids, $lessonDto?->workIds() ?? array() );
+			}
 			$ids = array_merge( $ids, array_map( 'intval', array_keys( $issuedSnapshots ) ) );
-			$progressId = (int) ( $lesson['continued_from_id'] ?? 0 ) ?: $groupLessonId;
 			if ( $progressId !== $groupLessonId ) {
 				$ids = array_diff( $ids, $originalWorks[ (int) $lesson['student_person_id'] ][ $progressId ] ?? array() );
 			}
@@ -144,7 +151,7 @@ class RankingAssignmentsService {
 					$result[]        = $row;
 				}
 			}
-			if ( $date >= $from && $date < $until && $this->assessments ) {
+			if ( ! $snapshotOnly && $date >= $from && $date < $until && $this->assessments ) {
 				$assessmentIds = $lessonDto?->assessmentIds() ?? array();
 				if ( $progressId !== $groupLessonId ) {
 					$assessmentIds = array_diff( $assessmentIds, $originalAssessments[ (int) $lesson['student_person_id'] ][ $progressId ] ?? array() );
@@ -183,10 +190,29 @@ class RankingAssignmentsService {
 					$assessmentCache[ $assessmentId ] = $this->assessments->get( $assessmentId );
 				}
 				$assessment = $assessmentCache[ $assessmentId ];
-				if ( ! $assessment || $assessment->subjectKey !== $subject ) {
+				$variantSnapshots = json_decode( (string) ( $exam['variant_snapshot'] ?? '' ), true );
+				$variant = is_array( $variantSnapshots ) ? ( $variantSnapshots[ $assessmentId ] ?? null ) : null;
+				$kind = AssessmentKind::tryFrom( (string) ( $variant['kind'] ?? '' ) ) ?? $assessment?->kind;
+				$maximum = $variant['primary_max'] ?? ( $kind ? $this->examFormats?->for( $kind )?->primaryMax : null ) ?? $exam['max_score'] ?? null;
+				if ( null !== $maximum ) {
+					$approved = ! empty( $exam['approved_at'] ) && $exam['approved_at'] <= $now && 'graded' === ( $exam['attempt_status'] ?? '' );
+					$result[] = array(
+						'student_person_id' => (int) $exam['student_person_id'],
+						'group_lesson_id' => - (int) $exam['participation_id'],
+						'work_id' => $assessmentId,
+						'task_id' => 0,
+						'source' => 'assessment',
+						'task_points' => (float) $maximum,
+						'earned_points' => $approved ? (float) round( (float) ( $exam['total_score'] ?? 0 ) ) : 0.0,
+					);
 					continue;
 				}
-				foreach ( array_unique( $assessment->taskIds ) as $taskId ) {
+				$hasSnapshot = is_array( $variant ) && isset( $variant['task_ids'] ) && is_array( $variant['task_ids'] );
+				if ( ! $hasSnapshot && ( ! $assessment || $assessment->subjectKey !== $subject ) ) {
+					continue;
+				}
+				$taskIds = $hasSnapshot ? $variant['task_ids'] : $assessment->taskIds;
+				foreach ( array_unique( array_map( 'intval', $taskIds ) ) as $taskId ) {
 					$row             = array(
 						'student_person_id' => (int) $exam['student_person_id'],
 						'group_lesson_id'   => - (int) $exam['participation_id'],

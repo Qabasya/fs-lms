@@ -27,7 +27,7 @@ class WorkManager {
 		private readonly ?SelfPacedContentGuard $selfPacedGuard = null,
 		private readonly ?RankingAssignmentSnapshotRepository $snapshots = null,
 		private readonly ?RankingWorkSnapshotCoordinator $snapshotCoordinator = null,
-		private readonly bool $rankingSnapshotCaptureEnabled = false,
+		private readonly bool $rankingSnapshotCaptureEnabled = true,
 	) {}
 
 	public function create( string $subjectKey, WorkDTO $dto ): int {

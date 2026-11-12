@@ -21,7 +21,7 @@ class RankingCalculationService {
 		private readonly LearnerRankingRepository $repository,
 		private readonly RankingPointsPolicy $points,
 		private readonly ?RankingAssignmentsService $assignments = null,
-		private readonly bool $assignmentCalculationEnabled = false,
+		private readonly bool $assignmentCalculationEnabled = true,
 	) {}
 
 	/** Shared subject-wide calculation used by learner tiles and the staff ranking table. */
@@ -95,11 +95,25 @@ class RankingCalculationService {
 			}
 		}
 		$result = $this->rankTotals( $totals );
+		$incomplete = false;
+		foreach ( $result as $id => &$row ) {
+			$row['score_unknown'] = false;
+			foreach ( $unknownScores[ $id ] ?? array() as $source => $unknown ) {
+				$row['score_unknown'] = $row['score_unknown'] || ( $unknown && (float) ( $weights[ $source ] ?? 0 ) > 0 );
+			}
+			$incomplete = $incomplete || $row['score_unknown'];
+		}
+		unset( $row );
+		if ( $incomplete ) {
+			foreach ( $result as &$row ) {
+				$row['rank'] = null;
+			}
+			unset( $row );
+		}
 		if ( $withBreakdown ) {
 			foreach ( $result as $id => &$row ) {
 				$row['max_score'] = $useAssignments ? 0.0 : null;
 				$row['max_unknown'] = false;
-				$row['score_unknown'] = false;
 				$row['breakdown'] = array();
 				$sources = array_unique( array_merge( array_diff( array_keys( $weights ), array( 'attendance_streak_length' ) ), array_keys( $parts[ $id ] ?? array() ) ) );
 				foreach ( $sources as $source ) {

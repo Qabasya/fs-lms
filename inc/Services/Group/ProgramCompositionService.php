@@ -10,6 +10,7 @@ use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
 use Inc\Services\Course\GroupLessonUsageGuard;
+use Inc\Services\Course\RankingTopicSwapService;
 use Inc\Shared\Traits\TransactionRunner;
 
 /**
@@ -47,6 +48,8 @@ readonly class ProgramCompositionService {
 		private ScheduleEventPublisher $events,
 		private ScheduleReflowService  $schedule,
 		private GroupLessonUsageGuard  $usage,
+		private ?RankingTopicSwapService $rankingSwap = null,
+		private bool $captureRankingAssignments = true,
 	) {}
 
 	/**
@@ -256,24 +259,58 @@ readonly class ProgramCompositionService {
 			$warnings[] = sprintf( 'Решения и оценки %d уч. по новой теме перешли на занятие', $movedIn );
 		}
 
-		$this->inTransaction( function () use ( $placedId, $poolId, $placed, $pool, $oldLessonId ): void {
-			$this->groupLessons->setLessonId( $placedId, $pool->lessonId );
-			$this->groupLessons->setLessonId( $poolId, $oldLessonId );
-			$this->groupLessons->swapLearningData( $placedId, $poolId );
+		$swap = function ( array $firstExtras = array(), array $secondExtras = array(), bool $strict = false ) use ( $placedId, $poolId, $placed, $pool, $oldLessonId ): void {
+			if ( $strict && ( $this->groupLessons->find( $placedId ) != $placed || $this->groupLessons->find( $poolId ) != $pool ) ) {
+				throw new \RuntimeException( 'Занятия изменились во время переноса; повторите действие.' );
+			}
+			$firstSaved = $this->groupLessons->setLessonId( $placedId, $pool->lessonId );
+			$secondSaved = $this->groupLessons->setLessonId( $poolId, $oldLessonId );
+			if ( $strict && ( ! $firstSaved || ! $secondSaved ) ) {
+				throw new \RuntimeException( 'Не удалось перенести темы.' );
+			}
+			if ( $strict ) {
+				$this->groupLessons->swapLearningDataForTopics( $placedId, $poolId, $firstExtras, $secondExtras );
+				if ( ! $this->groupLessons->setExtraWorkIds( $placedId, $firstExtras ) || ! $this->groupLessons->setExtraWorkIds( $poolId, $secondExtras ) ) {
+					throw new \RuntimeException( 'Не удалось сохранить дополнительные работы.' );
+				}
+			} else {
+				$this->groupLessons->swapLearningData( $placedId, $poolId );
+			}
 
 			// Открытое занятие хранит снимок работ урока: после смены темы он описывает новый урок.
 			if ( $placed->isPublished() ) {
-				$this->groupLessons->setWorkIdsSnapshot( $placedId, $this->lessonManager->get( $pool->lessonId )?->workIds() ?? array() );
+				$saved = $this->groupLessons->setWorkIdsSnapshot( $placedId, $this->lessonManager->get( $pool->lessonId )?->workIds() ?? array() );
+				if ( $strict && ! $saved ) {
+					throw new \RuntimeException( 'Не удалось сохранить работы занятия.' );
+				}
 			}
 			// Прежняя тема снова будущая: в пуле она скрыта, пока не встанет на занятие.
-			$this->groupLessons->setVisibility( $poolId, 'hidden', null );
-			if ( $pool->isPublished() ) {
-				$this->groupLessons->setWorkIdsSnapshot( $poolId, $this->lessonManager->get( $oldLessonId )?->workIds() ?? array() );
+			$saved = $this->groupLessons->setVisibility( $poolId, 'hidden', null );
+			if ( $strict && ! $saved ) {
+				throw new \RuntimeException( 'Не удалось скрыть тему в пуле.' );
 			}
-		} );
+			if ( $pool->isPublished() ) {
+				$saved = $this->groupLessons->setWorkIdsSnapshot( $poolId, $this->lessonManager->get( $oldLessonId )?->workIds() ?? array() );
+				if ( $strict && ! $saved ) {
+					throw new \RuntimeException( 'Не удалось сохранить работы темы.' );
+				}
+			}
+		};
+		if ( $this->captureRankingAssignments && ! $this->rankingSwap ) {
+			throw new \RuntimeException( 'Перенос истории рейтинга недоступен.' );
+		}
+		if ( $this->captureRankingAssignments ) {
+			$this->rankingSwap->swap( $placed, $pool, $this->lessonManager->get( $oldLessonId )?->workIds() ?? array(), $this->lessonManager->get( $pool->lessonId )?->workIds() ?? array(), static fn( array $a, array $b ) => $swap( $a, $b, true ) );
+		} else {
+			$this->inTransaction( $swap );
+		}
 
 		// Прежняя тема вернулась в пул, где могла уже лежать пустая копия того же урока (след смены курса): двух одинаковых не оставляем.
-		$this->removeDuplicateTopics( $placed->groupId );
+		// Снимок назначений сам по себе ещё не считается учебной активностью в гарде
+		// удаления: до поддержки снимков в гарде нельзя удалять строку с историей.
+		if ( ! $this->captureRankingAssignments ) {
+			$this->removeDuplicateTopics( $placed->groupId );
+		}
 
 		$this->events->lessonChanged( $placed->groupId, $placedId, $actorUserId );
 

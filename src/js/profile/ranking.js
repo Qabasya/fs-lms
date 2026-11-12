@@ -8,19 +8,19 @@ const scoreLabels = { practice: 'Практика', independent: 'Самосто
 const scoreNumber = value => Number(value).toLocaleString('ru-RU', { maximumFractionDigits: 2 });
 
 export function scoreBreakdownHtml(row) {
-    const equation = (left, value) => `<span class="ranking-score-equation"><span>${left}</span><span>=</span><strong>${value}</strong></span>`;
+    const equation = (count, points, value, maximum, unknown = false, scoreUnknown = false, prefix = '') => `<span class="ranking-score-equation">${prefix ? `<span class="ranking-score-prefix">${prefix}</span>` : ''}<span class="ranking-score-number">${scoreNumber(count)}</span><span>×</span><span class="ranking-score-number">${scoreNumber(points)}</span><span>=</span><strong class="ranking-score-number">${scoreNumber(value)}</strong>${unknown ? '<span class="ranking-score-note">из неизвестного максимума</span>' : maximum == null ? '<span></span><span></span>' : `<span>из</span><strong class="ranking-score-number">${scoreNumber(maximum)}</strong>`}${scoreUnknown ? '<span class="ranking-score-note">(неполный результат)</span>' : ''}</span>`;
     const result = (value, maximum, unknown = false, scoreUnknown = false) => `${scoreNumber(value)}${scoreUnknown ? ' (неполный результат)' : ''}${unknown ? ' из неизвестного максимума' : maximum == null ? '' : ` из ${scoreNumber(maximum)}`}`;
     const parts = (row.breakdown || []).filter(part => part.weight > 0 && (part.amount > 0 || part.max_amount > 0 || part.max_unknown)).map(part => {
         const label = scoreLabels[part.source] || part.source;
         const detail = part.source === 'attendance_bonus' ? ` (длина серии: ${part.streak_length})` : '';
         if (part.source === 'practice' && part.task_groups?.length) {
-            const groups = part.task_groups.filter(group => (group.count > 0 || group.max_count > 0) && group.points > 0).map(group => equation(`${scoreNumber(group.count)} × ${scoreNumber(group.points)}`, result(group.count * group.points, group.max_count == null ? null : group.max_count * group.points))).join('');
+            const groups = part.task_groups.filter(group => (group.count > 0 || group.max_count > 0) && group.points > 0).map(group => equation(group.count, group.points, group.count * group.points, group.max_count == null ? null : group.max_count * group.points)).join('');
             const total = part.weight === 1 && !part.max_unknown
                 ? ''
-                : equation(`С коэффициентом: ${scoreNumber(part.amount)} × ${scoreNumber(part.weight)}`, result(part.amount * part.weight, part.max_amount == null ? null : part.max_amount * part.weight, part.max_unknown, part.score_unknown));
+                : equation(part.amount, part.weight, part.amount * part.weight, part.max_amount == null ? null : part.max_amount * part.weight, part.max_unknown, part.score_unknown, 'С коэффициентом:');
             return `<li><span>${esc(label)}</span><span class="ranking-score-values">${groups}${total}</span></li>`;
         }
-        return `<li><span>${esc(label + detail)}</span><span class="ranking-score-values">${equation(`${scoreNumber(part.amount)} × ${scoreNumber(part.weight)}`, result(part.amount * part.weight, part.max_amount == null ? null : part.max_amount * part.weight, part.max_unknown, part.score_unknown))}</span></li>`;
+        return `<li><span>${esc(label + detail)}</span><span class="ranking-score-values">${equation(part.amount, part.weight, part.amount * part.weight, part.max_amount == null ? null : part.max_amount * part.weight, part.max_unknown, part.score_unknown)}</span></li>`;
     });
     return `<div class="gp-title">Баллы: ${esc(row.name || 'Ученик')}</div><ul class="ranking-score-list">${parts.join('')}</ul><p class="ranking-score-total">Итого: <strong>${result(row.score, row.max_score, row.max_unknown, row.score_unknown)}</strong></p>`;
 }
@@ -73,8 +73,8 @@ export function rankingTableHtml(data, canOpenSummary = false, learner = false) 
         <tbody>${rows.length ? rows.map(row => `<tr${learner && Number(data.viewer_person_id) > 0 && Number(row.person_id) === Number(data.viewer_person_id) ? ` class="ranking-self"${Array.isArray(row.breakdown) ? ` data-score-row="${Number(row.person_id)}" tabindex="0" role="button" aria-label="Расчёт моих баллов"` : ''}` : ''}>
             <td class="cell-name">${nameCell(row)}</td>
             <td class="cell-c">${esc((row.groups || []).map(group => group.name).join(', '))}</td>
-            <td class="cell-c${!learner && Array.isArray(row.breakdown) ? ' ranking-score-cell' : ''}">${!learner && Array.isArray(row.breakdown) ? `<button type="button" class="ranking-score" data-score-pid="${Number(row.person_id)}" aria-label="Расчёт баллов: ${esc(row.name)}">${scoreNumber(row.score)}</button>` : scoreNumber(row.score)}</td>
-            <td class="cell-rank"><span class="ranking-rank"><span class="ranking-rank-value">${esc(String(row.rank))}</span>${rankTrendHtml(row.trend)}</span></td>
+            <td class="cell-c${!learner && Array.isArray(row.breakdown) ? ' ranking-score-cell' : ''}">${!learner && Array.isArray(row.breakdown) ? `<button type="button" class="ranking-score" data-score-pid="${Number(row.person_id)}" aria-label="Расчёт баллов: ${esc(row.name)}">${scoreNumber(row.score)}${row.score_unknown ? ' (неполный результат)' : ''}</button>` : `${scoreNumber(row.score)}${row.score_unknown ? ' (неполный результат)' : ''}`}</td>
+            <td class="cell-rank"><span class="ranking-rank"><span class="ranking-rank-value">${row.rank == null ? '—' : esc(String(row.rank))}</span>${rankTrendHtml(row.trend)}</span></td>
         </tr>`).join('') : '<tr><td class="cell-empty" colspan="4">Нет активных учеников в выбранной группе.</td></tr>'}</tbody>
     </table></div></div>`;
 }

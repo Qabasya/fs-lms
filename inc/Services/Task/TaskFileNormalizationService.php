@@ -17,12 +17,57 @@ class TaskFileNormalizationService {
 		private readonly MediaManager $media,
 	) {}
 
+	/** Копирует файлы и переключает ссылки, только если мета не изменилась. */
+	public function apply( int $postId ): array {
+		$before = $this->posts->getMeta( $postId, PostMetaName::Meta->value );
+		$before = is_array( $before ) ? $before : array();
+		$plan = $this->preview( $postId );
+		$ops = $plan['ops'];
+		if ( ! $ops ) {
+			return array( 'updated' => 0, 'warnings' => $plan['warnings'] );
+		}
+		$after = $before;
+		foreach ( $ops as $op ) {
+			foreach ( $op['keys'] ?? array( $op['key'] ) as $key ) {
+				if ( in_array( $key, TaskBulkFileService::KEYS, true ) ) {
+					$after[ $key ] = $op['new_url'];
+				}
+			}
+		}
+		$this->files->execute( $ops );
+		$created = array();
+		try {
+			foreach ( $ops as $op ) {
+				if ( empty( $op['material_ids'] ) ) {
+					continue;
+				}
+				$id = $this->media->createAttachmentForFile( $op['to'], $postId );
+				$created[] = $id;
+				foreach ( $after['task_materials']['attachment_ids'] ?? array() as $index => $oldId ) {
+					if ( in_array( (int) $oldId, $op['material_ids'], true ) ) {
+						$after['task_materials']['attachment_ids'][ $index ] = $id;
+					}
+				}
+			}
+			if ( false === $this->posts->updateMetaChecked( $postId, PostMetaName::Meta->value, $after, $before ) ) {
+				throw new \RuntimeException( 'Задание изменилось во время обработки файлов.' );
+			}
+		} catch ( \Throwable $error ) {
+			foreach ( $created as $id ) {
+				$this->media->delete( $id );
+			}
+			$this->files->revert( $ops );
+			throw $error;
+		}
+		return array( 'updated' => count( $ops ), 'warnings' => $plan['warnings'] );
+	}
+
 	/**
 	 * Строит план без записи в базу и файловую систему.
 	 *
 	 * @return array{ops: array<int, array<string, mixed>>, warnings: string[], materials?: array<int, array<string, mixed>>, sources?: array<int, array<string, mixed>>}
 	 */
-	public function preview( int $postId ): array {
+	public function preview( int $postId, ?string $targetSlug = null ): array {
 		$post = $this->posts->get( $postId );
 		if ( null === $post || ! PostTypeResolver::isTaskPostType( $post->post_type ) ) {
 			return array( 'ops' => array(), 'warnings' => array( 'Это не публичное задание.' ) );
@@ -30,21 +75,37 @@ class TaskFileNormalizationService {
 		if ( 'publish' !== $post->post_status ) {
 			return array( 'ops' => array(), 'warnings' => array( 'Задание не опубликовано.' ) );
 		}
-		if ( ! preg_match( '/^[1-9][0-9]*$/D', $post->post_name ) ) {
+		$slug = $targetSlug ?? $post->post_name;
+		if ( ! preg_match( '/^[1-9][0-9]*$/D', $slug ) ) {
 			return array( 'ops' => array(), 'warnings' => array( 'Номер задания не является положительным целым числом.' ) );
 		}
 
 		$meta = $this->posts->getMeta( $postId, PostMetaName::Meta->value );
 		$meta = is_array( $meta ) ? $meta : array();
 		$subject = PostTypeResolver::subjectFromTaskPostType( $post->post_type );
-		$plan = $this->files->plan( $meta, $post->post_name, $postId, true, $subject ?? '' );
-		$plan['materials'] = $this->inspectMaterials( $meta, $plan['warnings'] );
-		$plan['sources'] = $this->collectSources( $meta, $plan['materials'], $plan['warnings'] );
-		foreach ( $plan['sources'] as $source ) {
-			if ( count( $source['references'] ) > 1 ) {
-				$plan['warnings'][] = 'Один файл используется в нескольких полях или вложениях; совместная обработка ещё не поддерживается.';
+		$materialWarnings = array();
+		$materials = $this->inspectMaterials( $meta, $materialWarnings );
+		$extended = $meta;
+		$keys = TaskBulkFileService::KEYS;
+		foreach ( $materials as $material ) {
+			$key = '__material_' . $material['attachment_id'];
+			$keys[] = $key;
+			$extended[ $key ] = $material['url'];
+		}
+		$plan = $materials
+			? $this->files->plan( $extended, $slug, $postId, true, $subject ?? '', $keys )
+			: $this->files->plan( $meta, $slug, $postId, true, $subject ?? '' );
+		$plan['warnings'] = array_merge( $plan['warnings'], $materialWarnings );
+		$plan['materials'] = $materials;
+		foreach ( $plan['ops'] as &$op ) {
+			foreach ( $op['keys'] ?? array() as $key ) {
+				if ( str_starts_with( $key, '__material_' ) ) {
+					$op['material_ids'][] = (int) substr( $key, strlen( '__material_' ) );
+				}
 			}
 		}
+		unset( $op );
+		$plan['sources'] = $this->collectSources( $meta, $plan['materials'], $plan['warnings'] );
 		return $plan;
 	}
 
@@ -118,9 +179,6 @@ class TaskFileNormalizationService {
 				continue;
 			}
 			$materials[] = array( 'attachment_id' => $id, 'url' => $description['url'], 'name' => $description['name'], 'path' => $path );
-		}
-		if ( array() !== $materials ) {
-			$warnings[] = 'Переименование материалов по ID вложений пока не поддерживается.';
 		}
 		return $materials;
 	}

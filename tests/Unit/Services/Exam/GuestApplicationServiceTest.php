@@ -136,7 +136,7 @@ class GuestApplicationServiceTest extends TestCase {
 	private function form( array $override = array() ): array {
 		return array_merge( array(
 			'last_name' => 'Иванов', 'first_name' => 'Пётр', 'middle_name' => '', 'phone' => '+7 (900) 111-22-33', 'messenger' => '@ivan',
-			'session_id' => 7, 'consents' => array( 'pd_processing' ),
+			'session_id' => 7, 'consents' => array( 'pd_processing', 'pd_transfer' ),
 			// Попытка подмены школы и класса — должна быть проигнорирована.
 			'school_name' => 'Чужая школа', 'grade' => 9,
 		), $override );
@@ -202,6 +202,17 @@ class GuestApplicationServiceTest extends TestCase {
 		self::assertSame( 'Открытая запись', $snapshot['school_name'], 'Сотрудник школу не вводит: остаётся служебное имя источника.' );
 	}
 
+	public function test_staff_application_accepts_missing_contact_details_and_records_both_consents(): void {
+		$this->apply( array( 'phone' => '', 'messenger' => '', 'consents' => array( 'pd_processing', 'pd_transfer' ) ), null, 0, 33 );
+
+		self::assertSame( array( 'pd_processing', 'pd_transfer' ), $this->recordedConsents );
+		self::assertSame( array( 'pd_processing' => 10, 'pd_transfer' => 20 ), json_decode( $this->captured['consent_refs'], true ) );
+	}
+
+	public function test_missing_phone_does_not_match_other_guests_by_phone(): void {
+		self::assertSame( '', $this->service->hashesOf( 'Иванов', 'Пётр', '', '' )['phone'] );
+	}
+
 	public function test_too_long_school_is_rejected(): void {
 		$this->holds->expects( self::never() )->method( 'capture' );
 		$public = $this->source( array( 'school_key' => 'public' ) );
@@ -233,11 +244,23 @@ class GuestApplicationServiceTest extends TestCase {
 		$this->assertFormError( 'consent_pd_processing', ErrorCode::ExamConsent, fn () => $this->apply( array( 'consents' => array( 'pd_transfer' ) ) ) );
 	}
 
-	public function test_transfer_consent_is_optional_and_stored_separately(): void {
-		$this->apply();
+	public function test_transfer_consent_is_required_for_school_and_open_registration(): void {
+		$this->assertFormError( 'consent_pd_transfer', ErrorCode::ExamConsent, fn () => $this->apply( array( 'consents' => array( 'pd_processing' ) ) ) );
+		$public = $this->source( array( 'school_key' => 'public', 'school_name' => 'Открытая запись' ) );
+		$this->assertFormError( 'consent_pd_transfer', ErrorCode::ExamConsent, fn () => $this->apply( array( 'school' => 'Школа', 'consents' => array( 'pd_processing' ) ), $public ) );
+	}
+
+	public function test_staff_may_leave_transfer_consent_unchecked(): void {
+		$this->apply( array( 'consents' => array( 'pd_processing' ) ), null, 0, 33 );
 
 		self::assertSame( array( 'pd_processing' ), $this->recordedConsents );
 		self::assertArrayNotHasKey( 'pd_transfer', json_decode( $this->captured['consent_refs'], true ) );
+	}
+
+	public function test_staff_can_add_guest_without_optional_consents(): void {
+		$this->apply( array( 'phone' => '', 'messenger' => '', 'consents' => array() ), null, 0, 33 );
+		self::assertSame( array(), $this->recordedConsents );
+		self::assertSame( array(), json_decode( $this->captured['consent_refs'], true ) );
 	}
 
 	public function test_apply_rejected_for_revoked_or_inactive_source(): void {
@@ -332,6 +355,13 @@ class GuestApplicationServiceTest extends TestCase {
 		$first = $this->captured['identity_hash'];
 		$this->apply( array( 'last_name' => 'Иванова', 'first_name' => 'Мария' ) );
 
+		self::assertNotSame( $first, $this->captured['identity_hash'] );
+	}
+
+	public function test_same_messenger_can_be_used_by_different_guests(): void {
+		$this->apply( array( 'messenger' => '@shared' ) );
+		$first = $this->captured['identity_hash'];
+		$this->apply( array( 'last_name' => 'Иванова', 'first_name' => 'Мария', 'messenger' => '@shared' ) );
 		self::assertNotSame( $first, $this->captured['identity_hash'] );
 	}
 

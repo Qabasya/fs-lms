@@ -63,7 +63,7 @@ class ScheduleReflowServiceTest extends TestCase {
 			$this->calendar,
 			$this->roomAvailability,
 			new ScheduleEventPublisher( $this->dispatcher ),
-			$this->clock,
+			$this->clock, captureRankingAssignments: false
 		);
 	}
 
@@ -78,6 +78,20 @@ class ScheduleReflowServiceTest extends TestCase {
 			->with( LogEvent::ScheduleChanged, self::anything() );
 
 		$this->service->schedule( 42, '2024-06-01 10:00:00', 7, 99 );
+	}
+
+	public function test_schedule_saves_first_opening_before_changing_date(): void {
+		$row = $this->makeRow();
+		$this->groupLessons->method( 'find' )->willReturn( $row );
+		$events = array();
+		$this->groupLessons->method( 'updateSchedule' )->willReturnCallback( static function () use ( &$events ): bool { $events[] = 'schedule'; return true; } );
+		$snapshots = $this->createStub( \Inc\Services\Course\RankingAssignmentSnapshotService::class );
+		$snapshots->method( 'synchronized' )->willReturnCallback( static function ( callable $operation ): void { $operation(); } );
+		$history = $this->createMock( \Inc\Services\Course\RankingScheduleHistoryService::class );
+		$history->expects( self::once() )->method( 'captureBeforeMutation' )->with( $row )->willReturnCallback( static function () use ( &$events ): void { $events[] = 'capture'; } );
+		$service = new ScheduleReflowService( $this->groupLessons, $this->groups, $this->calendar, $this->roomAvailability, new ScheduleEventPublisher( $this->dispatcher ), $this->clock, $snapshots, $history, true );
+		$service->schedule( 42, '2026-12-01 10:00:00', 7, 99 );
+		self::assertSame( array( 'capture', 'schedule' ), $events );
 	}
 
 	public function test_schedule_throws_when_row_not_found(): void {
@@ -112,6 +126,35 @@ class ScheduleReflowServiceTest extends TestCase {
 		$this->calendar->method( 'reflow' )->with( 5 )->willReturn( $expected );
 
 		self::assertSame( $expected, $this->service->reflow( 5, 99 ) );
+	}
+
+	public function test_reflow_captures_opened_rows_before_bulk_schedule_change(): void {
+		$row = $this->makeRow();
+		$this->groupLessons->method( 'listByGroup' )->with( 5, true )->willReturn( array( $row ) );
+		$expected = new ScheduleReflowResultDTO( conflicts: 0, slots: 1, consuming: 1, unplaced: 0 );
+		$events = array();
+		$this->calendar->expects( self::once() )->method( 'reflow' )->with( 5, true )->willReturnCallback( static function () use ( &$events, $expected ): ScheduleReflowResultDTO { $events[] = 'reflow'; return $expected; } );
+		$snapshots = $this->createStub( \Inc\Services\Course\RankingAssignmentSnapshotService::class );
+		$snapshots->method( 'synchronized' )->willReturnCallback( static function ( callable $operation ): void { $operation(); } );
+		$history = $this->createMock( \Inc\Services\Course\RankingScheduleHistoryService::class );
+		$history->expects( self::once() )->method( 'captureBeforeMutation' )->with( $row )->willReturnCallback( static function () use ( &$events ): void { $events[] = 'capture'; } );
+		$service = new ScheduleReflowService( $this->groupLessons, $this->groups, $this->calendar, $this->roomAvailability, new ScheduleEventPublisher( $this->dispatcher ), $this->clock, $snapshots, $history, true );
+		self::assertSame( $expected, $service->reflow( 5, 99 ) );
+		self::assertSame( array( 'capture', 'reflow' ), $events );
+	}
+
+	public function test_schedule_is_not_changed_when_history_capture_fails(): void {
+		$row = $this->makeRow();
+		$this->groupLessons->method( 'find' )->willReturn( $row );
+		$this->groupLessons->expects( self::never() )->method( 'updateSchedule' );
+		$this->dispatcher->expects( self::never() )->method( 'dispatch' );
+		$snapshots = $this->createStub( \Inc\Services\Course\RankingAssignmentSnapshotService::class );
+		$snapshots->method( 'synchronized' )->willReturnCallback( static function ( callable $operation ): void { $operation(); } );
+		$history = $this->createStub( \Inc\Services\Course\RankingScheduleHistoryService::class );
+		$history->method( 'captureBeforeMutation' )->willThrowException( new \RuntimeException( 'capture failed' ) );
+		$service = new ScheduleReflowService( $this->groupLessons, $this->groups, $this->calendar, $this->roomAvailability, new ScheduleEventPublisher( $this->dispatcher ), $this->clock, $snapshots, $history, true );
+		$this->expectException( \RuntimeException::class );
+		$service->schedule( 42, '2026-12-01 10:00:00', 7, 99 );
 	}
 
 	/** Кабинет при постановке темы не проверяется: автор сам решает, куда ставить тему. */
@@ -275,7 +318,7 @@ class ScheduleReflowServiceTest extends TestCase {
 		$service = new ScheduleReflowService(
 			$this->groupLessons, $this->groups, $this->calendar, $this->roomAvailability,
 			new ScheduleEventPublisher( $this->dispatcher ),
-			$this->clock,
+			$this->clock, captureRankingAssignments: false
 		);
 		$this->groupLessons->method( 'find' )->willReturn( $this->makeRow( 42, 'group' ) );
 		$this->groupLessons->expects( self::once() )->method( 'updateSchedule' );
@@ -294,7 +337,7 @@ class ScheduleReflowServiceTest extends TestCase {
 		$service = new ScheduleReflowService(
 			$this->groupLessons, $this->groups, $this->calendar, $this->roomAvailability,
 			new ScheduleEventPublisher( $this->dispatcher ),
-			$this->clock,
+			$this->clock, captureRankingAssignments: false
 		);
 		$this->groupLessons->method( 'find' )->willReturn( $this->makeRow( 42, 'group' ) );
 		$this->groupLessons->expects( self::once() )->method( 'updateSchedule' );
@@ -312,7 +355,7 @@ class ScheduleReflowServiceTest extends TestCase {
 		$service = new ScheduleReflowService(
 			$this->groupLessons, $this->groups, $this->calendar, $this->roomAvailability,
 			new ScheduleEventPublisher( $this->dispatcher ),
-			$this->clock,
+			$this->clock, captureRankingAssignments: false
 		);
 		$this->groupLessons->method( 'find' )->willReturn( $this->makeRow( 42, 'group' ) );
 
@@ -710,7 +753,7 @@ class ScheduleReflowServiceTest extends TestCase {
 		$service = new ScheduleReflowService(
 			$this->groupLessons, $this->groups, $this->calendar, $this->roomAvailability,
 			new ScheduleEventPublisher( $this->dispatcher ),
-			$this->clock,
+			$this->clock, captureRankingAssignments: false
 		);
 		$this->individualGroup();
 		$this->groupLessons->method( 'find' )->willReturn( $this->makeRow( 42, 'group' ) );

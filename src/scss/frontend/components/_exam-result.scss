@@ -333,7 +333,7 @@ body:has(#fs-exam-report) :is(.page-title, .wp-block-post-title, .wd-breadcrumbs
 
   > .fs-exam-result__stats dd { font-weight: $font-regular; }
 
-  @media (max-width: $bp-mobile) {
+  @media (max-width: $bp-tablet) {
     > .fs-exam-result__stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
 
@@ -466,7 +466,7 @@ body:has(#fs-exam-report) :is(.page-title, .wp-block-post-title, .wd-breadcrumbs
     tbody tr:last-child td { border-bottom: 1px solid $color-border-light; }
   }
 
-  @media (max-width: $bp-mobile) {
+  @media (max-width: $bp-tablet) {
     &__table {
       width: max-content;
       min-width: 100%;

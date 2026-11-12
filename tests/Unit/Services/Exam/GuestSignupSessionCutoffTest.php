@@ -80,4 +80,20 @@ class GuestSignupSessionCutoffTest extends TestCase {
 	public function test_from_local_midnight_of_exam_day_that_session_disappears(): void {
 		self::assertSame( array( 2 ), $this->offered( '2026-10-29 21:00:00' ) ); // 00:00 по Москве 30.10
 	}
+
+	public function test_signup_displays_both_required_consents_and_optional_marketing(): void {
+		$consents = $this->createMock( ConsentService::class );
+		$consents->method( 'getPageForType' )->willReturn( new \WP_Post( array( 'ID' => 1 ) ) );
+		$consents->method( 'getDefinitionName' )->willReturnCallback( static fn( string $key ): string => $key );
+		$posts = $this->createMock( PostManager::class );
+		$posts->method( 'getPermalink' )->willReturn( '/consent/' );
+		$service = ( new \ReflectionClass( GuestSignupViewService::class ) )->newInstanceWithoutConstructor();
+		( new \ReflectionProperty( GuestSignupViewService::class, 'consents' ) )->setValue( $service, $consents );
+		( new \ReflectionProperty( GuestSignupViewService::class, 'posts' ) )->setValue( $service, $posts );
+		$list = ( new \ReflectionMethod( $service, 'consentList' ) )->invoke( $service );
+		$required = array_column( $list, 'required', 'key' );
+		self::assertTrue( $required['pd_processing'] );
+		self::assertTrue( $required['pd_transfer'] );
+		self::assertFalse( $required['marketing'] );
+	}
 }
