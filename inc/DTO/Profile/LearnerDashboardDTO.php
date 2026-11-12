@@ -45,6 +45,8 @@ readonly class LearnerDashboardDTO {
 		public int $toFix = 0,
 		/** @var list<array<string, mixed>> Предметы всех групп для набора плиток по умолчанию. */
 		public array $homeSubjects = array(),
+		/** @var array<string, mixed> Актуальное ДЗ или общее состояние домашних работ. */
+		public array $homework = array(),
 	) {}
 
 	/**
@@ -68,6 +70,7 @@ readonly class LearnerDashboardDTO {
 			'rankings'       => $this->rankings,
 			'to_fix'         => $this->toFix,
 			'home_subjects'  => $this->homeSubjects,
+			'homework'       => $this->homework,
 		);
 	}
 }

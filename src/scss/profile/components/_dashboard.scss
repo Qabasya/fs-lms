@@ -455,3 +455,7 @@ a.prof-stat-tile:hover { box-shadow: var(--shadow-md); }
     background: color-mix(in srgb, $color 10%, transparent);
   }
 }
+
+// Название темы и состояния ДЗ — текст, который должен помещаться и на телефоне.
+.prof-stat-tile--homework { min-width: 0; overflow-wrap: anywhere; }
+.prof-stat-tile.prof-stat-tile--homework .st-val { font-size: rem(20); line-height: 1.35; }

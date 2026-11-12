@@ -63,3 +63,33 @@ test( 'ошибка сохранения показывает уведомлен
     assert.deepEqual(errors, ['offline']);
     assert.deepEqual(sent, [{ sections: ['schedule'], tiles: [] }]);
 } );
+
+const { tileCatalog } = await import('../../src/js/profile/learner-home-tiles.js');
+
+test('ДЗ различает все состояния: зелёная галочка только после полного успеха, переход только для активной работы', () => {
+    const messages = {
+        empty: 'Домашнее задание пока не задано',
+        completed: 'Домашнее задание выполнено',
+        pending: 'Домашнее задание на проверке',
+        exhausted: 'Попытки закончились',
+        active: 'Тема <script> & детали',
+    };
+    for (const [status, value] of Object.entries(messages)) {
+        const data = { deadlines: [], homework: {status, topic: messages.active, subject: 'Алгебра', remaining: 2, total: 5, player_url: '/lesson/?work=2&task=3'} };
+        const tiles = tileCatalog(data, {parent: false});
+        const tile = tiles.find(t => t.id === 'homework');
+        assert.equal(tile.value, value);
+        assert.equal(tile.ico, status === 'completed' ? 'check' : 'book');
+        assert.equal(tile.tone, status === 'completed' ? 'success' : 'info');
+        const html = tilesHtml(tiles, ['homework'], {tiles: null}, false);
+        assert.match(html, /prof-stat-tile--homework/);
+        assert.equal(html.startsWith('<div'), true);
+        if (status === 'active') {
+            assert.match(html, /href="\/lesson\/\?work=2&amp;task=3"/);
+            assert.match(html, /Тема &lt;script&gt; &amp; детали/);
+            assert.match(html, /Алгебра · Осталось 2 из 5/);
+            assert.doesNotMatch(tilesHtml(tiles, ['homework'], {tiles: null}, true), /href=/);
+        } else assert.doesNotMatch(html, /href=/);
+        assert.equal(tileCatalog(data, {parent: true}).some(t => t.id === 'homework'), false);
+    }
+});

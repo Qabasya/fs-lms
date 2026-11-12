@@ -452,11 +452,10 @@ function mountWork( panel, root ) {
 		const manualMax = pendingWorkPoints( verdicts, state.task_results, Object.fromEntries( cards.map( card => [ card.dataset.taskId, card.dataset.maxScore ] ) ) );
 		const autoTotal   = Object.keys( verdicts ).length - countVerdicts( verdicts, 'pending' );
 
-		// «Исправить и сдать заново» — вверху, справа от баллов: пока есть что исправлять, остались попытки и срок не вышел.
+		// «Исправить и сдать заново» — вверху, справа от баллов: пока есть что исправлять, остались попытки.
 		const canRetry = retryAvailable( {
 			left:      attemptsLeft(),
 			allLocked: allLocked(),
-			pastDue:   !! state.past_due,
 			verdicts,
 			taskIds:   cards.map( ( card ) => card.dataset.taskId ),
 		} );

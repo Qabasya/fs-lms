@@ -529,15 +529,21 @@ class SubmissionService {
 		return null !== $due && $due < $this->clock->now();
 	}
 
-	public function workAttemptsUsed( int $studentPersonId, int $groupLessonId, int $workId ): int {
+	/** @param SubmissionDTO[]|null $submissionFacts Уже прочитанные строки одного ученика и progressId(); null — читать из репозитория. */
+	public function workAttemptsUsed( int $studentPersonId, int $groupLessonId, int $workId, ?array $submissionFacts = null ): int {
 		$groupLessonId = $this->progressKey( $groupLessonId );
-
-		return $this->attemptsUsedFrom(
-			$this->submissions->findAggregate( $studentPersonId, $groupLessonId, $workId ),
-			$studentPersonId,
-			$groupLessonId,
-			$workId
-		);
+		$aggregate = null;
+		if ( null === $submissionFacts ) {
+			$aggregate = $this->submissions->findAggregate( $studentPersonId, $groupLessonId, $workId );
+		} else {
+			foreach ( $submissionFacts as $sub ) {
+				if ( $sub->workId === $workId && null === $sub->taskId ) {
+					$aggregate = $sub;
+					break;
+				}
+			}
+		}
+		return $this->attemptsUsedFrom( $aggregate, $studentPersonId, $groupLessonId, $workId );
 	}
 
 	/**
@@ -547,16 +553,33 @@ class SubmissionService {
 	 * - оценённые преподавателем (ручное задание проверено, автозадание пересчитано вручную):
 	 *   иначе пересдача сбросила бы его оценку.
 	 *
+	 * @param SubmissionDTO[]|null $submissionFacts Уже прочитанные строки одного ученика и progressId().
 	 * @return int[] task_id
 	 */
-	public function lockedTaskIds( int $studentPersonId, int $groupLessonId, int $workId ): array {
+	public function lockedTaskIds( int $studentPersonId, int $groupLessonId, int $workId, ?array $submissionFacts = null ): array {
 		$groupLessonId = $this->progressKey( $groupLessonId );
-		$aggregate = $this->submissions->findAggregate( $studentPersonId, $groupLessonId, $workId );
+		$aggregate = null;
+		$tasks = null;
+		if ( null === $submissionFacts ) {
+			$aggregate = $this->submissions->findAggregate( $studentPersonId, $groupLessonId, $workId );
+		} else {
+			$tasks = array();
+			foreach ( $submissionFacts as $sub ) {
+				if ( $sub->workId !== $workId ) {
+					continue;
+				}
+				if ( null === $sub->taskId ) {
+					$aggregate = $sub;
+				} else {
+					$tasks[] = $sub;
+				}
+			}
+		}
 		if ( null === $aggregate ) {
 			return array();
 		}
 
-		return $this->lockedFrom( $this->snapshotVerdicts( $aggregate ), $studentPersonId, $groupLessonId, $workId );
+		return $this->lockedFrom( $this->snapshotVerdicts( $aggregate ), $studentPersonId, $groupLessonId, $workId, $tasks );
 	}
 
 	/**
@@ -564,7 +587,7 @@ class SubmissionService {
 	 *
 	 * @return int[]
 	 */
-	private function lockedFrom( array $verdicts, int $studentPersonId, int $groupLessonId, int $workId ): array {
+	private function lockedFrom( array $verdicts, int $studentPersonId, int $groupLessonId, int $workId, ?array $taskRows = null ): array {
 		$locked = array();
 
 		foreach ( $verdicts as $taskId => $verdict ) {
@@ -573,7 +596,7 @@ class SubmissionService {
 			}
 		}
 
-		foreach ( $this->submissions->listPerTaskByStudentWorkLesson( $studentPersonId, $groupLessonId, $workId ) as $taskRow ) {
+		foreach ( $taskRows ?? $this->submissions->listPerTaskByStudentWorkLesson( $studentPersonId, $groupLessonId, $workId ) as $taskRow ) {
 			if ( null !== $taskRow->taskId && SubmissionStatus::Graded === $taskRow->status && null !== $taskRow->gradedByUserId ) {
 				$locked[] = $taskRow->taskId;
 			}

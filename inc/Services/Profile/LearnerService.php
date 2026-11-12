@@ -88,6 +88,7 @@ class LearnerService {
 			rankings: $this->ranking->forGroups( $personId, $mainGroups, $ctx->now ),
 			toFix: $this->highlights->toFix( $deadlines ),
 			homeSubjects: $this->homeSubjects( $mainGroups ),
+			homework: $this->schedule->homework( $ctx, $personId ),
 		);
 	}
 

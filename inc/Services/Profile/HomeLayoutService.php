@@ -26,7 +26,7 @@ class HomeLayoutService {
 	public const MAX_TILES = 6;
 
 	/** Плитка ученика/родителя: известный id или показатель по предмету. */
-	private const TILE_ID = '/^(?:deadlines|streak|to_fix|last_result|(?:exam|ranking):[a-z0-9_]+)$/';
+	private const TILE_ID = '/^(?:homework|deadlines|streak|to_fix|last_result|(?:exam|ranking):[a-z0-9_]+)$/';
 
 	public const STAFF_SECTIONS = array( 'tiles', 'schedule', 'attention' );
 
@@ -140,7 +140,7 @@ class HomeLayoutService {
 		if ( in_array( $role, array( UserRole::FSTeacher, UserRole::FSOffice ), true ) ) {
 			return in_array( $id, array( 'lessons_today', 'to_review' ), true );
 		}
-		if ( UserRole::FSParent === $role && str_starts_with( $id, 'exam:' ) ) {
+		if ( UserRole::FSParent === $role && ( 'homework' === $id || str_starts_with( $id, 'exam:' ) ) ) {
 			return false;
 		}
 		return 1 === preg_match( self::TILE_ID, $id );

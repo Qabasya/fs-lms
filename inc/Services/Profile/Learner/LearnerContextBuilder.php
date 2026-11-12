@@ -186,6 +186,7 @@ class LearnerContextBuilder {
 			// Вход в плеер курса (T14.13): урок с контентом получает ссылку
 			// в плеер и статус прохождения (done / available / locked).
 			'player_url'      => $hasContent ? PageRoutes::LessonPlayer->lessonUrl( (int) $group['id'], $row->id ) : '',
+			'accessible'      => $hasContent && ( $gates[ $row->id ] ?? $this->gate->resolveLesson( $personId, $row ) )->isAvailable(),
 			'status'          => $hasContent ? $this->lessonStatus( $personId, $row, $completed, $gates ) : '',
 			// Идёт прямо сейчас (по расписанию занятия): строка на главной ведёт в урок и в трансляцию группы.
 			'live'            => $isLive,

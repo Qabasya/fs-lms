@@ -28,8 +28,9 @@ class LessonWorkLink {
 	 * @param int            $workId  Работа
 	 * @param string|null    $baseUrl Готовый адрес плеера урока; `null` — собрать по группе и занятию,
 	 *                                пустая строка — урок без плеера, ссылки нет
+	 * @param bool $requireStep Не отдавать ссылку на начало урока, если работа отсутствует среди шагов
 	 */
-	public function forRow( GroupLessonDTO $row, int $workId, ?string $baseUrl = null ): string {
+	public function forRow( GroupLessonDTO $row, int $workId, ?string $baseUrl = null, bool $requireStep = false ): string {
 		$baseUrl ??= PageRoutes::LessonPlayer->lessonUrl( $row->groupId, $row->id );
 		if ( '' === $baseUrl ) {
 			return '';
@@ -38,6 +39,6 @@ class LessonWorkLink {
 		$lesson  = $row->lessonId ? $this->lessons->get( $row->lessonId ) : null;
 		$stepKey = $lesson?->stepKeyForWork( $workId );
 
-		return $stepKey ? (string) add_query_arg( array( 'step' => $stepKey ), $baseUrl ) : $baseUrl;
+		return $stepKey ? (string) add_query_arg( array( 'step' => $stepKey ), $baseUrl ) : ( $requireStep ? '' : $baseUrl );
 	}
 }

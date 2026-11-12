@@ -1,7 +1,6 @@
 /**
  * Каталог и раскладка плиток ученика/родителя.
- * У ученика по умолчанию дедлайны, доступные счётчики экзаменационных предметов и рейтинг;
- * при наличии других направлений — также «Осталось исправить».
+ * У ученика по умолчанию ДЗ, рейтинг и ближайший экзамен (без него — «Осталось исправить»).
  * Родителю остаются дедлайны выбранного ребёнка.
  * Явный выбор layout.tiles сохраняет набор и порядок пользователя; null использует defaults.
  * Серия без пропусков и последний результат остаются дополнительными плитками пилота.
@@ -36,6 +35,21 @@ export function tileCatalog( d, { parent } ) {
         .reduce( ( best, x ) => ( !best || String( x.due_at ) > String( best.due_at ) ? x : best ), null );
     const tiles = [ { id: 'deadlines', label: 'Дедлайнов', value: String( d.deadlines.length ), tone: 'warning', ico: 'alert', href: last?.player_url } ];
 
+    if ( !parent ) {
+        const hw = d.homework || {};
+        const status = hw.status || 'empty';
+        const messages = {
+            empty: 'Домашнее задание пока не задано', completed: 'Домашнее задание выполнено',
+            pending: 'Домашнее задание на проверке', exhausted: 'Попытки закончились',
+        };
+        tiles.unshift( {
+            id: 'homework', label: 'Домашнее задание', value: status === 'active' ? hw.topic : messages[ status ],
+            tone: status === 'completed' ? 'success' : 'info', ico: status === 'completed' ? 'check' : 'book',
+            href: status === 'active' ? hw.player_url : '',
+            note: status === 'active' ? `${ hw.subject } · Осталось ${ hw.remaining } из ${ hw.total }` : '',
+        } );
+    }
+
     ( parent ? [] : ( d.exam_countdown || [] ) ).forEach( ( item ) => tiles.push( {
         id: `exam:${ item.subject_key }`,
         label: `До экзамена · ${ glueLastWord( item.subject ) }`,
@@ -69,22 +83,18 @@ export function tileCatalog( d, { parent } ) {
 }
 
 /**
- * Родителю остаётся прежний набор. Ученику — дедлайны и показатели его направлений:
- * экзаменационные предметы дают счётчик, остальные — исправления; рейтинг доступен всем направлениям.
- * При лимите шести сначала сохраняем по одному представителю каждого вида.
+ * Родителю остаётся прежний набор. Ученику — ДЗ, рейтинг и экзамен либо исправления.
  */
 export function defaultTileIds( d, who ) {
     if ( who.parent ) return [ 'deadlines' ];
     const subjects = d.home_subjects || [];
     const exams = [ ...new Set( subjects.filter( s => s.exam ).map( s => s.key ) ) ];
-    const others = [ ...new Set( subjects.filter( s => !s.exam ).map( s => s.key ) ) ];
     const catalog = tileCatalog( d, who );
     const available = new Set( catalog.map( t => t.id ) );
-    const countdowns = exams.map( key => `exam:${ key }` ).filter( id => available.has( id ) );
-    const rankings = subjects.map( s => `ranking:${ s.key }` ).filter( id => available.has( id ) );
-    return [ ...new Set( [ 'deadlines', countdowns[ 0 ], others.length ? 'to_fix' : null,
-        rankings[ 0 ], ...countdowns.slice( 1 ), ...rankings.slice( 1 ) ] ) ]
-        .filter( id => id && available.has( id ) ).slice( 0, MAX_TILES );
+    const countdown = exams.map( key => `exam:${ key }` ).find( id => available.has( id ) );
+    const ranking = subjects.map( s => `ranking:${ s.key }` ).find( id => available.has( id ) )
+        || catalog.find( tile => tile.id.startsWith( 'ranking:' ) )?.id;
+    return [ 'homework', ranking, countdown || 'to_fix' ].filter( id => id && available.has( id ) );
 }
 
 /**

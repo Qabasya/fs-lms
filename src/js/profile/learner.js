@@ -29,6 +29,8 @@ const RENDERERS = {};
 
 let api = null;
 let dataPromise = null;
+let homeRefreshBound = false;
+const screenRequests = new WeakMap();
 let openExamCb = () => {}; // клик по экзамену в расписании → «Мои экзамены» (колбэк из app.js, 5.5.3)
 
 function cfg() { return window.fsProfile?.learner || null; }
@@ -41,13 +43,16 @@ function load(force) {
     return dataPromise;
 }
 
-async function screen(root, renderer, title) {
+async function screen(root, renderer, title, force = false) {
+    const request = (screenRequests.get(root) || 0) + 1;
+    screenRequests.set(root, request);
     if (!cfg()) { root.innerHTML = emptyHtml(title, 'Данные профиля недоступны.'); return; }
     root.innerHTML = `<div class="prof-dash"><div class="rev-loading">Загрузка…</div></div>`;
     try {
-        renderer(root, await load());
+        const data = await load(force);
+        if (screenRequests.get(root) === request) renderer(root, data);
     } catch (e) {
-        root.innerHTML = emptyHtml(title, e.message);
+        if (screenRequests.get(root) === request) root.innerHTML = emptyHtml(title, e.message);
     }
 }
 
@@ -60,7 +65,17 @@ function rerenderAll() {
 
 export function renderLearnerHome(root, { openExam } = {}) {
     if (typeof openExam === 'function') { openExamCb = openExam; }
-    screen(root, renderHome, 'Главная');
+    if (!homeRefreshBound) {
+        homeRefreshBound = true;
+        const refresh = () => {
+            if (document.visibilityState === 'hidden' || homeEdit) return;
+            const active = document.querySelector('.prof-screen.active[data-screen="student-home"]');
+            if (active) screen(active, renderHome, 'Главная', true);
+        };
+        window.addEventListener('pageshow', event => { if (event.persisted) refresh(); });
+        document.addEventListener('visibilitychange', refresh);
+    }
+    screen(root, renderHome, 'Главная', !homeEdit);
 }
 export function renderLearnerLessons(root)    { screen(root, renderLessons, 'Мои курсы'); }
 export function renderLearnerGrades(root)     { screen(root, renderGrades, 'Мои оценки'); }

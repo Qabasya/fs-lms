@@ -1,5 +1,5 @@
 /**
- * Когда у работы показывается «Исправить и сдать заново»: пока есть что исправлять, остались попытки и срок сдачи не вышел.
+ * Когда у работы показывается «Исправить и сдать заново»: пока есть что исправлять, остались попытки.
  * Нерешённое задание — то, на которое дан неверный ответ или ответа нет; верное и ждущее ручной проверки не считаются.
  */
 
@@ -15,11 +15,11 @@ export function hasUnsolved( verdicts, taskIds ) {
 }
 
 /**
- * @param {{left: number, allLocked: boolean, pastDue: boolean, verdicts: Object, taskIds: string[]}} state
- *        left — осталось попыток (Infinity — без лимита); allLocked — все задания уже засчитаны; pastDue — срок сдачи вышел
+ * @param {{left: number, allLocked: boolean, verdicts: Object, taskIds: string[]}} state
+ *        left — осталось попыток (Infinity — без лимита); allLocked — все задания уже засчитаны
  */
-export function retryAvailable( { left, allLocked, pastDue, verdicts, taskIds } ) {
-	return left > 0 && ! allLocked && ! pastDue && hasUnsolved( verdicts, taskIds );
+export function retryAvailable( { left, allLocked, verdicts, taskIds } ) {
+	return left > 0 && ! allLocked && hasUnsolved( verdicts, taskIds );
 }
 
 export function restoreWorkAnswer( { check, draft, submitted } ) {

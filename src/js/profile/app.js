@@ -239,6 +239,8 @@ function trackScreen(screen) {
 }
 
 function go(screen) {
+    const home = screen === 'student-home' ? document.querySelector('.prof-screen[data-screen="student-home"]') : null;
+    if (home?.dataset.mounted && !home.classList.contains('active')) renderLearnerHome(home);
     mountScreen(screen);
     trackScreen(screen);
     syncUrl(screen);

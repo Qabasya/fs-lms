@@ -12,18 +12,27 @@ test( 'нерешённое — неверный ответ или ответа 
 	assert.equal( hasUnsolved( { 1: v( 'correct' ) }, [ '1', '2' ] ), true, 'задание без вердикта — ответа не дано' );
 } );
 
-test( 'кнопка «Исправить и сдать заново» есть, пока есть что исправлять, остались попытки и срок не вышел', () => {
+test( 'кнопка «Исправить и сдать заново» есть, пока есть что исправлять, остались попытки', () => {
 	const base = { left: Infinity, allLocked: false, pastDue: false, verdicts: { 1: v( 'incorrect' ) }, taskIds: [ '1' ] };
 
 	assert.equal( retryAvailable( base ), true );
 	assert.equal( retryAvailable( { ...base, left: 2 } ), true );
 } );
 
-test( 'кнопки нет: всё решено верно, попытки закончились, срок вышел, всё уже засчитано', () => {
+test( 'кнопки нет: всё решено верно, попытки закончились, ответы на проверке, всё уже засчитано', () => {
 	const base = { left: 3, allLocked: false, pastDue: false, verdicts: { 1: v( 'incorrect' ) }, taskIds: [ '1' ] };
 
 	assert.equal( retryAvailable( { ...base, verdicts: { 1: v( 'correct' ) } } ), false );
 	assert.equal( retryAvailable( { ...base, left: 0 } ), false );
-	assert.equal( retryAvailable( { ...base, pastDue: true } ), false );
+	assert.equal( retryAvailable( { ...base, verdicts: { 1: v( 'pending' ) } } ), false );
 	assert.equal( retryAvailable( { ...base, allLocked: true } ), false );
+} );
+
+ test( 'истёкший дедлайн не блокирует исправление, но лимит попыток и зачёт сохраняются', () => {
+    const base = { left: 2, allLocked: false, pastDue: true, verdicts: { 1: v('incorrect') }, taskIds: ['1'] };
+    assert.equal(retryAvailable(base), true);
+    assert.equal(retryAvailable({...base, left: 0}), false);
+    assert.equal(retryAvailable({...base, allLocked: true}), false);
+    assert.equal(retryAvailable({...base, verdicts: {1: v('pending')}}), false);
+    assert.equal(retryAvailable({...base, verdicts: {1: v('correct')}}), false);
 } );

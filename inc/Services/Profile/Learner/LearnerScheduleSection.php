@@ -8,10 +8,13 @@ use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\SubmissionDTO;
 use Inc\DTO\Course\WorkDTO;
 use Inc\DTO\Profile\LearnerContextDTO;
+use Inc\Enums\Course\WorkType;
+use Inc\Enums\Course\LessonStatus;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Services\Course\EffectiveWorksResolver;
 use Inc\Services\Course\HomeworkDeadlineService;
 use Inc\Services\Course\LessonWorkLink;
+use Inc\Services\Course\SubmissionService;
 
 /**
  * Class LearnerScheduleSection
@@ -29,6 +32,7 @@ class LearnerScheduleSection {
 		private readonly EffectiveWorksResolver  $worksResolver,
 		private readonly LessonWorkLink          $workLink,
 		private readonly HomeworkDeadlineService $homeworkDeadlines,
+		private readonly SubmissionService $submissionService,
 	) {}
 
 	/**
@@ -69,10 +73,8 @@ class LearnerScheduleSection {
 	public function deadlines( LearnerContextDTO $ctx, int $personId ): array {
 		$deadlines   = array();
 		$next        = $this->homeworkDeadlines->nextLessonStarts( $ctx->rawRows );
-		$submissions = $this->submissions->listByGroupLessons(
-			array_values( array_map( static fn( GroupLessonDTO $row ): int => $row->progressId(), $ctx->rawRows ) ),
-			$personId
-		);
+		$ids = array_values( array_unique( array_map( static fn( GroupLessonDTO $row ): int => $row->progressId(), $ctx->rawRows ) ) );
+		$submissions = array() === $ids ? array() : $this->submissions->listByGroupLessons( $ids, $personId );
 
 		foreach ( $ctx->rawRows as $glid => $row ) {
 			$submittedWorkIds = array();
@@ -134,6 +136,86 @@ class LearnerScheduleSection {
 		);
 
 		return $deadlines;
+	}
+
+	/** Последнее доступное ДЗ, затем долги от новых занятий к старым; дедлайн не ограничивает решение. */
+	public function homework( LearnerContextDTO $ctx, int $personId ): array {
+		$rows = array_filter( $ctx->rawRows, static function ( GroupLessonDTO $row ) use ( $ctx ): bool {
+			$card = $ctx->lessonMap[ $row->id ] ?? array();
+			// Тот же запасной час, что в GroupLessonDTO::isOver(), но факт/запись не выдают ДЗ раньше расписания.
+			$end = $row->endsAt ?? ( $row->scheduledAt ? ( new \DateTimeImmutable( $row->scheduledAt ) )->modify( '+60 minutes' )->format( 'Y-m-d H:i:s' ) : null );
+			return null !== $row->scheduledAt && $row->scheduledAt <= $ctx->now && null !== $end && $end <= $ctx->now
+				&& ! LessonStatus::fromValueOrDefault( $row->status )->freesSlot()
+				&& ( $card['accessible'] ?? false )
+				&& ! empty( $card['player_url'] );
+		} );
+		if ( array() === $rows ) {
+			return array( 'status' => 'empty' );
+		}
+		usort( $rows, static fn( GroupLessonDTO $a, GroupLessonDTO $b ): int => strcmp( $b->scheduledAt, $a->scheduledAt ) ?: ( $b->id <=> $a->id ) );
+		$ids = array_values( array_unique( array_map( static fn( GroupLessonDTO $row ): int => $row->progressId(), $rows ) ) );
+		$submissions = $this->submissions->listByGroupLessons( $ids, $personId );
+		$seen = array();
+		$result = array( 'status' => 'empty' );
+		foreach ( $rows as $row ) {
+			$aggregates = array();
+			foreach ( $submissions[ $row->progressId() ] ?? array() as $sub ) {
+				if ( null === $sub->taskId ) {
+					$aggregates[ $sub->workId ] = $sub;
+				}
+			}
+			foreach ( $this->worksResolver->resolve( $row ) as $work ) {
+				if ( WorkType::Homework !== $work->workType || $work->isEmpty() || isset( $seen[ $row->progressId() ][ $work->id ] ) ) {
+					continue;
+				}
+				$url = $this->workLink->forRow( $row, $work->id, $ctx->lessonMap[ $row->id ]['player_url'], true );
+				if ( '' === $url ) {
+					continue;
+				}
+				$seen[ $row->progressId() ][ $work->id ] = true;
+				$aggregate = $aggregates[ $work->id ] ?? null;
+				$decoded = json_decode( (string) ( $aggregate?->answerText ?? '' ), true );
+				$verdicts = is_array( $decoded ) ? $decoded : array();
+				$pending = false;
+				$correct = true;
+				foreach ( $work->itemIds as $taskId ) {
+					$verdict = $verdicts[ $taskId ]['verdict'] ?? '';
+					$pending = $pending || 'pending' === $verdict;
+					$correct = $correct && 'correct' === $verdict;
+				}
+				$correct = $correct || ( $aggregate?->isCredited() ?? false );
+				$unsolved = $correct ? null : ( $aggregate ? $this->unsolvedOf( $work, $aggregate ) : array(
+					'remaining' => count( $work->itemIds ), 'total' => count( $work->itemIds ), 'first_task_id' => $work->itemIds[0],
+				) );
+				if ( null !== $unsolved ) {
+					$facts = $submissions[ $row->progressId() ] ?? array();
+					$locked = $this->submissionService->lockedTaskIds( $personId, $row->id, $work->id, $facts );
+					$remainingIds = array_values( array_filter( $work->itemIds, static fn( int $id ): bool => ! in_array( $id, $locked, true ) && 'pending' !== ( $verdicts[ $id ]['verdict'] ?? '' ) ) );
+					$attemptsUsed = $work->maxAttempts > 0 ? $this->submissionService->workAttemptsUsed( $personId, $row->id, $work->id, $facts ) : 0;
+					if ( array() === $remainingIds || ( $work->maxAttempts > 0 && $attemptsUsed >= $work->maxAttempts ) ) {
+						$unsolved = null;
+					} else {
+						$unsolved['remaining'] = count( $remainingIds );
+						$unsolved['first_task_id'] = $remainingIds[0];
+					}
+				}
+				if ( null !== $unsolved ) {
+					return array(
+						'status' => 'active',
+						'topic' => ( $ctx->lessonMap[ $row->id ]['topic'] ?? '' ) ?: $work->title,
+						'subject' => $ctx->groups[ $row->groupId ]['subject'] ?? '',
+						'player_url' => (string) add_query_arg( array( 'task' => $unsolved['first_task_id'] ), $url ),
+					) + $unsolved;
+				}
+				$status = $correct ? 'completed' : ( $pending ? 'pending' : 'exhausted' );
+				// Действия ученика важнее ожидания проверки; успех — только если верны ВСЕ работы.
+				$priority = array( 'empty' => 0, 'completed' => 1, 'exhausted' => 2, 'pending' => 3 );
+				if ( $priority[ $status ] > $priority[ $result['status'] ] ) {
+					$result = array( 'status' => $status );
+				}
+			}
+		}
+		return $result;
 	}
 
 	/**

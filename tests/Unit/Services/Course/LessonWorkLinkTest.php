@@ -37,7 +37,7 @@ class LessonWorkLinkTest extends TestCase {
 	}
 
 	private function row( ?int $lessonId ): GroupLessonDTO {
-		return GroupLessonDTO::fromArray( array( 'id' => 100, 'group_id' => 5, 'lesson_id' => $lessonId ) );
+		return GroupLessonDTO::fromArray( array( 'id' => 100, 'position' => 1, 'group_id' => 5, 'lesson_id' => $lessonId ) );
 	}
 
 	public function test_appends_step_of_the_work_to_the_given_base_url(): void {
@@ -61,4 +61,10 @@ class LessonWorkLinkTest extends TestCase {
 	public function test_without_base_url_builds_the_lesson_player_url(): void {
 		self::assertStringContainsString( 'gid=5', $this->link->forRow( $this->row( null ), 55 ) );
 	}
+	public function test_required_work_step_never_falls_back_to_the_lesson_start(): void {
+		$this->lessons->method( 'get' )->willReturn( $this->lessonWithWork( 55 ) );
+		self::assertSame( '', $this->link->forRow( $this->row( 7 ), 99, '/p/?gl=1', true ) );
+		self::assertSame( '/p/?gl=1&step=step-3', $this->link->forRow( $this->row( 7 ), 55, '/p/?gl=1', true ) );
+	}
+
 }

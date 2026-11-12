@@ -108,7 +108,7 @@ $visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::c
 		$this->examConfig->method( 'examDates' )->willReturnCallback( fn (): array => $this->examDates );
 		$this->service = new LearnerService(
 			$contextBuilder,
-			new \Inc\Services\Profile\Learner\LearnerScheduleSection( $this->submissions, $this->worksResolver, new \Inc\Services\Course\LessonWorkLink( $this->lessons ), $homework ),
+			new \Inc\Services\Profile\Learner\LearnerScheduleSection( $this->submissions, $this->worksResolver, new \Inc\Services\Course\LessonWorkLink( $this->lessons ), $homework, $this->createStub( \Inc\Services\Course\SubmissionService::class ) ),
 			new \Inc\Services\Profile\Learner\LearnerPerformanceSection( $this->gradebook, $this->attendance, $this->submissions, $this->attempts, new \Inc\Services\Course\LessonWorkLink( $this->lessons ), $homework, $this->createStub( \Inc\Services\Course\WorkMarksService::class ), $this->createStub( \Inc\Managers\Assessment\AssessmentManager::class ), new \Inc\Services\Assessment\AttemptRevealPolicy( $this->createStub( \Inc\Repositories\WPDBRepositories\ExamParticipationRepository::class ), $this->createStub( \Inc\Repositories\WPDBRepositories\ExamAccessTokenRepository::class ) ) ),
 			new \Inc\Services\Profile\Learner\LearnerCoursesSection(
 				$this->courses, $this->lessons, $this->progress, $this->examLock, $contextBuilder, $this->createStub( \Inc\Managers\Assessment\AssessmentManager::class ),
@@ -626,7 +626,7 @@ $visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::c
 		$ranking->expects( self::once() )->method( 'forGroups' )->with( 9001, array( 1 => $groups[1] ), '2026-11-05 12:00:00' )->willReturn( array() );
 		$courses = $this->createMock( \Inc\Services\Profile\Learner\LearnerCoursesSection::class );
 		$courses->expects( self::once() )->method( 'buildCourses' )->with( $groups, array(), array(), array(), 9001, false )->willReturn( array() );
-		$schedule = new \Inc\Services\Profile\Learner\LearnerScheduleSection( $this->submissions, $this->worksResolver, new \Inc\Services\Course\LessonWorkLink( $this->lessons ), new \Inc\Services\Course\HomeworkDeadlineService( $this->worksResolver, $this->createStub( \Inc\Services\Course\LessonVisibilityService::class ), $this->groupLessons ) );
+		$schedule = new \Inc\Services\Profile\Learner\LearnerScheduleSection( $this->submissions, $this->worksResolver, new \Inc\Services\Course\LessonWorkLink( $this->lessons ), new \Inc\Services\Course\HomeworkDeadlineService( $this->worksResolver, $this->createStub( \Inc\Services\Course\LessonVisibilityService::class ), $this->groupLessons ), $this->createStub( \Inc\Services\Course\SubmissionService::class ) );
 		$performance = $this->createStub( \Inc\Services\Profile\Learner\LearnerPerformanceSection::class );
 		$performance->method( 'attendance' )->willReturn( array( 'rows' => array() ) );
 		$service = new LearnerService( $context, $schedule, $performance, $courses, $this->examsService, $countdown, new \Inc\Services\Profile\Learner\LearnerHighlightsSection(), $ranking );

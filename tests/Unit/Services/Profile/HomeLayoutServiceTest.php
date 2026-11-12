@@ -124,4 +124,13 @@ class HomeLayoutServiceTest extends TestCase {
 		self::assertSame( array(), $reset['menuHidden'] );
 	}
 
+	public function test_homework_is_only_available_to_student_layouts(): void {
+		$raw = array( 'tiles' => array( 'homework', 'ranking:math', 'to_fix', 'deadlines' ) );
+		self::assertSame( $raw['tiles'], $this->service->normalize( $raw, UserRole::FSStudent )['tiles'] );
+		self::assertSame( array( 'ranking:math', 'to_fix', 'deadlines' ), $this->service->normalize( $raw, UserRole::FSParent )['tiles'] );
+		foreach ( array( UserRole::FSTeacher, UserRole::FSOffice ) as $role ) {
+			self::assertSame( array(), $this->service->normalize( $raw, $role )['tiles'] );
+		}
+	}
+
 }

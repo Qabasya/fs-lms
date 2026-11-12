@@ -1,6 +1,6 @@
 /** Общие элементы кастомизации главной: плитки, перестановка секций и выбор замены. */
 import { esc, openCtxMenu } from './utils.js';
-import { icoCalendar, icoCheck, icoAlert, icoStar, icoMinus, icoPlus, icoSwap, icoArrowUp, icoArrowDown } from '../common/icons.js';
+import { icoCalendar, icoBook, icoCheck, icoAlert, icoStar, icoMinus, icoPlus, icoSwap, icoArrowUp, icoArrowDown } from '../common/icons.js';
 import { addTile, removeTile, replaceTile, shiftItem, MAX_TILES } from './learner-home-tiles.js';
 
 export function arrowsHtml() {
@@ -69,12 +69,12 @@ function moveWithShift(list, mutate) {
 export function homeTile(label, val, tone, ico, href = '', opts = {}) {
     const remove = opts.removable ? `<button type="button" class="prof-home-minus" data-home-remove="${esc(opts.id)}" aria-label="Убрать плитку">${icoMinus(14)}</button><button type="button" class="prof-home-replace" data-home-replace="${esc(opts.id)}" aria-label="Заменить плитку" title="Заменить">${icoSwap(14)}</button>${arrowsHtml()}` : '';
     const toneClass = ['primary', 'info', 'success', 'warning', 'danger', 'violet'].includes(tone) ? tone : 'primary';
-    const icons = { cal: icoCalendar, check: icoCheck, alert: icoAlert, star: icoStar };
+    const icons = { book: icoBook, cal: icoCalendar, check: icoCheck, alert: icoAlert, star: icoStar };
     const tag = href ? 'a' : 'div';
     const link = href ? ` href="${esc(href)}"` : '';
     const note = opts.note ? `<div class="st-delta">${esc(opts.note)}</div>` : '';
     const id = opts.removable ? ` data-tile-id="${esc(opts.id)}"` : '';
-    return `<${tag} class="prof-stat-tile${href ? ' is-link' : ''}${opts.urgent ? ' is-urgent' : ''}"${link}${id}>${remove}
+    return `<${tag} class="prof-stat-tile${opts.id === 'homework' ? ' prof-stat-tile--homework' : ''}${href ? ' is-link' : ''}${opts.urgent ? ' is-urgent' : ''}"${link}${id}>${remove}
         <div class="st-top"><span class="st-ico st-ico--${toneClass}">${icons[ico](16)}</span>${esc(label)}</div>
         <div class="st-val">${esc(val)}</div>${note}
     </${tag}>`;

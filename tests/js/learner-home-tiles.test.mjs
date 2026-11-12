@@ -32,17 +32,17 @@ test( 'подпись предмета: последнее слово склее
 	assert.equal( label( 'Физика' ), 'До экзамена · Физика' );
 } );
 
-test( 'ученику «До экзамена» заменяет «Посещаемость»; срочное помечено', () => {
+test( 'ученику доступны ДЗ и счётчик экзамена без фиктивного рейтинга; срочное помечено', () => {
 	const tiles = homeTileModels( { deadlines, attendance, exam_countdown: [ exam( { urgent: true, hours: 22 } ) ], highlights: null }, { parent: false } );
 
-	assert.deepEqual( tiles.map( ( t ) => t.label ), [ 'Дедлайнов', 'До экзамена · Информатика\u00A0ЕГЭ' ] );
+	assert.deepEqual( tiles.map( ( t ) => t.label ), [ 'Домашнее задание', 'До экзамена · Информатика\u00A0ЕГЭ' ] );
 	assert.equal( tiles[ 1 ].value, '22 ч' );
 	assert.equal( tiles[ 1 ].urgent, true );
-	assert.equal( tiles[ 0 ].href, '/lesson/1' );
+	assert.equal( tiles[ 0 ].value, 'Домашнее задание пока не задано' );
 } );
 
-test( 'без даты экзамена у ученика нет посещаемости по умолчанию; родителю она остаётся всегда', () => {
-	assert.deepEqual( homeTileModels( { deadlines, attendance, exam_countdown: [], highlights: null }, { parent: false } ).map(t => t.id), ['deadlines'] );
+test( 'без даты экзамена ученик получает ДЗ и «Осталось исправить»', () => {
+	assert.deepEqual( homeTileModels( { deadlines, attendance, exam_countdown: [], highlights: null }, { parent: false } ).map(t => t.id), ['homework', 'to_fix'] );
 } );
 
 test( 'экзамены одного предмета не дублируют плитку', () => {
@@ -55,7 +55,7 @@ test( 'плитки пилота не входят в набор по умолч
 	const highlights = { streak: 5, to_fix: 3, last_result: { value: '72', note: 'Пробник · баллов' } };
 	const d = { deadlines, attendance, exam_countdown: [], highlights };
 
-	assert.deepEqual( homeTileModels( d, { parent: false } ).map( ( t ) => t.label ), [ 'Дедлайнов' ] );
+	assert.deepEqual( homeTileModels( d, { parent: false } ).map( ( t ) => t.label ), [ 'Домашнее задание', 'Осталось исправить' ] );
 
 	const chosen = homeTileModels( d, { parent: false }, { tiles: [ 'deadlines', 'attendance', 'streak', 'to_fix', 'last_result' ] } );
 	assert.deepEqual( chosen.slice( 1 ).map( ( t ) => [ t.label, t.value ] ), [
