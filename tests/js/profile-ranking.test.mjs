@@ -15,13 +15,13 @@ test('практика показывает расчёты друг под др�
     const html = scoreBreakdownHtml({ score: 123, breakdown: [practice] });
     assert.match(html, /<li><span>Практика<\/span><span class="ranking-score-values">/);
     assert.equal((html.match(/<li>/g) || []).length, 1);
-    assert.match(html, /<strong>100<\/strong><br>10 × 2/);
+    assert.match(html, /<strong>100<\/strong><\/span><span class="ranking-score-equation"><span>10 × 2/);
     assert.doesNotMatch(html, /Стоимость задания|решений:/);
-    assert.match(html, /100 × 1 = <strong>100/);
-    assert.match(html, /10 × 2 = <strong>20/);
-    assert.match(html, /1 × 3 = <strong>3/);
+    assert.match(html, /100 × 1<\/span><span>=<\/span><strong>100/);
+    assert.match(html, /10 × 2<\/span><span>=<\/span><strong>20/);
+    assert.match(html, /1 × 3<\/span><span>=<\/span><strong>3/);
     assert.doesNotMatch(html, /123 × 1/);
-    assert.match(scoreBreakdownHtml({ score: 61.5, breakdown: [{ ...practice, weight: 0.5 }] }), /123 × 0,5 = <strong>61,5/);
+    assert.match(scoreBreakdownHtml({ score: 61.5, breakdown: [{ ...practice, weight: 0.5 }] }), /123 × 0,5<\/span><span>=<\/span><strong>61,5/);
     assert.doesNotMatch(scoreBreakdownHtml({ score: 0, breakdown: [{ ...practice, weight: 0 }] }), /Практика|123 × 0/);
 });
 
@@ -40,7 +40,7 @@ test('нулевые категории и группы не показываю�
         { source: 'practice', amount: 2, weight: 0.5, task_groups: [{ points: 0, count: 5 }, { points: 2, count: 1 }] },
     ] });
     assert.doesNotMatch(weighted, /5 × 0/);
-    assert.match(weighted, /С коэффициентом: 2 × 0,5 = <strong>1/);
+    assert.match(weighted, /С коэффициентом: 2 × 0,5<\/span><span>=<\/span><strong>1/);
 });
 
 test('расчёт баллов показывает типы, веса, бонус и итог; кнопка доступна только сотруднику', () => {
@@ -50,7 +50,7 @@ test('расчёт баллов показывает типы, веса, бон�
     ] };
     const details = scoreBreakdownHtml(row);
     assert.match(details, /Домашняя работа/);
-    assert.match(details, /3 × 2 = <strong>6/);
+    assert.match(details, /3 × 2<\/span><span>=<\/span><strong>6/);
     assert.match(details, /длина серии: 3/);
     assert.match(details, /Итого: <strong>7/);
     assert.match(rankingTableHtml({ rows: [row] }), /data-score-pid="7"/);
@@ -166,6 +166,16 @@ test('в ученическом рейтинге отмечена только �
     assert.doesNotMatch(rankingTableHtml({ ...data, viewer_person_id: 99 }, false, true), /ranking-self/);
 });
 
+test('ученик может открыть расчёт только по собственной строке', () => {
+    const data = { viewer_person_id: 12, rows: [
+        { person_id: 11, name: 'Другой', groups: [], score: 4, rank: 1 },
+        { person_id: 12, name: 'Я', groups: [], score: 3, rank: 2, breakdown: [] },
+    ] };
+    const html = rankingTableHtml(data, false, true);
+    assert.match(html, /<tr[^>]*data-score-row="12"[^>]*>/);
+    assert.doesNotMatch(html, /data-score-row="11"/);
+});
+
 test('селекты: без выбора направления (showSubject=false) — только период и группа', () => {
     const html = rankingPickersHtml(subject, groups, 1, periods, '', false);
 
@@ -173,4 +183,44 @@ test('селекты: без выбора направления (showSubject=fa
     assert.match(html, /kp-label">Группа<\/span>/);
     assert.doesNotMatch(html, /kp-label">Направление<\/span>/);
     assert.doesNotMatch(html, /id="rankingSubject"/);
+});
+
+test('расчёт показывает максимум назначенных задач и строку с нулём решённых', () => {
+    const html = scoreBreakdownHtml({ score: 3, max_score: 11, breakdown: [
+        { source: 'practice', amount: 3, max_amount: 9, weight: 1, task_groups: [
+            { points: 1, count: 3, max_count: 5 }, { points: 2, count: 0, max_count: 2 },
+        ] },
+        { source: 'homework', amount: 0, max_amount: 2, weight: 1 },
+    ] });
+    assert.match(html, /3 × 1<\/span><span>=<\/span><strong>3 из 5/);
+    assert.match(html, /0 × 2<\/span><span>=<\/span><strong>0 из 4/);
+    assert.match(html, /Домашняя работа/);
+    assert.match(html, /Итого: <strong>3 из 11/);
+});
+
+test('неизвестный максимум отмечен явно, известные части сохранены', () => {
+    const html = scoreBreakdownHtml({ score: 3, max_score: null, max_unknown: true, breakdown: [
+        { source: 'practice', amount: 3, max_amount: null, max_unknown: true, weight: 1, task_groups: [
+            { points: 1, count: 3, max_count: 5 },
+        ] },
+        { source: 'homework', amount: 1, max_amount: 2, weight: 1 },
+    ] });
+    assert.match(html, /3 из 5/);
+    assert.match(html, /1 из 2/);
+    assert.match(html, /Итого: <strong>3 из неизвестного максимума/);
+    assert.match(html, /Практика[\s\S]*неизвестного максимума/);
+});
+
+test('неопределённый зачёт помечает сумму как неполную', () => {
+    const html = scoreBreakdownHtml({ score: 3, max_unknown: true, score_unknown: true, breakdown: [
+        { source: 'homework', amount: 3, max_unknown: true, score_unknown: true, weight: 1 },
+    ] });
+    assert.match(html, /Итого: <strong>3 \(неполный результат\)/);
+});
+
+test('таблица не выдаёт неполные баллы и неизвестное место за точный результат', () => {
+    const html = rankingTableHtml({ rows: [{ person_id: 1, name: 'Иван', score: 3, score_unknown: true, rank: null, groups: [] }] });
+    assert.match(html, /3 \(неполный результат\)/);
+    assert.doesNotMatch(html, />null</);
+    assert.match(html, /ranking-rank-value">—/);
 });

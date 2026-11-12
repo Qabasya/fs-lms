@@ -17,6 +17,90 @@ use Inc\Services\Profile\RankingSnapshotService;
 use PHPUnit\Framework\TestCase;
 
 class RankingSnapshotServiceTest extends TestCase {
+	public function test_trend_is_neutral_if_policy_changed_after_current_rank_was_calculated(): void {
+		$old = array( 'practice' => 1.0 );
+		$current = array( 'practice' => 2.0 );
+		$store = $this->createStub( RankingSnapshotRepository::class );
+		$store->method( 'read' )->willReturn( array(
+			'interval' => 'day', 'boundary' => '2026-11-06 00:00:00', 'captured_at' => '2026-11-06 00:13:00',
+			'season' => '2026-09-01 00:00:00', 'subjects' => array( 'math' => array( 0 => array( 1 => 2 ) ) ),
+			'policies' => array( 'math' => hash( 'sha256', serialize( $old ) ) ),
+		) );
+		$ranking = $this->createStub( RankingCalculationService::class );
+		$ranking->method( 'usesSubjectSettings' )->willReturn( true );
+		$ranking->method( 'subjectPolicy' )->willReturn( $current );
+		$service = new RankingSnapshotService( $store, $this->createStub( SubjectRepository::class ), $this->createStub( LearnerRankingRepository::class ), $ranking, $this->createStub( RankingSnapshotBuilder::class ), new RankingSnapshotPeriod(), $this->createStub( ClockInterface::class ), $this->createStub( RankingSnapshotTransaction::class ) );
+		self::assertNull( $service->trend( 'math', 0, 1, 1, '2026-09-01 00:00:00', '2026-11-06 00:14:00', $old ) );
+	}
+	public function test_capture_loads_policies_before_opening_database_snapshot(): void {
+		$insideTransaction = false;
+		$subjects = $this->createStub( SubjectRepository::class );
+		$subjects->method( 'readActive' )->willReturn( array( new SubjectDTO( 'math', 'Math' ) ) );
+		$ranking = $this->createStub( RankingCalculationService::class );
+		$ranking->method( 'period' )->willReturn( array( 'from' => '2026-09-01 00:00:00', 'until' => '2026-12-01 00:00:00' ) );
+		$ranking->method( 'subjectPolicy' )->willReturnCallback( static function () use ( &$insideTransaction ): array {
+			self::assertFalse( $insideTransaction );
+			return array( 'practice' => 1.0 );
+		} );
+		$ranking->method( 'scoresForSubject' )->willReturn( array() );
+		$tx = $this->createStub( RankingSnapshotTransaction::class );
+		$tx->method( 'read' )->willReturnCallback( static function ( callable $read ) use ( &$insideTransaction ): array {
+			$insideTransaction = true;
+			return $read();
+		} );
+		$clock = $this->createStub( ClockInterface::class );
+		$clock->method( 'now' )->willReturn( '2026-11-06 00:13:00' );
+		$store = $this->createStub( RankingSnapshotRepository::class );
+		$store->method( 'read' )->willReturn( array() );
+		$service = new RankingSnapshotService( $store, $subjects, $this->createStub( LearnerRankingRepository::class ), $ranking, $this->createStub( RankingSnapshotBuilder::class ), new RankingSnapshotPeriod(), $clock, $tx );
+		$service->capture();
+	}
+	public function test_trend_uses_the_policy_that_produced_the_current_rank(): void {
+		$calculatedPolicy = array( 'practice' => 1.0 );
+		$newPolicy = array( 'practice' => 2.0 );
+		$store = $this->createStub( RankingSnapshotRepository::class );
+		$store->method( 'read' )->willReturn( array(
+			'interval' => 'day', 'boundary' => '2026-11-06 00:00:00', 'captured_at' => '2026-11-06 00:13:00',
+			'season' => '2026-09-01 00:00:00', 'subjects' => array( 'math' => array( 0 => array( 1 => 2 ) ) ),
+			'policies' => array( 'math' => hash( 'sha256', serialize( $newPolicy ) ) ),
+		) );
+		$ranking = $this->createStub( RankingCalculationService::class );
+		$ranking->method( 'usesSubjectSettings' )->willReturn( true );
+		$ranking->method( 'subjectPolicy' )->willReturn( $newPolicy );
+		$service = new RankingSnapshotService( $store, $this->createStub( SubjectRepository::class ), $this->createStub( LearnerRankingRepository::class ), $ranking, $this->createStub( RankingSnapshotBuilder::class ), new RankingSnapshotPeriod(), $this->createStub( ClockInterface::class ), $this->createStub( RankingSnapshotTransaction::class ) );
+		self::assertNull( $service->trend( 'math', 0, 1, 1, '2026-09-01 00:00:00', '2026-11-06 00:14:00', $calculatedPolicy ) );
+	}
+	public function test_recreated_subject_does_not_reuse_old_trend(): void {
+		$old = array( 'enabled' => true, 'practice' => 1.0, 'generation' => 'old' );
+		$current = array( 'enabled' => true, 'practice' => 1.0, 'generation' => 'new' );
+		$store = $this->createStub( RankingSnapshotRepository::class );
+		$store->method( 'read' )->willReturn( array(
+			'interval' => 'day', 'boundary' => '2026-11-06 00:00:00', 'captured_at' => '2026-11-06 00:13:00',
+			'season' => '2026-09-01 00:00:00', 'subjects' => array( 'math' => array( 0 => array( 1 => 2 ) ) ),
+			'policies' => array( 'math' => hash( 'sha256', serialize( $old ) ) ),
+		) );
+		$ranking = $this->createStub( RankingCalculationService::class );
+		$ranking->method( 'usesSubjectSettings' )->willReturn( true );
+		$ranking->method( 'subjectPolicy' )->willReturn( $current );
+		$service = new RankingSnapshotService( $store, $this->createStub( SubjectRepository::class ), $this->createStub( LearnerRankingRepository::class ), $ranking, $this->createStub( RankingSnapshotBuilder::class ), new RankingSnapshotPeriod(), $this->createStub( ClockInterface::class ), $this->createStub( RankingSnapshotTransaction::class ) );
+		self::assertNull( $service->trend( 'math', 0, 1, 1, '2026-09-01 00:00:00', '2026-11-06 00:14:00' ) );
+	}
+	public function test_changed_subject_policy_does_not_reuse_stale_snapshot(): void {
+		$old = array( 'enabled' => true, 'practice' => 1.0, 'revision' => 1 );
+		$current = array( 'enabled' => true, 'practice' => 1.0, 'revision' => 3 );
+		$store = $this->createStub( RankingSnapshotRepository::class );
+		$store->method( 'read' )->willReturn( array(
+			'interval' => 'day', 'boundary' => '2026-11-06 00:00:00', 'captured_at' => '2026-11-06 00:13:00',
+			'season' => '2026-09-01 00:00:00', 'subjects' => array( 'math' => array( 0 => array( 1 => 2 ) ), 'physics' => array( 0 => array( 1 => 2 ) ) ),
+			'policies' => array( 'math' => hash( 'sha256', serialize( array( 'assignments-v1', $old ) ) ), 'physics' => hash( 'sha256', serialize( array( 'assignments-v1', $old ) ) ) ),
+		) );
+		$ranking = $this->createStub( RankingCalculationService::class );
+		$ranking->method( 'usesSubjectSettings' )->willReturn( true );
+		$ranking->method( 'subjectPolicy' )->willReturnCallback( static fn( string $subject ): array => 'math' === $subject ? $current : $old );
+		$service = new RankingSnapshotService( $store, $this->createStub( SubjectRepository::class ), $this->createStub( LearnerRankingRepository::class ), $ranking, $this->createStub( RankingSnapshotBuilder::class ), new RankingSnapshotPeriod(), $this->createStub( ClockInterface::class ), $this->createStub( RankingSnapshotTransaction::class ) );
+		self::assertNull( $service->trend( 'math', 0, 1, 1, '2026-09-01 00:00:00', '2026-11-06 00:14:00' ) );
+		self::assertSame( 'up', $service->trend( 'physics', 0, 1, 1, '2026-09-01 00:00:00', '2026-11-06 00:14:00' )['direction'] );
+	}
 	private function makeService( RankingSnapshotRepository $store, array $times ): RankingSnapshotService {
 		$subjects = $this->createStub( SubjectRepository::class );
 		$subjects->method( 'readActive' )->willReturn( array( new SubjectDTO( 'math', 'Math' ) ) );

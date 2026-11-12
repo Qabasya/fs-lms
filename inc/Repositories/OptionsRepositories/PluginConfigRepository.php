@@ -36,6 +36,8 @@ readonly class PluginConfigRepository {
 		'ranking_attendance_streak_length' => 3,
 		'ranking_hidden_subjects'           => array(),
 		'ranking_excluded_students'          => array(),
+		'ranking_subjects_version'           => 0,
+		'ranking_subjects'                   => array(),
 		'center_phone'             => '',
 		'center_email'             => '',
 		'center_hours'             => '',
@@ -49,8 +51,59 @@ readonly class PluginConfigRepository {
 
 	/** Мержит $partial поверх текущего значения; неизвестные ключи игнорирует. */
 	public function save( array $partial ): void {
-		$current = $this->get();
-		$updated = array_merge( $current, array_intersect_key( $partial, self::DEFAULTS ) );
-		update_option( OptionName::PluginConfig->value, $updated, false );
+		$this->mutate( static fn( array $current ): array => array_merge( $current, array_intersect_key( $partial, self::DEFAULTS ) ) );
+	}
+
+	/** Serialize all configuration and subject lifecycle writers. */
+	public function mutate( callable $operation, ?\wpdb $wpdb = null ): void {
+		$wpdb = $wpdb ?? $GLOBALS['wpdb'];
+		$database = $wpdb->get_var( 'SELECT DATABASE()' );
+		if ( ! is_string( $database ) || '' === $database ) {
+			throw new \RuntimeException( 'Не удалось определить базу для блокировки настроек.' );
+		}
+		$key = 'fs-lms:config:' . substr( hash( 'sha256', $database . ':' . $wpdb->options ), 0, 40 );
+		if ( '1' !== (string) $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 5)', $key ) ) ) {
+			throw new \RuntimeException( 'Настройки заняты другой операцией. Повторите попытку.' );
+		}
+		try {
+			wp_cache_delete( OptionName::PluginConfig->value, 'options' );
+			wp_cache_delete( 'alloptions', 'options' );
+			wp_cache_delete( 'notoptions', 'options' );
+			$current = $this->get();
+			$updated = $operation( $current );
+			$this->writeLocked( $updated );
+		} finally {
+			if ( '1' !== (string) $wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $key ) ) ) {
+				throw new \RuntimeException( 'Не удалось освободить блокировку настроек.' );
+			}
+		}
+	}
+
+	/** Write while mutate() holds the lifecycle lock; safe to call before creating a subject. */
+	public function writeLocked( array $updated ): void {
+		if ( $updated !== $this->get() && ! update_option( OptionName::PluginConfig->value, $updated, false ) ) {
+			throw new \RuntimeException( 'Не удалось сохранить настройки.' );
+		}
+	}
+
+	/** Merge a subject patch without replacing its other fields or neighbouring subjects. */
+	public function saveRankingSubject( string $subject, array $patch ): void {
+		$this->mutate( static function ( array $config ) use ( $subject, $patch ): array {
+			$map = is_array( $config['ranking_subjects'] ) ? $config['ranking_subjects'] : array();
+			$current = isset( $map[ $subject ] ) && is_array( $map[ $subject ] ) ? $map[ $subject ] : array();
+			$map[ $subject ] = array_merge( $current, $patch );
+			$config['ranking_subjects'] = $map;
+			return $config;
+		} );
+	}
+
+	/** Forget a deleted subject so reusing its key starts with defaults. */
+	public function removeRankingSubject( string $subject ): void {
+		$this->mutate( static function ( array $config ) use ( $subject ): array {
+			if ( is_array( $config['ranking_subjects'] ) ) {
+				unset( $config['ranking_subjects'][ $subject ] );
+			}
+			return $config;
+		} );
 	}
 }

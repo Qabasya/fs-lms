@@ -9,6 +9,8 @@ use Inc\DTO\Course\GroupLessonDTO;
 use Inc\DTO\Course\WorkDTO;
 use Inc\DTO\Log\Events\LearningEvent;
 use Inc\Enums\Log\LogEvent;
+use Inc\Enums\Course\LessonVisibility;
+use Inc\Enums\Course\RankingAssignmentOrigin;
 use Inc\Managers\Course\LessonManager;
 use Inc\Managers\Course\WorkManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
@@ -20,6 +22,9 @@ class EffectiveWorksResolver {
 		private readonly LessonManager               $lessonManager,
 		private readonly WorkManager                 $workManager,
 		private readonly LogEventDispatcherInterface $dispatcher,
+		private readonly ?RankingAssignmentSnapshotService $rankingSnapshots = null,
+		private readonly ?LessonVisibilityService $visibility = null,
+		private readonly bool $captureRankingAssignments = true,
 	) {}
 
 	/**
@@ -64,7 +69,26 @@ class EffectiveWorksResolver {
 			throw new \InvalidArgumentException( 'Строка программы не найдена.' );
 		}
 
-		$this->groupLessons->setExtraWorkIds( $groupLessonId, $workIds );
+		if ( $this->captureRankingAssignments && $this->rankingSnapshots && $this->visibility ) {
+			$this->rankingSnapshots->synchronized( function () use ( $groupLessonId, $workIds ): void {
+				$current = $this->groupLessons->find( $groupLessonId );
+				if ( ! $current ) {
+					throw new \InvalidArgumentException( 'Строка программы не найдена.' );
+				}
+				$live = $current->lessonId ? ( $this->lessonManager->get( $current->lessonId )?->workIds() ?? array() ) : array();
+				$added = array_values( array_diff( $workIds, $current->workIdsSnapshot ?? array(), $current->extraWorkIds, $live ) );
+				if ( LessonVisibility::Hidden->value !== $this->visibility->effectiveVisibility( $current ) ) {
+					$this->rankingSnapshots->capture( $groupLessonId, $added, null, RankingAssignmentOrigin::Extra );
+				} else {
+					$this->rankingSnapshots->markPending( $groupLessonId, $added, RankingAssignmentOrigin::Extra );
+				}
+				if ( ! $this->groupLessons->setExtraWorkIds( $groupLessonId, $workIds ) ) {
+					throw new \RuntimeException( 'Не удалось сохранить дополнительные работы.' );
+				}
+			} );
+		} else {
+			$this->groupLessons->setExtraWorkIds( $groupLessonId, $workIds );
+		}
 
 		$this->dispatcher->dispatch(
 			LogEvent::ExtraWorksChanged,

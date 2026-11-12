@@ -274,11 +274,23 @@
 }
 
 
+.fs-ranking-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, rem(200)), 1fr));
+  gap: $spacing-lg;
+
+  &[hidden] { display: none; }
+}
+
 .fs-ranking-subject {
   display: flex;
   gap: $spacing-sm;
   align-items: center;
   margin-top: $spacing-sm;
+}
+
+.fs-ranking-exclusions {
+  margin-top: 20px;
 }
 
 .fs-ranking-selected {

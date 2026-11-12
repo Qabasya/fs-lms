@@ -205,7 +205,31 @@ readonly class PluginConfig {
 		return is_array( $value ) ? array_values( array_unique( array_filter( array_map( 'intval', $value ), static fn( int $id ): bool => $id > 0 ) ) ) : array();
 	}
 
+	/** Subject policy; absent entries after migration are new and disabled. */
+	public function rankingForSubject( string $subject ): array {
+		$stored = $this->repository->get();
+		if ( (int) $stored['ranking_subjects_version'] < 1 ) {
+			return array_merge( $this->rankingSettings(), array(
+				'enabled' => $this->isLearnerRankingVisible( $subject ),
+				'excluded_students' => $this->rankingExcludedStudents(),
+			) );
+		}
+		$defaults = array( 'enabled' => false, 'practice' => 0.0, 'independent' => 1.0, 'homework' => 1.0, 'survey' => 1.0, 'assessment' => 1.0, 'attendance_bonus' => 0.0, 'attendance_streak_length' => 3, 'excluded_students' => array(), 'revision' => 0, 'generation' => '' );
+		$map = $stored['ranking_subjects'];
+		$policy = is_array( $map ) && isset( $map[ $subject ] ) && is_array( $map[ $subject ] ) ? array_merge( $defaults, $map[ $subject ] ) : $defaults;
+		$policy['excluded_students'] = $this->rankingExcludedStudents();
+		return $policy;
+	}
+
+	/** Whether per-subject migration has completed. */
+	public function usesSubjectRanking(): bool {
+		return (int) $this->repository->get()['ranking_subjects_version'] >= 1;
+	}
+
 	public function isLearnerRankingVisible( string $subject ): bool {
+		if ( $this->usesSubjectRanking() ) {
+			return (bool) $this->rankingForSubject( $subject )['enabled'];
+		}
 		return ! in_array( $subject, $this->rankingHiddenSubjects(), true );
 	}
 

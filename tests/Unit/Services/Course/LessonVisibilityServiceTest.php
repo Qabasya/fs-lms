@@ -52,6 +52,130 @@ class LessonVisibilityServiceTest extends TestCase {
 		$this->service->refreshFromLesson( 42, 1 );
 	}
 
+	public function test_refresh_records_new_work_before_updating_snapshot(): void {
+		$row = $this->makeRow( workIdsSnapshot: [ 10 ] );
+		$lesson = $this->makeLesson( workIds: [ 10, 30 ] );
+		$this->groupLessons->method( 'find' )->willReturn( $row );
+		$this->lessonManager->method( 'get' )->willReturn( $lesson );
+		$events = array();
+		$this->groupLessons->method( 'setWorkIdsSnapshot' )->willReturnCallback( static function () use ( &$events ): bool {
+			$events[] = 'save';
+			return true;
+		} );
+		$snapshots = $this->createMock( \Inc\Services\Course\RankingAssignmentSnapshotService::class );
+		$snapshots->method( 'synchronized' )->willReturnCallback( static function ( callable $operation ): void { $operation(); } );
+		$snapshots->expects( self::once() )->method( 'markPending' )->with( 42, [ 30 ], \Inc\Enums\Course\RankingAssignmentOrigin::Lesson )->willReturnCallback( static function () use ( &$events ): void { $events[] = 'issue'; } );
+		$service = new LessonVisibilityService( $this->groupLessons, $this->lessonManager, $this->dispatcher, $this->clock, $snapshots, true );
+		$service->refreshFromLesson( 42, 1 );
+		self::assertSame( [ 'issue', 'save' ], $events );
+	}
+
+	public function test_refresh_throws_when_snapshot_write_fails(): void {
+		$row = $this->makeRow( workIdsSnapshot: [ 10 ] );
+		$this->groupLessons->method( 'find' )->willReturn( $row );
+		$this->lessonManager->method( 'get' )->willReturn( $this->makeLesson( workIds: [ 10, 30 ] ) );
+		$this->groupLessons->method( 'setWorkIdsSnapshot' )->willReturn( false );
+		$this->dispatcher->expects( self::never() )->method( 'dispatch' );
+		$snapshots = $this->createStub( \Inc\Services\Course\RankingAssignmentSnapshotService::class );
+		$snapshots->method( 'synchronized' )->willReturnCallback( static function ( callable $operation ): void { $operation(); } );
+		$service = new LessonVisibilityService( $this->groupLessons, $this->lessonManager, $this->dispatcher, $this->clock, $snapshots, true );
+		$this->expectException( \RuntimeException::class );
+		$service->refreshFromLesson( 42, 1 );
+	}
+
+	public function test_refresh_of_open_lesson_does_not_invent_issue_time(): void {
+		$row = GroupLessonDTO::fromArray( [
+			'id' => 42, 'group_id' => 5, 'lesson_id' => 1, 'position' => 0,
+			'visibility' => 'open', 'work_ids_snapshot' => '[10]', 'extra_work_ids' => '[]',
+		] );
+		$this->groupLessons->method( 'find' )->willReturn( $row );
+		$this->lessonManager->method( 'get' )->willReturn( $this->makeLesson( workIds: [ 10, 30 ] ) );
+		$this->groupLessons->method( 'setWorkIdsSnapshot' )->willReturn( true );
+		$snapshots = $this->createMock( \Inc\Services\Course\RankingAssignmentSnapshotService::class );
+		$snapshots->method( 'synchronized' )->willReturnCallback( static function ( callable $operation ): void { $operation(); } );
+		$snapshots->expects( self::once() )->method( 'markPublicationUnconfirmed' )->with( 42, [ 30 ], \Inc\Enums\Course\RankingAssignmentOrigin::Lesson );
+		$snapshots->expects( self::never() )->method( 'capture' );
+		$service = new LessonVisibilityService( $this->groupLessons, $this->lessonManager, $this->dispatcher, $this->clock, $snapshots, true );
+		$service->refreshFromLesson( 42, 1 );
+	}
+
+	public function test_live_work_is_marked_before_saving_and_confirmed_afterwards(): void {
+		$row = GroupLessonDTO::fromArray( [ 'id' => 42, 'group_id' => 5, 'lesson_id' => 1, 'position' => 0, 'visibility' => 'open', 'work_ids_snapshot' => '[10]', 'extra_work_ids' => '[]' ] );
+		$old = $this->makeLesson( [ 10 ] );
+		$new = $this->makeLesson( [ 10, 30 ] );
+		$this->lessonManager->method( 'get' )->willReturn( $old, $new, $new );
+		$this->groupLessons->method( 'listByLessonId' )->willReturn( [ $row ] );
+		$this->groupLessons->method( 'find' )->willReturn( $row );
+		$this->groupLessons->method( 'setExtraWorkIds' )->willReturn( true );
+		$events = array();
+		$this->lessonManager->method( 'update' )->willReturnCallback( static function () use ( &$events ): bool { $events[] = 'save'; return true; } );
+		$snapshots = $this->createMock( \Inc\Services\Course\RankingAssignmentSnapshotService::class );
+		$snapshots->method( 'synchronizedWrite' )->willReturnCallback( static function ( callable $prepare, callable $write ): void { $prepare(); $write(); } );
+		$snapshots->method( 'synchronized' )->willReturnCallback( static function ( callable $operation ): void { $operation(); } );
+		$snapshots->expects( self::once() )->method( 'markPublicationUnconfirmed' )->with( 42, [ 30 ], \Inc\Enums\Course\RankingAssignmentOrigin::Lesson )->willReturnCallback( static function () use ( &$events ): void { $events[] = 'prepare'; } );
+		$snapshots->expects( self::once() )->method( 'capture' )->with( 42, [ 30 ], null, \Inc\Enums\Course\RankingAssignmentOrigin::Lesson )->willReturnCallback( static function () use ( &$events ): void { $events[] = 'confirm'; } );
+		$publication = $this->createStub( \Inc\Services\Course\RankingLessonPublicationService::class );
+		$publication->method( 'samePeriod' )->willReturn( true );
+		$service = new LessonVisibilityService( $this->groupLessons, $this->lessonManager, $this->dispatcher, $this->clock, $snapshots, true, $publication, $this->createStub( \Inc\Services\Course\RankingScheduleHistoryService::class ) );
+		self::assertTrue( $service->saveStepsWithHistory( 1, $new ) );
+		self::assertSame( [ 'prepare', 'save', 'confirm' ], $events );
+	}
+
+	public function test_failed_step_write_never_confirms_issue(): void {
+		$row = GroupLessonDTO::fromArray( [ 'id' => 42, 'group_id' => 5, 'lesson_id' => 1, 'position' => 0, 'visibility' => 'open', 'work_ids_snapshot' => '[10]' ] );
+		$this->lessonManager->method( 'get' )->willReturn( $this->makeLesson( [ 10 ] ) );
+		$this->lessonManager->method( 'update' )->willReturn( false );
+		$this->groupLessons->method( 'listByLessonId' )->willReturn( [ $row ] );
+		$this->groupLessons->expects( self::never() )->method( 'setExtraWorkIds' );
+		$snapshots = $this->createMock( \Inc\Services\Course\RankingAssignmentSnapshotService::class );
+		$snapshots->method( 'synchronizedWrite' )->willReturnCallback( static function ( callable $prepare, callable $write ): void { $prepare(); $write(); } );
+		$snapshots->expects( self::once() )->method( 'markPublicationUnconfirmed' );
+		$snapshots->expects( self::never() )->method( 'capture' );
+		$publication = $this->createStub( \Inc\Services\Course\RankingLessonPublicationService::class );
+		$service = new LessonVisibilityService( $this->groupLessons, $this->lessonManager, $this->dispatcher, $this->clock, $snapshots, true, $publication, $this->createStub( \Inc\Services\Course\RankingScheduleHistoryService::class ) );
+		self::assertFalse( $service->saveStepsWithHistory( 1, $this->makeLesson( [ 10, 30 ] ) ) );
+	}
+
+	public function test_live_steps_for_open_individual_lesson_are_recorded_without_group_snapshot(): void {
+		$row = GroupLessonDTO::fromArray( [ 'id' => 42, 'group_id' => 5, 'lesson_id' => 1, 'position' => 0, 'kind' => 'individual', 'visibility' => 'open', 'work_ids_snapshot' => null ] );
+		$old = $this->makeLesson( [ 10 ] );
+		$new = $this->makeLesson( [ 10, 30 ] );
+		$this->lessonManager->method( 'get' )->willReturn( $old, $new, $new );
+		$this->lessonManager->method( 'update' )->willReturn( true );
+		$this->groupLessons->method( 'listByLessonId' )->willReturn( [ $row ] );
+		$this->groupLessons->method( 'find' )->willReturn( $row );
+		$this->groupLessons->method( 'setExtraWorkIds' )->willReturn( true );
+		$snapshots = $this->createMock( \Inc\Services\Course\RankingAssignmentSnapshotService::class );
+		$snapshots->method( 'synchronizedWrite' )->willReturnCallback( static function ( callable $prepare, callable $write ): void { $prepare(); $write(); } );
+		$snapshots->method( 'synchronized' )->willReturnCallback( static function ( callable $operation ): void { $operation(); } );
+		$snapshots->expects( self::once() )->method( 'markPublicationUnconfirmed' )->with( 42, [ 30 ], \Inc\Enums\Course\RankingAssignmentOrigin::Lesson );
+		$snapshots->expects( self::once() )->method( 'capture' )->with( 42, [ 10, 30 ], null, \Inc\Enums\Course\RankingAssignmentOrigin::Lesson );
+		$publication = $this->createStub( \Inc\Services\Course\RankingLessonPublicationService::class );
+		$publication->method( 'samePeriod' )->willReturn( true );
+		$service = new LessonVisibilityService( $this->groupLessons, $this->lessonManager, $this->dispatcher, $this->clock, $snapshots, true, $publication, $this->createStub( \Inc\Services\Course\RankingScheduleHistoryService::class ) );
+		self::assertTrue( $service->saveStepsWithHistory( 1, $new ) );
+	}
+
+	public function test_step_write_across_period_boundary_remains_unconfirmed(): void {
+		$row = GroupLessonDTO::fromArray( [ 'id' => 42, 'group_id' => 5, 'lesson_id' => 1, 'position' => 0, 'visibility' => 'open', 'work_ids_snapshot' => '[10]' ] );
+		$old = $this->makeLesson( [ 10 ] );
+		$new = $this->makeLesson( [ 10, 30 ] );
+		$this->lessonManager->method( 'get' )->willReturn( $old, $new, $new );
+		$this->lessonManager->method( 'update' )->willReturn( true );
+		$this->groupLessons->method( 'listByLessonId' )->willReturn( [ $row ] );
+		$this->groupLessons->method( 'find' )->willReturn( $row );
+		$this->groupLessons->method( 'setExtraWorkIds' )->willReturn( true );
+		$snapshots = $this->createMock( \Inc\Services\Course\RankingAssignmentSnapshotService::class );
+		$snapshots->method( 'synchronizedWrite' )->willReturnCallback( static function ( callable $prepare, callable $write ): void { $prepare(); $write(); } );
+		$snapshots->method( 'synchronized' )->willReturnCallback( static function ( callable $operation ): void { $operation(); } );
+		$snapshots->expects( self::exactly( 2 ) )->method( 'markPublicationUnconfirmed' );
+		$snapshots->expects( self::never() )->method( 'capture' );
+		$publication = $this->createStub( \Inc\Services\Course\RankingLessonPublicationService::class );
+		$publication->method( 'samePeriod' )->willReturn( false );
+		$service = new LessonVisibilityService( $this->groupLessons, $this->lessonManager, $this->dispatcher, $this->clock, $snapshots, true, $publication, $this->createStub( \Inc\Services\Course\RankingScheduleHistoryService::class ) );
+		self::assertTrue( $service->saveStepsWithHistory( 1, $new ) );
+	}
+
 	public function test_refresh_dispatches_schedule_changed_event(): void {
 		$row    = $this->makeRow( workIdsSnapshot: [ 10 ] );
 		$lesson = $this->makeLesson( workIds: [] );
@@ -85,6 +209,20 @@ class LessonVisibilityServiceTest extends TestCase {
 			->with( 42, [ 20 ] );
 
 		$this->service->syncExtraWorksForOpenOccurrences( 1 );
+	}
+
+	public function test_sync_records_new_extra_work_on_open_lesson(): void {
+		$row = $this->makeRow( workIdsSnapshot: [ 10 ], extraWorkIds: [] );
+		$lesson = $this->makeLesson( workIds: [ 10, 20 ] );
+		$this->lessonManager->method( 'get' )->willReturn( $lesson );
+		$this->groupLessons->method( 'listByLessonId' )->willReturn( [ $row ] );
+		$this->groupLessons->method( 'find' )->willReturn( $row );
+		$this->groupLessons->method( 'setExtraWorkIds' )->willReturn( true );
+		$snapshots = $this->createMock( \Inc\Services\Course\RankingAssignmentSnapshotService::class );
+		$snapshots->method( 'synchronized' )->willReturnCallback( static function ( callable $fn ): void { $fn(); } );
+		$snapshots->expects( self::once() )->method( 'markPending' )->with( 42, [ 20 ], \Inc\Enums\Course\RankingAssignmentOrigin::Lesson );
+		$service = new LessonVisibilityService( $this->groupLessons, $this->lessonManager, $this->dispatcher, $this->clock, $snapshots, true );
+		$service->syncExtraWorksForOpenOccurrences( 1 );
 	}
 
 	public function test_sync_skips_unpublished_occurrences(): void {

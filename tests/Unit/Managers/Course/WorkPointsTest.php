@@ -7,10 +7,62 @@ namespace Unit\Managers\Course;
 use Inc\Managers\Course\WorkManager;
 use Inc\Managers\Wp\PostManager;
 use Inc\Enums\Wp\PostMetaName;
+use Inc\Repositories\OptionsRepositories\RankingAssignmentSnapshotRepository;
+use Inc\Services\Course\RankingWorkSnapshotCoordinator;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class WorkPointsTest extends TestCase {
+	public function test_default_save_and_delete_do_not_invoke_snapshot_capture(): void {
+		$posts = $this->posts();
+		$posts->expects( self::once() )->method( 'updateMeta' );
+		$posts->expects( self::once() )->method( 'delete' )->with( 5 );
+		$snapshots = $this->createMock( RankingAssignmentSnapshotRepository::class );
+		$snapshots->expects( self::never() )->method( 'synchronizedWrite' );
+		$snapshots->expects( self::never() )->method( 'acquireLock' );
+		$coordinator = $this->createMock( RankingWorkSnapshotCoordinator::class );
+		$coordinator->expects( self::never() )->method( 'captureBeforeChange' );
+		$manager = new WorkManager( $posts, null, $snapshots, $coordinator, false );
+		self::assertTrue( $manager->setItemIds( 5, array( 20 ) ) );
+		self::assertTrue( $manager->delete( 5 ) );
+	}
+
+	public function test_saves_items_after_capturing_previous_assigned_work(): void {
+		$events = array();
+		$posts = $this->posts();
+		$posts->method( 'updateMeta' )->willReturnCallback( static function () use ( &$events ): void { $events[] = 'write'; } );
+		$snapshots = $this->createMock( RankingAssignmentSnapshotRepository::class );
+		$snapshots->method( 'synchronizedWrite' )->willReturnCallback( static function ( callable $capture, callable $write ): void { $capture(); $write(); } );
+		$coordinator = $this->createMock( RankingWorkSnapshotCoordinator::class );
+		$coordinator->expects( self::once() )->method( 'captureBeforeChange' )->willReturnCallback( static function ( $work ) use ( &$events ): void {
+			self::assertSame( array( 10 => 4, 20 => 5 ), $work->taskPoints );
+			$events[] = 'capture';
+		} );
+		self::assertTrue( ( new WorkManager( $posts, null, $snapshots, $coordinator, true ) )->setItemIds( 5, array( 20 ), array( 20 => 2 ) ) );
+		self::assertSame( array( 'capture', 'write' ), $events );
+	}
+
+	public function test_snapshot_failure_prevents_the_work_change(): void {
+		$posts = $this->posts();
+		$posts->expects( self::never() )->method( 'updateMeta' );
+		$snapshots = $this->createMock( RankingAssignmentSnapshotRepository::class );
+		$snapshots->method( 'synchronizedWrite' )->willReturnCallback( static function ( callable $capture ): void { $capture(); } );
+		$coordinator = $this->createMock( RankingWorkSnapshotCoordinator::class );
+		$coordinator->method( 'captureBeforeChange' )->willThrowException( new \RuntimeException( 'snapshot failed' ) );
+		$this->expectException( \RuntimeException::class );
+		( new WorkManager( $posts, null, $snapshots, $coordinator, true ) )->setItemIds( 5, array( 20 ) );
+	}
+
+	public function test_snapshot_failure_prevents_deleting_the_work(): void {
+		$posts = $this->posts();
+		$posts->expects( self::never() )->method( 'delete' );
+		$snapshots = $this->createMock( RankingAssignmentSnapshotRepository::class );
+		$snapshots->method( 'synchronizedWrite' )->willReturnCallback( static function ( callable $capture ): void { $capture(); } );
+		$coordinator = $this->createMock( RankingWorkSnapshotCoordinator::class );
+		$coordinator->method( 'captureBeforeChange' )->willThrowException( new \RuntimeException( 'snapshot failed' ) );
+		$this->expectException( \RuntimeException::class );
+		( new WorkManager( $posts, null, $snapshots, $coordinator, true ) )->delete( 5 );
+	}
 
 	private function posts(): PostManager {
 		$posts = $this->createMock( PostManager::class );

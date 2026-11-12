@@ -34,4 +34,11 @@ class RankingSnapshotBuilderTest extends TestCase {
 		self::assertSame( array( 10 => 1, 20 => 2 ), $snapshot[1] );
 		self::assertSame( array( 20 => 1, 30 => 1 ), $snapshot[2] );
 	}
+	public function test_incomplete_scope_is_not_saved_as_a_ranking_baseline(): void {
+		$ranking = new RankingCalculationService( $this->createStub( LearnerRankingRepository::class ), $this->createStub( RankingPointsPolicy::class ) );
+		$builder = new RankingSnapshotBuilder( $ranking );
+		$scores = array( 10 => array( 'score' => 5.0, 'score_unknown' => true ), 20 => array( 'score' => 8.0, 'score_unknown' => false ) );
+		$roster = array( array( 'student_person_id' => 10, 'group_id' => 1 ), array( 'student_person_id' => 20, 'group_id' => 2 ) );
+		self::assertSame( array( 2 => array( 20 => 1 ) ), $builder->build( $scores, $roster ) );
+	}
 }

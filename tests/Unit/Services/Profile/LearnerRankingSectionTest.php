@@ -14,9 +14,20 @@ class LearnerRankingSectionTest extends TestCase {
 
 	private function points(array $overrides = []): RankingPointsPolicy {
 		$config = $this->createStub(\Inc\Services\Shared\PluginConfig::class);
+		$config->method('rankingForSubject')->willReturnCallback(static fn() => array_merge($config->rankingSettings(), ['excluded_students' => $config->rankingExcludedStudents()]));
 		$config->method('isLearnerRankingVisible')->willReturn(true);
 		$config->method('rankingSettings')->willReturn(array_merge(['practice'=>0.0,'independent'=>1.0,'homework'=>1.0,'survey'=>1.0,'assessment'=>1.0,'attendance_bonus'=>0.0,'attendance_streak_length'=>3], $overrides));
 		return new RankingPointsPolicy($config);
+	}
+
+	public function test_tile_data_marks_incomplete_score_and_unavailable_rank(): void {
+		$ranking = $this->createStub( \Inc\Services\Profile\RankingCalculationService::class );
+		$ranking->method( 'period' )->willReturn( array( 'label' => 'Осень', 'from' => '2026-09-01 00:00:00', 'until' => '2026-12-01 00:00:00' ) );
+		$ranking->method( 'visibleToLearners' )->willReturn( true );
+		$ranking->method( 'scoresForSubject' )->willReturn( array( 1 => array( 'score' => 3.0, 'rank' => null, 'score_unknown' => true ) ) );
+		$items = ( new LearnerRankingSection( $ranking ) )->forGroups( 1, array( array( 'subject_key' => 'math' ) ), '2026-11-01 12:00:00' );
+		self::assertTrue( $items[0]['score_unknown'] );
+		self::assertNull( $items[0]['rank'] );
 	}
 
 	public static function periods(): array {
@@ -183,6 +194,7 @@ class LearnerRankingSectionTest extends TestCase {
 		$repo = $this->createMock(LearnerRankingRepository::class);
 		$repo->expects(self::never())->method('studentIds');
 		$config = $this->createStub(\Inc\Services\Shared\PluginConfig::class);
+		$config->method('rankingForSubject')->willReturnCallback(static fn() => array_merge($config->rankingSettings(), ['excluded_students' => $config->rankingExcludedStudents()]));
 		$config->method('isLearnerRankingVisible')->willReturn(false);
 		$section = new LearnerRankingSection(new \Inc\Services\Profile\RankingCalculationService($repo, new RankingPointsPolicy($config)));
 		self::assertSame([], $section->forGroups(1, [['subject_key'=>'math']], '2026-11-01 12:00:00'));

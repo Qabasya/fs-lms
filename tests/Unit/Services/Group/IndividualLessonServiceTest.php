@@ -63,7 +63,7 @@ class IndividualLessonServiceTest extends TestCase {
 				new \Inc\Services\Exam\ExamTime( $this->createMock( \Inc\Contracts\ClockInterface::class ) )
 			),
 			$this->usage,
-			$this->createMock( \Inc\Services\Profile\NotificationService::class ),
+			$this->createMock( \Inc\Services\Profile\NotificationService::class ), captureRankingAssignments: false
 		);
 	}
 
@@ -154,6 +154,42 @@ class IndividualLessonServiceTest extends TestCase {
 		$this->groupLessons->expects( self::never() )->method( 'setLessonId' );
 
 		$this->service->updateIndividualLesson( 42, null, null, 7, null, null, 99 );
+	}
+
+	public function test_individual_reschedule_captures_opening_before_date_changes(): void {
+		$row = $this->makeRow( 42, 'individual' );
+		$this->groupLessons->method( 'find' )->willReturn( $row );
+		$events = array();
+		$this->groupLessons->method( 'updateSchedule' )->willReturnCallback( static function () use ( &$events ): bool { $events[] = 'schedule'; return true; } );
+		$snapshots = $this->createStub( \Inc\Services\Course\RankingAssignmentSnapshotService::class );
+		$snapshots->method( 'synchronized' )->willReturnCallback( static function ( callable $operation ): void { $operation(); } );
+		$history = $this->createMock( \Inc\Services\Course\RankingScheduleHistoryService::class );
+		$history->expects( self::once() )->method( 'captureBeforeMutation' )->with( $row )->willReturnCallback( static function () use ( &$events ): void { $events[] = 'capture'; } );
+		$availability = new \Inc\Services\Course\RoomAvailabilityService( $this->rooms, $this->examSessions, new \Inc\Services\Exam\ExamTime( $this->createStub( \Inc\Contracts\ClockInterface::class ) ) );
+		$service = new IndividualLessonService( $this->groupLessons, $this->groups, $this->records, $this->rooms, $this->lessonManager, $this->courses, new ScheduleEventPublisher( $this->dispatcher ), $availability, $this->usage, $this->createStub( \Inc\Services\Profile\NotificationService::class ), $snapshots, $history, true );
+		$service->updateIndividualLesson( 42, '2026-12-01 10:00:00', null, null, null, null, 99 );
+		self::assertSame( array( 'capture', 'schedule' ), $events );
+	}
+
+	public function test_lesson_changed_in_winter_keeps_autumn_issue_and_dates_new_work_in_winter(): void {
+		$row = GroupLessonDTO::fromArray( array( 'id' => 42, 'group_id' => 5, 'lesson_id' => 10, 'position' => 0, 'kind' => 'individual', 'visibility' => 'hidden', 'scheduled_at' => '2026-11-30 10:00:00' ) );
+		$this->groupLessons->method( 'find' )->willReturn( $row );
+		$this->groupLessons->method( 'setLessonId' )->willReturn( true );
+		$old = new \Inc\DTO\Course\LessonDTO( 10, 'math', 'Осень', array( new \Inc\DTO\Course\StepDTO( 'w1', \Inc\Enums\Course\StepType::Work, array( 'ref' => 1 ) ) ), 1, 'publish' );
+		$new = new \Inc\DTO\Course\LessonDTO( 11, 'math', 'Зима', array( new \Inc\DTO\Course\StepDTO( 'w2', \Inc\Enums\Course\StepType::Work, array( 'ref' => 2 ) ) ), 1, 'publish' );
+		$this->lessonManager->method( 'get' )->willReturnMap( array( array( 10, $old ), array( 11, $new ) ) );
+		$this->lessonManager->method( 'isPublished' )->willReturn( true );
+		$clock = $this->createStub( \Inc\Contracts\ClockInterface::class );
+		$clock->method( 'now' )->willReturn( '2026-12-02 09:00:00' );
+		$snapshots = $this->createMock( \Inc\Services\Course\RankingAssignmentSnapshotService::class );
+		$snapshots->method( 'synchronized' )->willReturnCallback( static function ( callable $operation ): void { $operation(); } );
+		$issues = array();
+		$snapshots->method( 'capture' )->willReturnCallback( static function ( int $id, array $works, ?string $date ) use ( &$issues ): void { $issues[] = array( $works, $date ); } );
+		$history = new \Inc\Services\Course\RankingScheduleHistoryService( $this->lessonManager, $snapshots, $clock );
+		$availability = new \Inc\Services\Course\RoomAvailabilityService( $this->rooms, $this->examSessions, new \Inc\Services\Exam\ExamTime( $clock ) );
+		$service = new IndividualLessonService( $this->groupLessons, $this->groups, $this->records, $this->rooms, $this->lessonManager, $this->courses, new ScheduleEventPublisher( $this->dispatcher ), $availability, $this->usage, $this->createStub( \Inc\Services\Profile\NotificationService::class ), $snapshots, $history, true );
+		$service->assignLessonToIndividual( 42, 11, 99 );
+		self::assertSame( array( array( array( 1 ), '2026-11-30 10:00:00' ), array( array( 2 ), '2026-12-02 09:00:00' ) ), $issues );
 	}
 
 	public function test_update_individual_lesson_rejects_student_from_another_group(): void {

@@ -10,6 +10,8 @@ use Inc\Services\Course\SelfPacedContentGuard;
 use Inc\DTO\Course\WorkDTO;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Services\Subject\PostTypeResolver;
+use Inc\Repositories\OptionsRepositories\RankingAssignmentSnapshotRepository;
+use Inc\Services\Course\RankingWorkSnapshotCoordinator;
 
 /**
  * Class WorkManager
@@ -23,6 +25,9 @@ class WorkManager {
 	public function __construct(
 		private readonly PostManager $posts,
 		private readonly ?SelfPacedContentGuard $selfPacedGuard = null,
+		private readonly ?RankingAssignmentSnapshotRepository $snapshots = null,
+		private readonly ?RankingWorkSnapshotCoordinator $snapshotCoordinator = null,
+		private readonly bool $rankingSnapshotCaptureEnabled = true,
 	) {}
 
 	public function create( string $subjectKey, WorkDTO $dto ): int {
@@ -45,16 +50,14 @@ class WorkManager {
 	public function update( int $workId, WorkDTO $dto ): bool {
 		$this->selfPacedGuard?->assertMetadata( $workId, PostMetaName::Meta->value, $dto->toArray() );
 		$this->assertTotalPoints( $dto->toArray()['task_points'] );
-		$updated = $this->posts->update( $workId, array(
-			'post_title' => $dto->title,
-		) );
-
-		if ( ! $updated ) {
-			return false;
-		}
-
-		$this->saveMeta( $workId, $dto );
-		return true;
+		return $this->synchronizedMetaChange( $workId, function () use ( $workId, $dto ): bool {
+			$updated = $this->posts->update( $workId, array( 'post_title' => $dto->title ) );
+			if ( ! $updated ) {
+				return false;
+			}
+			$this->saveMeta( $workId, $dto );
+			return true;
+		} );
 	}
 
 	/** Prime WordPress posts and metadata in bounded batches before reading a work dictionary. */
@@ -93,8 +96,10 @@ class WorkManager {
 	}
 
 	public function delete( int $workId ): bool {
-		$this->posts->delete( $workId );
-		return true;
+		return $this->synchronizedMetaChange( $workId, function () use ( $workId ): bool {
+			$this->posts->delete( $workId );
+			return true;
+		} );
 	}
 
 	/**
@@ -108,6 +113,10 @@ class WorkManager {
 	 * @throws \InvalidArgumentException Некорректные баллы либо превышение суммы 9999.
 	 */
 	public function setItemIds( int $workId, array $itemIds, ?array $taskPoints = null ): bool {
+		return $this->synchronizedMetaChange( $workId, fn(): bool => $this->saveItemIds( $workId, $itemIds, $taskPoints ) );
+	}
+
+	private function saveItemIds( int $workId, array $itemIds, ?array $taskPoints ): bool {
 		$post = $this->posts->get( $workId );
 		if ( null === $post || ! PostTypeResolver::isWorkPostType( $post->post_type ) ) {
 			return false;
@@ -130,6 +139,33 @@ class WorkManager {
 		$this->selfPacedGuard?->assertMetadata( $workId, PostMetaName::Meta->value, $meta );
 		$this->posts->updateMeta( $workId, PostMetaName::Meta->value, $meta );
 		return true;
+	}
+
+	public function isRankingSnapshotCaptureEnabled(): bool {
+		return $this->rankingSnapshotCaptureEnabled;
+	}
+
+	/** Выполняет изменение меты после фиксации уже выданного состава. */
+	public function synchronizedMetaChange( int $workId, callable $change ): mixed {
+		if ( ! $this->rankingSnapshotCaptureEnabled || ! $this->snapshots || ! $this->snapshotCoordinator ) {
+			return $change();
+		}
+		$result = null;
+		try {
+			$this->snapshots->synchronizedWrite(
+				function () use ( $workId ): void {
+					wp_cache_delete( $workId, 'post_meta' );
+					$work = $this->get( $workId );
+					if ( $work ) {
+						$this->snapshotCoordinator->captureBeforeChange( $work );
+					}
+				},
+				static function () use ( $change, &$result ): void { $result = $change(); }
+			);
+		} finally {
+			wp_cache_delete( $workId, 'post_meta' );
+		}
+		return $result;
 	}
 
 	/**

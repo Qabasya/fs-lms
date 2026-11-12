@@ -18,7 +18,18 @@ globalThis.fs_lms_vars = {
     ajax_actions: { saveRankingSettings: 'save_ranking_settings' },
     nonces: { config: 'settings-nonce' },
 };
-const { RankingSettings, matchingStudents } = await import( '../../src/js/admin/services/settings/ranking-settings.js' );
+const { RankingSettings, matchingStudents, syncRankingFields } = await import( '../../src/js/admin/services/settings/ranking-settings.js' );
+
+test( 'subject toggle hides and disables only its own fields', () => {
+    const math = {};
+    const physics = {};
+    syncRankingFields( math, false );
+    syncRankingFields( physics, true );
+    assert.deepEqual( math, { hidden: true, disabled: true } );
+    assert.deepEqual( physics, { hidden: false, disabled: false } );
+    syncRankingFields( math, true );
+    assert.deepEqual( math, { hidden: false, disabled: false } );
+} );
 
 function form( valid = true ) {
     const state = { text: '', classes: '', disabled: false, data: {}, attrs: {} };
@@ -113,4 +124,44 @@ test( 'student search finds unselected names without changing existing selection
     assert.deepEqual( matchingStudents( options, ' ИВАН ' ).map( item => item.value ), [ '2', '3' ] );
     assert.deepEqual( matchingStudents( options, 'и' ), [] );
     assert.equal( options[ 0 ].selected, true );
+} );
+
+test( 'subject save keeps edits made during a request and hidden unsent edits dirty', () => {
+    const toggle = { checked: true };
+    const field = { name: 'practice', value: '2', dataset: { original: '1' } };
+    const select = { selectedOptions: [] };
+    const card = {
+        dataset: { rankingCard: 'math', enabledOriginal: '1', excludedOriginal: '' },
+        querySelector( selector ) { return selector === 'input[type=checkbox]' ? toggle : select; },
+        querySelectorAll() { return [ field ]; },
+    };
+    const state = { data: { excludedOriginal: '' } };
+    const status = { text() { return this; }, removeClass() { return this; }, addClass() { return this; } };
+    const $form = {
+        0: { reportValidity: () => true },
+        data( key, value ) { if ( arguments.length === 1 ) return state.data[ key ]; state.data[ key ] = value; return this; },
+        attr() { return this; }, removeAttr() { return this; },
+        find( selector ) {
+            if ( selector === '[data-ranking-card]' ) return { each( callback ) { callback( 0, card ); } };
+            if ( selector === '#fs-ranking-excluded' ) return { val: () => [] };
+            if ( selector === '.js-ranking-status' ) return status;
+            if ( selector === 'button' ) return { prop() {} };
+            throw new Error( selector );
+        },
+    };
+    RankingSettings.saveSubjects( $form );
+    assert.deepEqual( request.payload.subjects, { math: { practice: '2' } } );
+    field.value = '3';
+    request.callbacks.done( { success: true } );
+    request.callbacks.always();
+    assert.equal( field.dataset.original, '2' );
+    toggle.checked = false;
+    RankingSettings.saveSubjects( $form );
+    assert.deepEqual( request.payload.subjects, { math: { enabled: '0' } } );
+    request.callbacks.done( { success: true } );
+    request.callbacks.always();
+    assert.equal( field.dataset.original, '2' );
+    toggle.checked = true;
+    RankingSettings.saveSubjects( $form );
+    assert.deepEqual( request.payload.subjects, { math: { enabled: '1', practice: '3' } } );
 } );

@@ -107,7 +107,7 @@ class SessionCalendarService {
 	 *
 	 * @param int $groupId
 	 */
-	public function reflow( int $groupId ): ScheduleReflowResultDTO {
+	public function reflow( int $groupId, bool $strict = false ): ScheduleReflowResultDTO {
 		$slots     = $this->generate( $groupId );
 		$consuming = $this->consumingCount( $groupId );
 		$unplaced  = max( 0, $consuming - count( $slots ) );
@@ -141,7 +141,11 @@ class SessionCalendarService {
 			);
 		}
 
-		$this->groupLessons->applySlots( $groupId, $slots );
+		if ( $strict ) {
+			$this->groupLessons->applySlots( $groupId, $slots, true );
+		} else {
+			$this->groupLessons->applySlots( $groupId, $slots );
+		}
 
 		return new ScheduleReflowResultDTO(
 			conflicts: $conflicts,

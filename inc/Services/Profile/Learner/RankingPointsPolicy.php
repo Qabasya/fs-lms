@@ -24,6 +24,15 @@ class RankingPointsPolicy {
 		return $this->config->rankingExcludedStudents();
 	}
 
+	/** Read one subject's weights and exclusions together. */
+	public function forSubject( string $subject ): array {
+		return $this->config->rankingForSubject( $subject );
+	}
+
+	public function usesSubjectSettings(): bool {
+		return $this->config->usesSubjectRanking();
+	}
+
 	public function visibleToLearners( string $subject ): bool {
 		return $this->config->isLearnerRankingVisible( $subject );
 	}
