@@ -20,6 +20,8 @@ use Inc\Repositories\OptionsRepositories\TaxonomyRepository;
 use Inc\Services\Subject\Import\ImportRollbackService;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Subject\SubjectPagesService;
+use Inc\Services\Task\TaskFileNormalizationService;
+use Inc\Managers\Wp\PostManager;
 use InvalidArgumentException;
 use RuntimeException;
 
@@ -93,6 +95,8 @@ class SubjectBundleImportService {
 		private readonly ProblemDeduplicator   $problems,
 		private readonly ImportRollbackService $rollback,
 		private readonly SubjectPagesService   $pages,
+		private readonly ?TaskFileNormalizationService $fileNormalization = null,
+		private readonly ?PostManager $postManager = null,
 	) {}
 
 	/**
@@ -221,6 +225,22 @@ class SubjectBundleImportService {
 		// Лендинг заводим последним: откат импорта страниц не удаляет,
 		// и после неудачной попытки их остаться не должно.
 		$this->pages->ensureForSubject( $subject );
+		if ( $this->fileNormalization && $this->postManager ) {
+			foreach ( $created->postIds() as $postId ) {
+				$post = $this->postManager->get( $postId );
+				if ( ! $post || $post->post_type !== PostTypeResolver::tasks( $key ) || 'publish' !== $post->post_status ) {
+					continue;
+				}
+				try {
+					$result = $this->fileNormalization->apply( $postId );
+					foreach ( $result['warnings'] as $warning ) {
+						$warnings[] = sprintf( 'Задание #%d: %s', $postId, $warning );
+					}
+				} catch ( \Throwable $error ) {
+					$warnings[] = sprintf( 'Задание #%d: файлы не переименованы: %s', $postId, $error->getMessage() );
+				}
+			}
+		}
 
 		return new SubjectImportReportDTO(
 			dryRun:      false,

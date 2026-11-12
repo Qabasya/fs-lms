@@ -27,6 +27,75 @@ use PHPUnit\Framework\TestCase;
  * Запись, откат и файлы проверены на стенде (сквозной прогон на MariaDB) — здесь только план.
  */
 class TaskBulkEditServiceTest extends TestCase {
+	public function test_bulk_number_change_keeps_draft_files_untouched(): void {
+		$post = new \WP_Post( array( 'ID' => 1, 'post_name' => '1000', 'post_title' => '№ 1000. Задача', 'post_type' => 'inf_tasks', 'post_status' => 'draft' ) );
+		$posts = $this->createStub( PostManager::class );
+		$posts->method( 'findBySlug' )->willReturnCallback( static fn( string $type, string $slug ): ?\WP_Post => '1000' === $slug ? $post : null );
+		$posts->method( 'getMeta' )->willReturn( array( 'file' => 'https://site.example/file.txt' ) );
+		$terms = $this->createStub( TermManager::class );
+		$terms->method( 'getPostTerms' )->willReturn( array( new \WP_Term( 11, '1', 'inf_task_number' ) ) );
+		$terms->method( 'findBySlug' )->willReturn( new \WP_Term( 11, '1', 'inf_task_number' ) );
+		$taxonomies = $this->createStub( TaxonomyRepository::class );
+		$files = $this->createMock( TaskBulkFileService::class );
+		$files->expects( self::never() )->method( 'plan' );
+		$normalizer = $this->createMock( \Inc\Services\Task\TaskFileNormalizationService::class );
+		$normalizer->expects( self::never() )->method( 'preview' );
+		$service = new TaskBulkEditService( $posts, $terms, new TaskNumberService( $posts ), new TaskBulkCsvService( $posts, $terms, $taxonomies, new CsvExportService( $this->createStub( OneTimeDownloadService::class ) ) ), $files, $this->createStub( TaskBulkSnapshotRepository::class ), $this->createStub( TaskFileSchemeService::class ), $this->createStub( ContentCacheService::class ), $this->createStub( LogEventDispatcherInterface::class ), $this->createStub( ClockInterface::class ), $normalizer );
+		self::assertSame( array(), $service->plan( 'inf', array( $this->row( '1000', '1001' ) ) )[0]->fileOps );
+	}
+	public function test_bulk_apply_updates_shared_file_and_material_and_snapshots_originals(): void {
+		$post = new \WP_Post( array( 'ID' => 1, 'post_name' => '1000', 'post_type' => 'inf_tasks', 'post_title' => 'Задача', 'post_date' => '2026-01-01 00:00:00', 'post_date_gmt' => '2026-01-01 00:00:00', 'post_status' => 'publish' ) );
+		$before = array( 'file' => 'https://site.example/old.txt', 'task_materials' => array( 'attachment_ids' => array( 5 ) ) );
+		$posts = $this->createMock( PostManager::class );
+		$posts->method( 'get' )->willReturn( $post );
+		$posts->method( 'getMeta' )->willReturn( $before );
+		$posts->expects( self::once() )->method( 'updateMeta' )->with( 1, \Inc\Enums\Wp\PostMetaName::Meta->value, array( 'file' => 'https://site.example/1001.txt', 'task_materials' => array( 'attachment_ids' => array( 99 ) ) ) );
+		$terms = $this->createStub( TermManager::class );
+		$taxonomies = $this->createStub( TaxonomyRepository::class );
+		$files = $this->createStub( TaskBulkFileService::class );
+		$snapshots = $this->createMock( TaskBulkSnapshotRepository::class );
+		$snapshots->expects( self::once() )->method( 'create' )->willReturnCallback( static function ( string $subject, int $user, array $items ): int {
+			self::assertSame( array( 'file' => 'https://site.example/old.txt', 'task_materials' => array( 'attachment_ids' => array( 5 ) ) ), $items[0]['before']['file_meta'] );
+			return 123;
+		} );
+		$media = $this->createMock( \Inc\Managers\Wp\MediaManager::class );
+		$media->expects( self::once() )->method( 'createAttachmentForFile' )->with( '/new/1001.txt', 1 )->willReturn( 99 );
+		$service = new TaskBulkEditService( $posts, $terms, new TaskNumberService( $posts ), new TaskBulkCsvService( $posts, $terms, $taxonomies, new CsvExportService( $this->createStub( OneTimeDownloadService::class ) ) ), $files, $snapshots, $this->createStub( TaskFileSchemeService::class ), $this->createStub( ContentCacheService::class ), $this->createStub( LogEventDispatcherInterface::class ), $this->createStub( ClockInterface::class ), null, $media );
+		$op = array( 'key' => 'file', 'keys' => array( 'file', '__material_5' ), 'material_ids' => array( 5 ), 'from' => '/old.txt', 'to' => '/new/1001.txt', 'new_url' => 'https://site.example/1001.txt', 'mode' => TaskBulkFileService::MODE_COPY );
+		$item = new \Inc\DTO\Task\TaskBulkPlanItemDTO( 1, 1, '1000', '1001', fileOps: array( $op ), changes: array( 'номер' ) );
+		self::assertSame( 1, $service->apply( 'inf', array( $item ), 1 )['applied'] );
+	}
+	public function test_failed_file_execution_does_not_delete_a_foreign_target(): void {
+		$posts = $this->createStub( PostManager::class );
+		$posts->method( 'get' )->willReturn( new \WP_Post( array( 'ID' => 1, 'post_name' => '1000', 'post_type' => 'inf_tasks', 'post_title' => 'Задача', 'post_date' => '2026-01-01 00:00:00', 'post_date_gmt' => '2026-01-01 00:00:00', 'post_status' => 'publish' ) ) );
+		$terms = $this->createStub( TermManager::class );
+		$taxonomies = $this->createStub( TaxonomyRepository::class );
+		$files = $this->createMock( TaskBulkFileService::class );
+		$files->expects( self::once() )->method( 'execute' )->willThrowException( new \RuntimeException( 'target became occupied' ) );
+		$files->expects( self::never() )->method( 'revert' );
+		$service = new TaskBulkEditService( $posts, $terms, new TaskNumberService( $posts ), new TaskBulkCsvService( $posts, $terms, $taxonomies, new CsvExportService( $this->createStub( OneTimeDownloadService::class ) ) ), $files, $this->createStub( TaskBulkSnapshotRepository::class ), $this->createStub( TaskFileSchemeService::class ), $this->createStub( ContentCacheService::class ), $this->createStub( LogEventDispatcherInterface::class ), $this->createStub( ClockInterface::class ) );
+		$item = new \Inc\DTO\Task\TaskBulkPlanItemDTO( 1, 1, '1000', '1001', fileOps: array( array( 'key' => 'file', 'mode' => TaskBulkFileService::MODE_COPY ) ), changes: array( 'номер' ) );
+		$this->expectException( \RuntimeException::class );
+		$this->expectExceptionMessage( 'target became occupied' );
+		$service->apply( 'inf', array( $item ), 1 );
+	}
+	public function test_bulk_number_change_plans_fields_and_materials_together(): void {
+		$post = new \WP_Post( array( 'ID' => 1, 'post_name' => '1000', 'post_title' => '№ 1000. Задача', 'post_type' => 'inf_tasks', 'post_status' => 'publish' ) );
+		$posts = $this->createStub( PostManager::class );
+		$posts->method( 'findBySlug' )->willReturnCallback( static fn( string $type, string $slug ): ?\WP_Post => '1000' === $slug ? $post : null );
+		$posts->method( 'getMeta' )->willReturn( array( 'task_materials' => array( 'attachment_ids' => array( 5 ) ) ) );
+		$terms = $this->createStub( TermManager::class );
+		$terms->method( 'getPostTerms' )->willReturn( array( new \WP_Term( 11, '1', 'inf_task_number' ) ) );
+		$terms->method( 'findBySlug' )->willReturn( new \WP_Term( 11, '1', 'inf_task_number' ) );
+		$taxonomies = $this->createStub( TaxonomyRepository::class );
+		$taxonomies->method( 'getBySubject' )->willReturn( array() );
+		$normalizer = $this->createMock( \Inc\Services\Task\TaskFileNormalizationService::class );
+		$op = array( 'key' => '__material_5', 'keys' => array( '__material_5' ), 'material_ids' => array( 5 ), 'from' => '/old', 'to' => '/new', 'new_url' => 'https://example.com/1001.txt', 'mode' => TaskBulkFileService::MODE_COPY );
+		$normalizer->expects( self::once() )->method( 'preview' )->with( 1, '1001' )->willReturn( array( 'ops' => array( $op ), 'warnings' => array() ) );
+		$service = new TaskBulkEditService( $posts, $terms, new TaskNumberService( $posts ), new TaskBulkCsvService( $posts, $terms, $taxonomies, new CsvExportService( $this->createStub( OneTimeDownloadService::class ) ) ), $this->createStub( TaskBulkFileService::class ), $this->createStub( TaskBulkSnapshotRepository::class ), $this->createStub( TaskFileSchemeService::class ), $this->createStub( ContentCacheService::class ), $this->createStub( LogEventDispatcherInterface::class ), $this->createStub( ClockInterface::class ), $normalizer, $this->createStub( \Inc\Managers\Wp\MediaManager::class ) );
+		$items = $service->plan( 'inf', array( $this->row( '1000', '1001' ) ) );
+		self::assertSame( array( 5 ), $items[0]->fileOps[0]['material_ids'] );
+	}
 
 	/** @var array<string, \WP_Post> Задания предмета по слагу. */
 	private array $posts = array();
@@ -35,6 +104,7 @@ class TaskBulkEditServiceTest extends TestCase {
 	private array $numberTerms = array();
 
 	private TaskBulkEditService $service;
+	private array $taskMeta = array();
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -54,7 +124,7 @@ class TaskBulkEditServiceTest extends TestCase {
 				return ( null !== $post && $post->ID !== $exclude ) ? $post : null;
 			}
 		);
-		$posts->method( 'getMeta' )->willReturn( array() );
+		$posts->method( 'getMeta' )->willReturnCallback( fn(): array => $this->taskMeta );
 		$posts->method( 'findSlugsByPrefix' )->willReturn( array() );
 
 		$terms = $this->createMock( TermManager::class );
@@ -77,6 +147,25 @@ class TaskBulkEditServiceTest extends TestCase {
 			$this->createMock( ClockInterface::class ),
 		);
 	}
+
+	public function test_bulk_number_change_preserves_original_file_url(): void {
+		$root = sys_get_temp_dir() . '/fs-lms-bulk-' . uniqid();
+		mkdir( $root );
+		file_put_contents( $root . '/1000.txt', 'original' );
+		$GLOBALS['_fs_test_upload_dir'] = array( 'basedir' => $root, 'baseurl' => 'https://site.example/uploads' );
+		try {
+			$this->task( 1, '1000' );
+			$this->taskMeta = array( 'file' => 'https://site.example/uploads/1000.txt' );
+			$items = $this->service->plan( 'inf', array( $this->row( '1000', '1001' ) ) );
+			self::assertSame( TaskBulkFileService::MODE_COPY, $items[0]->fileOps[0]['mode'] );
+			self::assertSame( $root . '/fs-lms/task-files/inf/1/1001.txt', $items[0]->fileOps[0]['to'] );
+		} finally {
+			unset( $GLOBALS['_fs_test_upload_dir'] );
+			unlink( $root . '/1000.txt' );
+			rmdir( $root );
+		}
+	}
+
 
 	private function task( int $id, string $slug, string $title = 'Демо' ): void {
 		$this->posts[ $slug ] = new \WP_Post( array( 'ID' => $id, 'post_name' => $slug, 'post_title' => "№ {$slug}. {$title}", 'post_type' => 'inf_tasks' ) );

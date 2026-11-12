@@ -14,6 +14,7 @@ use Inc\Enums\Log\LogEvent;
 use Inc\Enums\Log\OperationType;
 use Inc\Enums\Wp\PostMetaName;
 use Inc\Managers\Wp\PostManager;
+use Inc\Managers\Wp\MediaManager;
 use Inc\Managers\Wp\TermManager;
 use Inc\Repositories\WPDBRepositories\TaskBulkSnapshotRepository;
 use Inc\Services\Subject\ContentCacheService;
@@ -60,6 +61,8 @@ class TaskBulkEditService {
 		private readonly ContentCacheService $cache,
 		private readonly LogEventDispatcherInterface $dispatcher,
 		private readonly ClockInterface $clock,
+		private readonly ?TaskFileNormalizationService $fileNormalization = null,
+		private readonly ?MediaManager $media = null,
 	) {}
 
 	/**
@@ -116,6 +119,8 @@ class TaskBulkEditService {
 		$snapshotItems = array_map( fn( TaskBulkPlanItemDTO $i ): array => $this->snapshotItem( $i, $numberTax ), $todo );
 		$snapshotId    = $this->snapshots->create( $subjectKey, $actorUserId, $snapshotItems, $this->clock->now( 'mysql', true ) );
 
+		$createdAttachments = array();
+		$filesExecuted = false;
 		try {
 			// Фаза 1: меняющиеся слаги уходят на временные — освобождают номера для обмена и цепочек.
 			foreach ( $todo as $item ) {
@@ -125,14 +130,18 @@ class TaskBulkEditService {
 			}
 
 			$this->files->execute( array_merge( array(), ...array_map( static fn( TaskBulkPlanItemDTO $i ): array => $i->fileOps, $todo ) ) );
+			$filesExecuted = true;
 
 			// Фаза 2: содержимое и итоговые слаги.
 			foreach ( $todo as $item ) {
-				$this->write( $item, $numberTax );
+				$this->write( $item, $numberTax, $createdAttachments );
 				++$report['applied'];
 			}
 		} catch ( \Throwable $e ) {
-			$this->restore( $subjectKey, $snapshotItems, false );
+			foreach ( $createdAttachments as $attachmentId ) {
+				$this->media?->delete( $attachmentId );
+			}
+			$this->restore( $subjectKey, $snapshotItems, false, $filesExecuted );
 			$this->snapshots->delete( $snapshotId );
 			throw new \RuntimeException( 'Правка прервана и отменена: ' . $e->getMessage(), 0, $e );
 		}
@@ -351,14 +360,19 @@ class TaskBulkEditService {
 		if ( '' === $row->newNumber ) {
 			return;
 		}
+		if ( $this->fileNormalization && 'publish' !== $post->post_status ) {
+			return;
+		}
 
 		$meta = $this->posts->getMeta( $post->ID, PostMetaName::Meta->value );
-		$plan = $this->files->plan( is_array( $meta ) ? $meta : array(), $item->newSlug, $post->ID );
+		$plan = $this->fileNormalization
+			? $this->fileNormalization->preview( $post->ID, $item->newSlug )
+			: $this->files->plan( is_array( $meta ) ? $meta : array(), $item->newSlug, $post->ID, true, PostTypeResolver::subjectFromTaskPostType( $post->post_type ) );
 
 		$item->fileOps    = $plan['ops'];
 		$item->warnings   = array_merge( $item->warnings, $plan['warnings'] );
 		foreach ( $plan['ops'] as $op ) {
-			$verb            = TaskBulkFileService::MODE_COPY === $op['mode'] ? 'скопирован (файл общий с другим заданием)' : 'переименован';
+			$verb            = TaskBulkFileService::MODE_COPY === $op['mode'] ? 'скопирован, исходная ссылка сохранена' : 'переименован';
 			$item->changes[] = 'файл ' . basename( $op['from'] ) . ' → ' . basename( $op['to'] ) . ", {$verb}";
 		}
 	}
@@ -456,7 +470,14 @@ class TaskBulkEditService {
 
 		$fileMeta = array();
 		foreach ( $item->fileOps as $op ) {
-			$fileMeta[ $op['key'] ] = $meta[ $op['key'] ] ?? '';
+			foreach ( $op['keys'] ?? array( $op['key'] ) as $key ) {
+				if ( in_array( $key, TaskBulkFileService::KEYS, true ) ) {
+					$fileMeta[ $key ] = $meta[ $key ] ?? '';
+				}
+			}
+			if ( ! empty( $op['material_ids'] ) ) {
+				$fileMeta['task_materials'] = $meta['task_materials'] ?? array();
+			}
 		}
 
 		$title = $post ? $post->post_title : '';
@@ -483,7 +504,7 @@ class TaskBulkEditService {
 		);
 	}
 
-	private function write( TaskBulkPlanItemDTO $item, string $numberTax ): void {
+	private function write( TaskBulkPlanItemDTO $item, string $numberTax, array &$createdAttachments ): void {
 		$fields = array();
 		if ( null !== $item->newTitle ) {
 			$fields['post_title'] = $item->newTitle;
@@ -498,7 +519,23 @@ class TaskBulkEditService {
 			$meta = $this->posts->getMeta( $item->postId, PostMetaName::Meta->value );
 			$meta = is_array( $meta ) ? $meta : array();
 			foreach ( $item->fileOps as $op ) {
-				$meta[ $op['key'] ] = $op['new_url'];
+				foreach ( $op['keys'] ?? array( $op['key'] ) as $key ) {
+					if ( in_array( $key, TaskBulkFileService::KEYS, true ) ) {
+						$meta[ $key ] = $op['new_url'];
+					}
+				}
+				if ( ! empty( $op['material_ids'] ) ) {
+					if ( ! $this->media ) {
+						throw new \RuntimeException( 'Недоступна регистрация вложений материалов.' );
+					}
+					$id = $this->media->createAttachmentForFile( $op['to'], $item->postId );
+					$createdAttachments[] = $id;
+					foreach ( $meta['task_materials']['attachment_ids'] ?? array() as $index => $oldId ) {
+						if ( in_array( (int) $oldId, $op['material_ids'], true ) ) {
+							$meta['task_materials']['attachment_ids'][ $index ] = $id;
+						}
+					}
+				}
 			}
 			$this->posts->updateMeta( $item->postId, PostMetaName::Meta->value, $meta );
 		}
@@ -534,7 +571,7 @@ class TaskBulkEditService {
 	 *
 	 * @return array{restored: int, skipped: string[]}
 	 */
-	private function restore( string $subjectKey, array $items, bool $strict ): array {
+	private function restore( string $subjectKey, array $items, bool $strict, bool $revertFiles = true ): array {
 		$postType = PostTypeResolver::tasks( $subjectKey );
 		$batchIds = array_map( static fn( array $s ): int => (int) $s['post_id'], $items );
 		$skipped  = array();
@@ -562,7 +599,14 @@ class TaskBulkEditService {
 			$this->posts->renameSlug( (int) $snap['post_id'], self::TEMP_SLUG . $snap['post_id'] );
 		}
 
-		$this->files->revert( array_merge( array(), ...array_map( static fn( array $s ): array => $s['file_ops'], $todo ) ) );
+		$fileOps = array_merge( array(), ...array_map( static fn( array $s ): array => $s['file_ops'], $todo ) );
+		// При штатном откате новые ссылки могли уже попасть в материалы; копии сохраняем.
+		if ( $strict ) {
+			$fileOps = array_values( array_filter( $fileOps, static fn( array $op ): bool => TaskBulkFileService::MODE_MOVE === $op['mode'] ) );
+		}
+		if ( $revertFiles ) {
+			$this->files->revert( $fileOps );
+		}
 
 		foreach ( $todo as $snap ) {
 			$id     = (int) $snap['post_id'];

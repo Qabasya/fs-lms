@@ -168,6 +168,20 @@ class MediaManager {
 		return (bool) wp_delete_attachment( $attachmentId, true );
 	}
 
+	/** Регистрирует уже созданную копию, не меняя исходное вложение. */
+	public function createAttachmentForFile( string $path, int $postId ): int {
+		$type = wp_check_filetype( basename( $path ), $this->extendUploadMimes( get_allowed_mime_types() ) );
+		$id = wp_insert_attachment( array(
+			'post_mime_type' => $type['type'] ?: 'application/octet-stream',
+			'post_title' => pathinfo( $path, PATHINFO_FILENAME ),
+			'post_status' => 'inherit',
+		), $path, $postId, true );
+		if ( is_wp_error( $id ) || ! $id ) {
+			throw new \RuntimeException( 'Не удалось зарегистрировать копию вложения.' );
+		}
+		return (int) $id;
+	}
+
 	/**
 	 * Описание вложения для интерфейса: ссылка, имя, MIME. null — вложения нет.
 	 *

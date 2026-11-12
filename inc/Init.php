@@ -106,6 +106,7 @@ use Inc\Cli\SubjectBundleCommand;
 use Inc\Cli\TaskConditionCleanupCommand;
 use Inc\Cli\AttemptRegradeCommand;
 use Inc\Cli\TaskFileSchemeCommand;
+use Inc\Cli\TaskFileRenameCommand;
 use Inc\Cli\ExamCommand;
 use Inc\Cli\ExamStandCommand;
 use Inc\Controllers\Import\ImportController;
@@ -246,6 +247,7 @@ final class Init {
 			SubjectBundleCommand::class, // WP-CLI: перенос предмета пакетом (регистрируется только под WP_CLI)
 			AttemptRegradeCommand::class, // WP-CLI: пересчёт автоматически проверяемых заданий сданных попыток станции
 			TaskFileSchemeCommand::class, // WP-CLI: http:// → https:// в ссылках на файлы заданий
+			TaskFileRenameCommand::class, // WP-CLI: нормализация имён файлов заданий
 			TaskConditionCleanupCommand::class, // WP-CLI: пустые строки по краям условий заданий
 			ExamCommand::class, // WP-CLI: команды управления экзаменами
 			ExamStandCommand::class, // WP-CLI: самопроверка схемы и стенд параллельных запросов (только dev)

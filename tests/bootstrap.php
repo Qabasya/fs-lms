@@ -350,6 +350,8 @@ if (!class_exists('WP_Post')) {
         public string $post_content = '';
         public string $post_name = '';
         public string $post_excerpt = '';
+		public string $post_date = '';
+		public string $post_date_gmt = '';
         public int $post_parent = 0;
         public int $menu_order = 0;
         public function __construct(array $data = []) {

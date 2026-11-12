@@ -176,6 +176,9 @@ export const TaskEditor = {
 			.done( ( res ) => {
 				if ( res && res.success ) {
 					this._close();
+					if ( res.data.file_warnings?.length ) {
+						showToast( res.data.file_warnings.join( ' ' ), 'warning', 10000 );
+					}
 					if ( typeof onSave === 'function' ) {
 						onSave( res.data.id, res.data.title );
 					}

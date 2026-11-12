@@ -13,10 +13,14 @@ use Inc\Enums\Wp\PostMetaName;
 use Inc\MetaBoxes\Fields\HintField;
 use Inc\Managers\Wp\MetaBoxManager;
 use Inc\Managers\Wp\PostManager;
+use Inc\Managers\Wp\TransientManager;
+use Inc\Enums\Wp\TransientKey;
 use Inc\Registrars\MetaBoxRegistrar;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Task\TaskBundleService;
+use Inc\Services\Task\TaskFileNormalizationService;
+use Inc\Shared\PluginLogger;
 use Inc\Services\Template\TemplateRegistry;
 use Inc\Services\Template\TemplateResolver;
 use Inc\Shared\Traits\Authorizer;
@@ -67,6 +71,8 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 		private readonly MetaBoxManager    $metaBoxManager,
 		private readonly PostManager       $postManager,
 		private readonly TaskBundleService $taskBundles,
+		private readonly ?TaskFileNormalizationService $fileNormalization = null,
+		private readonly ?TransientManager $transients = null,
 	) {
 		parent::__construct();
 	}
@@ -84,6 +90,9 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 		add_action( 'add_meta_boxes', array( $this, 'handleAddMetaBoxes' ), 10, 2 );
 		add_action( 'save_post', array( $this, 'handleMetaSave' ) );
 		add_action( 'transition_post_status', array( $this, 'handleBundleStatusTransition' ), 10, 3 );
+		add_action( 'transition_post_status', array( $this, 'handleScheduledFilePublication' ), 20, 3 );
+		add_action( 'wp_after_insert_post', array( $this, 'handleProgrammaticTaskInsert' ), 20, 3 );
+		add_action( 'admin_notices', array( $this, 'showFileWarnings' ) );
 		add_filter( 'fs_lms_get_templates', array( $this, 'getTemplatesList' ) );
 		add_filter( 'default_hidden_meta_boxes', array( $this, 'defaultHiddenMetaboxes' ), 10, 2 );
 	}
@@ -284,11 +293,58 @@ class MetaBoxController extends BaseController implements ServiceInterface {
 			$data,
 			$all_fields
 		);
+		if ( 'publish' === $post->post_status && PostTypeResolver::isTaskPostType( $post->post_type ) ) {
+			$this->normalizeFiles( $post_id );
+		}
 
 		// Связка 19-21: parent — единственный источник контента, children материализуются
 		// автоматически при каждом сохранении (см. .docs/Tasks.md, §3.1).
 		if ( TaskTemplate::Triple->value === $template_id ) {
 			$this->taskBundles->syncChildren( $post_id );
+		}
+	}
+
+	/** Запланированная публикация уже имеет сохранённые метаданные. */
+	public function handleScheduledFilePublication( string $newStatus, string $oldStatus, \WP_Post $post ): void {
+		if ( 'future' === $oldStatus && 'publish' === $newStatus && PostTypeResolver::isTaskPostType( $post->post_type ) ) {
+			$this->normalizeFiles( $post->ID, (int) $post->post_author );
+		}
+	}
+
+	/** Программная вставка с meta_input: WordPress уже записал метаданные. */
+	public function handleProgrammaticTaskInsert( int $postId, \WP_Post $post, bool $update ): void {
+		if ( $update || isset( $_POST[ PostMetaName::Meta->value ] ) || ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) || wp_is_post_revision( $postId ) || wp_is_post_autosave( $postId ) ) {
+			return;
+		}
+		if ( 'publish' === $post->post_status && PostTypeResolver::isTaskPostType( $post->post_type ) ) {
+			$this->normalizeFiles( $postId, (int) $post->post_author );
+		}
+	}
+
+	public function showFileWarnings(): void {
+		$userId = get_current_user_id();
+		$warnings = $userId && $this->transients ? $this->transients->take( TransientKey::TaskFileNormalization, $userId ) : false;
+		if ( is_array( $warnings ) && $warnings ) {
+			$this->render( 'admin/components/admin-notice', array( 'type' => 'warning', 'message' => implode( ' ', $warnings ) ) );
+		}
+	}
+
+	private function normalizeFiles( int $postId, ?int $recipientId = null ): void {
+		if ( ! $this->fileNormalization ) {
+			return;
+		}
+		try {
+			$warnings = $this->fileNormalization->apply( $postId )['warnings'];
+		} catch ( \Throwable $error ) {
+			PluginLogger::exception( 'TaskFiles', $error );
+			$warnings = array( 'Файлы задания не переименованы: ' . $error->getMessage() );
+		}
+		if ( $warnings ) {
+			PluginLogger::warning( 'TaskFiles', 'Не все файлы удалось обработать.', array( 'post_id' => $postId, 'warnings' => $warnings ) );
+			$userId = $recipientId ?: get_current_user_id();
+			if ( $userId && $this->transients ) {
+				$this->transients->set( TransientKey::TaskFileNormalization, $userId, $warnings, 300 );
+			}
 		}
 	}
 

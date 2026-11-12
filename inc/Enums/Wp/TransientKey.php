@@ -23,6 +23,9 @@ enum TransientKey: string {
 	/** Причина отказа в правке замороженного варианта экзамена для нотиса (суффикс — ID пользователя). */
 	case ExamVariantBlocked = 'fs_lms_exam_variant_blocked_';
 
+	/** Предупреждения о файлах после сохранения задания (ID автора). */
+	case TaskFileNormalization = 'fs_lms_task_file_notice_';
+
 	/** HTML-таблица последних заданий предмета (суффикс — ключ предмета). */
 	case RecentTasks = 'fs_lms_recent_tasks_';
 

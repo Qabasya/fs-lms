@@ -24,6 +24,38 @@ use PHPUnit\Framework\TestCase;
  * бокс вылезал у статей и задач банка.
  */
 class CommonConditionMetaboxTest extends TestCase {
+	public function test_programmatically_inserted_public_task_is_normalized_after_insert(): void {
+		$_POST = array();
+		$normalizer = $this->createMock( \Inc\Services\Task\TaskFileNormalizationService::class );
+		$normalizer->expects( self::once() )->method( 'apply' )->with( 7 )->willReturn( array( 'updated' => 1, 'warnings' => array() ) );
+		$controller = new MetaBoxController( $this->createStub( SubjectRepository::class ), $this->createStub( MetaBoxRegistrar::class ), $this->createStub( TemplateRegistry::class ), $this->createStub( TemplateResolver::class ), $this->createStub( MetaBoxManager::class ), $this->createStub( PostManager::class ), $this->createStub( TaskBundleService::class ), $normalizer );
+		$controller->handleProgrammaticTaskInsert( 7, new \WP_Post( array( 'ID' => 7, 'post_type' => 'inf_tasks', 'post_status' => 'publish' ) ), false );
+	}
+	public function test_scheduled_publication_normalizes_only_public_task(): void {
+		$normalizer = $this->createMock( \Inc\Services\Task\TaskFileNormalizationService::class );
+		$normalizer->expects( self::once() )->method( 'apply' )->with( 7 )->willReturn( array( 'updated' => 1, 'warnings' => array() ) );
+		$controller = new MetaBoxController( $this->createStub( SubjectRepository::class ), $this->createStub( MetaBoxRegistrar::class ), $this->createStub( TemplateRegistry::class ), $this->createStub( TemplateResolver::class ), $this->createStub( MetaBoxManager::class ), $this->createStub( PostManager::class ), $this->createStub( TaskBundleService::class ), $normalizer );
+		$controller->handleScheduledFilePublication( 'publish', 'future', new \WP_Post( array( 'ID' => 7, 'post_type' => 'inf_tasks' ) ) );
+		$controller->handleScheduledFilePublication( 'publish', 'future', new \WP_Post( array( 'ID' => 8, 'post_type' => 'fs_lms_problems' ) ) );
+		$controller->handleScheduledFilePublication( 'publish', 'draft', new \WP_Post( array( 'ID' => 9, 'post_type' => 'inf_tasks' ) ) );
+	}
+	public function test_saved_published_task_normalizes_files_after_meta_save(): void {
+		fs_test_reset_posts();
+		fs_test_seed_post( array( 'ID' => 7, 'post_type' => 'inf_tasks', 'post_status' => 'publish' ) );
+		$_POST = array( 'fs_lms_meta_nonce' => 'valid', 'fs_lms_meta' => array() );
+		$template = new StandardTaskTemplate();
+		$resolver = $this->createStub( TemplateResolver::class );
+		$resolver->method( 'resolveId' )->willReturn( $template->get_id() );
+		$registry = $this->createStub( TemplateRegistry::class );
+		$registry->method( 'get' )->willReturn( $template );
+		$saved = false;
+		$boxes = $this->createMock( MetaBoxManager::class );
+		$boxes->method( 'saveFieldsMerge' )->willReturnCallback( static function () use ( &$saved ): void { $saved = true; } );
+		$normalizer = $this->createMock( \Inc\Services\Task\TaskFileNormalizationService::class );
+		$normalizer->expects( self::once() )->method( 'apply' )->with( 7 )->willReturnCallback( static function () use ( &$saved ): array { self::assertTrue( $saved ); return array( 'updated' => 1, 'warnings' => array() ); } );
+		$controller = new MetaBoxController( $this->createStub( SubjectRepository::class ), $this->createStub( MetaBoxRegistrar::class ), $registry, $resolver, $boxes, $this->createStub( PostManager::class ), $this->createStub( TaskBundleService::class ), $normalizer );
+		$controller->handleMetaSave( 7 );
+	}
 
 	/** @var string[] ID зарегистрированных метабоксов */
 	private array $boxes = array();

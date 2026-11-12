@@ -13,6 +13,8 @@ use Inc\Managers\Wp\PostManager;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Template\TemplateRegistry;
 use Inc\Services\Exam\ExamVariantGuard;
+use Inc\Services\Task\TaskFileNormalizationService;
+use Inc\Shared\PluginLogger;
 use Inc\Shared\Traits\Authorizer;
 use Inc\Shared\Traits\Sanitizer;
 
@@ -34,6 +36,7 @@ class TaskContentCallbacks extends BaseController {
 		private readonly MetaBoxManager   $metaBoxManager,
 		private readonly PostManager      $posts,
 		private readonly ExamVariantGuard $variantGuard,
+		private readonly ?TaskFileNormalizationService $fileNormalization = null,
 	) {}
 
 	/**
@@ -125,12 +128,23 @@ class TaskContentCallbacks extends BaseController {
 			$rawMeta,
 			$template->get_fields()
 		);
+		$warnings = array();
+		$savedPost = $this->posts->get( $postId );
+		if ( $this->fileNormalization && $savedPost && 'publish' === $savedPost->post_status && PostTypeResolver::isTaskPostType( $savedPost->post_type ) ) {
+			try {
+				$warnings = $this->fileNormalization->apply( $postId )['warnings'];
+			} catch ( \Throwable $error ) {
+				PluginLogger::exception( 'TaskFiles', $error );
+				$warnings[] = 'Файлы задания не переименованы: ' . $error->getMessage();
+			}
+		}
 
 		$this->success( array(
 			'id'       => $postId,
 			'title'    => get_the_title( $postId ),
 			'template' => $templateId,
 			'edit_url' => get_edit_post_link( $postId, '' ),
+			'file_warnings' => $warnings,
 		) );
 	}
 }

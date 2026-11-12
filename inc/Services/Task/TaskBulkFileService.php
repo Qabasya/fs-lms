@@ -11,7 +11,7 @@ namespace Inc\Services\Task;
  *
  * Файлы лежат в каталоге загрузок, а задание хранит на них ссылки в полях `file`,
  * `file_primary`, `file_secondary` меты {@see \Inc\Enums\Wp\PostMetaName::Meta}. Имя файла —
- * номер задания (для двух файлов — с суффиксом `-1`/`-2`), расширение сохраняется.
+ * номер задания; следующие файлы получают суффиксы `-2`, `-3` и т. д. Расширение сохраняется.
  *
  * Правила безопасности:
  * - трогаются только файлы из каталога загрузок этого сайта; чужие ссылки остаются как есть;
@@ -23,11 +23,11 @@ namespace Inc\Services\Task;
  */
 class TaskBulkFileService {
 
-	/** Поле меты → суффикс имени файла. */
+	/** Поля файлов в порядке назначения имён. */
 	public const array KEYS = array(
-		'file'           => '',
-		'file_primary'   => '-1',
-		'file_secondary' => '-2',
+		'file',
+		'file_primary',
+		'file_secondary',
 	);
 
 	public const string MODE_MOVE = 'move';
@@ -42,39 +42,87 @@ class TaskBulkFileService {
 	 *
 	 * @return array{ops: array<int, array<string, mixed>>, warnings: string[]}
 	 */
-	public function plan( array $meta, string $newSlug, int $postId ): array {
+	public function plan( array $meta, string $newSlug, int $postId, bool $preserveOriginal = false, string $subjectKey = '', array $keys = self::KEYS ): array {
 		$ops      = array();
 		$warnings = array();
+		$fileIndex = 0;
+		$reserved = array();
+		$seen = array();
+		if ( $preserveOriginal ) {
+			foreach ( $keys as $key ) {
+				$path = is_string( $meta[ $key ] ?? null ) ? $this->inspectLocalUrl( $meta[ $key ] ) : null;
+				if ( null !== $path && preg_match( '/^' . preg_quote( $newSlug, '/' ) . '(?:-([2-9]|[1-9][0-9]+))?\.[^.]+$/D', basename( $path ), $match ) ) {
+					$reserved[ isset( $match[1] ) ? (int) $match[1] : 1 ] = true;
+				}
+			}
+		}
 
-		foreach ( self::KEYS as $key => $suffix ) {
+		foreach ( $keys as $key ) {
 			$url = $meta[ $key ] ?? '';
 			if ( ! is_string( $url ) || '' === $url ) {
 				continue;
 			}
 
 			$from = $this->urlToPath( $url );
+			if ( null !== $from && $preserveOriginal && ! $this->isSafeLocalPath( $from ) ) {
+				$from = null;
+			}
 			if ( null === $from ) {
+				if ( $preserveOriginal ) {
+					$warnings[] = "файл {$key} не относится к поддерживаемому локальному хранилищу ({$url}) — пропущен";
+				}
 				continue; // Внешняя ссылка — не наш файл.
 			}
 
-			$ext  = pathinfo( $from, PATHINFO_EXTENSION );
-			$name = $newSlug . $suffix . ( '' !== $ext ? '.' . $ext : '' );
-			if ( basename( $from ) === $name ) {
-				continue;
-			}
-
+			$ext = pathinfo( $from, PATHINFO_EXTENSION );
 			if ( ! is_file( $from ) ) {
 				$warnings[] = "файл {$key} не найден на диске ({$url}) — не переименован";
 				continue;
 			}
-
+			if ( $preserveOriginal && ( '' === $ext || ! is_readable( $from ) ) ) {
+				$warnings[] = "файл {$key} недоступен для чтения или не имеет расширения — пропущен";
+				continue;
+			}
 			$attachmentId = (int) attachment_url_to_postid( $url );
 			if ( $attachmentId > 0 && $this->hasThumbnails( $attachmentId ) ) {
 				$warnings[] = 'файл ' . basename( $from ) . ' — изображение медиатеки с миниатюрами, не переименован';
 				continue;
 			}
-
-			$to = dirname( $from ) . '/' . $name;
+			$stat = $preserveOriginal ? @stat( $from ) : false;
+			$sourceKey = false !== $stat && ! empty( $stat['ino'] ) ? $stat['dev'] . ':' . $stat['ino'] : ( realpath( $from ) ?: $from );
+			if ( $preserveOriginal && isset( $seen[ $sourceKey ] ) ) {
+				$ops[ $seen[ $sourceKey ] ]['keys'][] = $key;
+				continue;
+			}
+			$numbered = $preserveOriginal && preg_match( '/^' . preg_quote( $newSlug, '/' ) . '(?:-([2-9]|[1-9][0-9]+))?\.[^.]+$/D', basename( $from ) );
+			if ( $numbered ) {
+				$name = basename( $from );
+			} else {
+				++$fileIndex;
+				while ( isset( $reserved[ $fileIndex ] ) ) {
+					++$fileIndex;
+				}
+				$suffix = 1 === $fileIndex ? '' : '-' . $fileIndex;
+				$name = $newSlug . $suffix . ( '' !== $ext ? '.' . $ext : '' );
+			}
+			$to = $preserveOriginal ? $this->collisionTarget( $subjectKey, $postId, $name ) : dirname( $from ) . '/' . $name;
+			if ( $preserveOriginal ) {
+				$ownedDir = null === $to ? '' : dirname( $to );
+				$sourceDir = dirname( $from );
+				$owned = $sourceDir === $ownedDir || ( dirname( $sourceDir ) === $ownedDir && preg_match( '/^v(?:[2-9]|[1-9][0-9]+)$/D', basename( $sourceDir ) ) );
+				if ( $numbered && $owned ) {
+					continue;
+				}
+				for ( $version = 2; null !== $to && ( file_exists( $to ) || is_link( $to ) ) && $version <= 1000; ++$version ) {
+					$to = $this->collisionTarget( $subjectKey, $postId, $name, $version );
+				}
+				if ( null === $to || file_exists( $to ) || is_link( $to ) ) {
+					$warnings[] = 'файл ' . $name . ' уже существует — переименование пропущено';
+					continue;
+				}
+			} elseif ( basename( $from ) === $name ) {
+				continue;
+			}
 
 			$ops[] = array(
 				'key'           => $key,
@@ -82,12 +130,41 @@ class TaskBulkFileService {
 				'to'            => $to,
 				'old_url'       => $url,
 				'new_url'       => $this->pathToUrl( $to ),
-				'mode'          => $this->isShared( $from, $postId ) ? self::MODE_COPY : self::MODE_MOVE,
+				'mode'          => $preserveOriginal || $this->isShared( $from, $postId ) ? self::MODE_COPY : self::MODE_MOVE,
 				'attachment_id' => $attachmentId,
 			);
+			if ( $preserveOriginal ) {
+				$index = array_key_last( $ops );
+				$ops[ $index ]['keys'] = array( $key );
+				$ops[ $index ]['safe_local'] = true;
+				$seen[ $sourceKey ] = $index;
+			}
 		}
 
 		return array( 'ops' => $ops, 'warnings' => $warnings );
+	}
+
+	/** Строит резервный путь без создания каталогов и без перехода по симлинкам. */
+	private function collisionTarget( string $subjectKey, int $postId, string $name, int $version = 1 ): ?string {
+		if ( $postId < 1 || ! preg_match( '/^[a-z0-9_-]+$/D', $subjectKey ) ) {
+			return null;
+		}
+		$uploads = wp_get_upload_dir();
+		$dir = rtrim( $uploads['basedir'], '/' );
+		if ( false === realpath( $dir ) ) {
+			return null;
+		}
+		$parts = array( 'fs-lms', 'task-files', $subjectKey, (string) $postId );
+		if ( $version > 1 ) {
+			$parts[] = 'v' . $version;
+		}
+		foreach ( $parts as $part ) {
+			$dir .= '/' . $part;
+			if ( is_link( $dir ) || ( file_exists( $dir ) && ! is_dir( $dir ) ) ) {
+				return null;
+			}
+		}
+		return $dir . '/' . $name;
 	}
 
 	/**
@@ -104,7 +181,7 @@ class TaskBulkFileService {
 			// Копии — первыми: источник ещё на месте.
 			foreach ( $ops as $op ) {
 				if ( self::MODE_COPY === $op['mode'] ) {
-					if ( ! copy( $op['from'], $op['to'] ) ) {
+					if ( ! $this->copyExclusive( $op['from'], $op['to'], ! empty( $op['safe_local'] ) ) ) {
 						throw new \RuntimeException( 'Не удалось скопировать файл ' . basename( $op['from'] ) );
 					}
 					$done[] = array( 'copied', $op );
@@ -124,8 +201,12 @@ class TaskBulkFileService {
 			}
 
 			foreach ( $temps as $i => $temp ) {
-				if ( ! rename( $temp, $ops[ $i ]['to'] ) ) {
+				if ( ! @link( $temp, $ops[ $i ]['to'] ) ) {
 					throw new \RuntimeException( 'Не удалось записать файл ' . basename( $ops[ $i ]['to'] ) );
+				}
+				if ( ! unlink( $temp ) ) {
+					unlink( $ops[ $i ]['to'] );
+					throw new \RuntimeException( 'Не удалось завершить перенос файла ' . basename( $ops[ $i ]['to'] ) );
 				}
 				$done[] = array( 'moved', $ops[ $i ], $temp );
 			}
@@ -139,6 +220,55 @@ class TaskBulkFileService {
 				update_attached_file( (int) $op['attachment_id'], $op['to'] );
 			}
 		}
+	}
+
+	/** Создаёт копию только на свободном пути, не затирая чужой файл при гонке. */
+	private function copyExclusive( string $from, string $to, bool $safeLocal = false ): bool {
+		if ( ! is_dir( dirname( $to ) ) && ! $this->createTaskDirectory( dirname( $to ) ) ) {
+			return false;
+		}
+		if ( $safeLocal && ( ! $this->isSafeLocalPath( $from ) || ! $this->isSafeLocalPath( $to ) ) ) {
+			return false;
+		}
+		$source = @fopen( $from, 'rb' );
+		if ( false === $source ) {
+			return false;
+		}
+		$target = @fopen( $to, 'xb' );
+		if ( false === $target ) {
+			fclose( $source );
+			return false;
+		}
+		$copied = stream_copy_to_stream( $source, $target );
+		$closed = fclose( $target );
+		fclose( $source );
+		if ( false === $copied || ! $closed ) {
+			unlink( $to );
+			return false;
+		}
+		return true;
+	}
+
+	/** Создаёт только каталог конкретного задания внутри uploads, без симлинков. */
+	private function createTaskDirectory( string $target ): bool {
+		$uploads = wp_get_upload_dir();
+		$base = realpath( $uploads['basedir'] );
+		$prefix = rtrim( (string) $uploads['basedir'], '/' ) . '/';
+		if ( false === $base || ! str_starts_with( $target, $prefix ) ) {
+			return false;
+		}
+		$relative = substr( $target, strlen( $prefix ) );
+		if ( ! preg_match( '#^fs-lms/task-files/[a-z0-9_-]+/[1-9][0-9]*(?:/v(?:[2-9]|[1-9][0-9]+))?$#D', $relative ) ) {
+			return false;
+		}
+		$dir = $base;
+		foreach ( explode( '/', $relative ) as $part ) {
+			$dir .= '/' . $part;
+			if ( is_link( $dir ) || ( ! is_dir( $dir ) && ! @mkdir( $dir, 0755 ) && ! is_dir( $dir ) ) || is_link( $dir ) ) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	/**
@@ -187,6 +317,29 @@ class TaskBulkFileService {
 		$path = rtrim( $uploads['basedir'], '/' ) . '/' . rawurldecode( ltrim( substr( $rel, strlen( $base ) ), '/' ) );
 
 		return false === strpos( $path, "\0" ) ? $path : null;
+	}
+
+	/** Возвращает только существующий читаемый локальный файл с расширением. */
+	public function inspectLocalUrl( string $url ): ?string {
+		$path = $this->urlToPath( $url );
+		if ( null === $path || ! $this->isSafeLocalPath( $path ) || ! is_file( $path ) || ! is_readable( $path ) || '' === pathinfo( $path, PATHINFO_EXTENSION ) ) {
+			return null;
+		}
+		return $path;
+	}
+
+	/** Проверяет декодированный путь и реальные границы каталога загрузок. */
+	private function isSafeLocalPath( string $path ): bool {
+		$uploads = wp_get_upload_dir();
+		$base    = realpath( $uploads['basedir'] );
+		if ( false === $base || in_array( '..', explode( '/', $path ), true ) ) {
+			return false;
+		}
+		$parent = realpath( dirname( $path ) );
+		$file   = realpath( $path );
+		$prefix = rtrim( $base, DIRECTORY_SEPARATOR ) . DIRECTORY_SEPARATOR;
+		return false !== $parent && ( $parent === $base || str_starts_with( $parent, $prefix ) )
+			&& ( false === $file || str_starts_with( $file, $prefix ) );
 	}
 
 	/** Ссылка по пути в каталоге загрузок (схема сайта). */
