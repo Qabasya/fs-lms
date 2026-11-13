@@ -10,6 +10,7 @@ import { initFormValidation, renderFieldError, clearFieldError } from '../../com
 import { bindPhoneMask } from '../../common/input-masks.js';
 import { buildSummary, isSessionChosen, formatLeft, secondsLeft } from './exam-signup-model.js';
 import { initSchoolSuggest } from './school-suggest.js';
+import { initDadataForm } from './dadata-suggest.js';
 import { createExamSignupTracker, examVisitId } from './exam-signup-tracking.js';
 import { trapField, resetTrap } from './form-trap.js';
 
@@ -42,6 +43,7 @@ function initSignupForm( vars ) {
     const form = document.getElementById( 'fs-exam-signup-form' );
     if ( ! form ) { return; }
 
+    initDadataForm( form, vars.dadata_token );
     let requestKey = newRequestKey();
     let busy = false;
     const slots = Array.from( form.querySelectorAll( '.fs-exam-slot' ) );

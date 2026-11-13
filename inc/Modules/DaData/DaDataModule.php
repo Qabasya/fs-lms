@@ -11,8 +11,8 @@ use Inc\Modules\DaData\Controllers\DaDataSettingsController;
 /**
  * Class DaDataModule
  *
- * Опциональный модуль — автодополнение ФИО/адреса через DaData на форме /lms/join.
- * Ядро о модуле не знает: токен попадает на фронт через фильтр `fs_lms_join_vars`.
+ * Опциональный модуль — автодополнение ФИО/адреса через DaData на формах завершения регистрации, заявки и записи на экзамен.
+ * Ядро о модуле не знает: токен попадает на фронт через фильтры переменных соответствующих форм.
  *
  * Уровни выключения:
  *  1) тумблер на странице «Статистика» (опция `fs_lms_dadata.enabled`);
@@ -39,8 +39,10 @@ class DaDataModule implements ServiceInterface {
 			return;
 		}
 
-		// Рантайм: дописываем токен в переменные формы /lms/join (ядро строит их и прогоняет через фильтр).
+		// Рантайм: дописываем токен в переменные публичных форм через фильтры ядра.
 		add_filter( 'fs_lms_join_vars', array( $this, 'addToken' ) );
+		add_filter( 'fs_lms_apply_vars', array( $this, 'addToken' ) );
+		add_filter( 'fs_lms_exam_signup_vars', array( $this, 'addToken' ) );
 	}
 
 	/**

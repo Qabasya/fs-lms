@@ -22,7 +22,9 @@ export function scoreBreakdownHtml(row) {
         }
         return `<li><span>${esc(label + detail)}</span><span class="ranking-score-values">${equation(part.amount, part.weight, part.amount * part.weight, part.max_amount == null ? null : part.max_amount * part.weight, part.max_unknown, part.score_unknown)}</span></li>`;
     });
-    return `<div class="gp-title">Баллы: ${esc(row.name || 'Ученик')}</div><ul class="ranking-score-list">${parts.join('')}</ul><p class="ranking-score-total">Итого: <strong>${result(row.score, row.max_score, row.max_unknown, row.score_unknown)}</strong></p>`;
+    const percentage = !row.max_unknown && !row.score_unknown && Number(row.max_score) > 0
+        ? ` (${scoreNumber(Number(row.score) / Number(row.max_score) * 100)}%)` : '';
+    return `<div class="gp-title">Баллы: ${esc(row.name || 'Ученик')}</div><ul class="ranking-score-list">${parts.join('')}</ul><p class="ranking-score-total">Итого: <strong>${result(row.score, row.max_score, row.max_unknown, row.score_unknown)}${percentage}</strong></p>`;
 }
 
 function rankTrendHtml(trend) {

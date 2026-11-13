@@ -5,7 +5,7 @@
  */
 import { initFormValidation, renderFieldError, clearFieldError } from '../../common/validation-manager.js';
 import { initDadataAddress } from './dadata-address.js';
-import { createDadataSuggest } from './dadata-suggest.js';
+import { createDadataSuggest, initDadataForm } from './dadata-suggest.js';
 import { bindPhoneMask, formatPassportSN } from '../../common/input-masks.js';
 import { createJoinTracker } from './join-tracking.js';
 
@@ -258,24 +258,7 @@ async function handleJoinSubmit( e ) {
 function initDadataSuggests( token ) {
 	if ( ! token ) { return; }
 
-	const fioFields = [
-		{ id: 'fs_student_last_name',   parts: 'SURNAME' },
-		{ id: 'fs_student_first_name',  parts: 'NAME' },
-		{ id: 'fs_student_middle_name', parts: 'PATRONYMIC' },
-		{ id: 'fs_parent_last_name',    parts: 'SURNAME' },
-		{ id: 'fs_parent_first_name',   parts: 'NAME' },
-		{ id: 'fs_parent_middle_name',  parts: 'PATRONYMIC' },
-	];
-
-	fioFields.forEach( ( { id, parts } ) => {
-		const input = document.getElementById( id );
-		if ( ! input ) { return; }
-		createDadataSuggest( input, {
-			endpoint:  'fio',
-			buildBody: ( query ) => ( { query, count: 5, parts: [ parts ] } ),
-			getValue:  ( s ) => s.value,
-		}, token );
-	} );
+	initDadataForm( document.getElementById( 'fs-lms-join-form' ), token );
 
 	const issuedBy = document.getElementById( 'fs_doc_issued_by' );
 	if ( issuedBy ) {
@@ -286,14 +269,6 @@ function initDadataSuggests( token ) {
 		}, token );
 	}
 
-	const email = document.getElementById( 'fs_parent_email' );
-	if ( email ) {
-		createDadataSuggest( email, {
-			endpoint:  'email',
-			buildBody: ( query ) => ( { query, count: 5 } ),
-			getValue:  ( s ) => s.value,
-		}, token );
-	}
 }
 
 // ── Инициализация ─────────────────────────────────────────────────────────────

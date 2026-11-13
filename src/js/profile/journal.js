@@ -23,7 +23,7 @@ let state = null;
 let api = null;
 
 /** @param {{ openSummary?: (groupId: number, personId: number) => void }} [handlers] */
-export function renderJournal(r, handlers = {}) {
+export async function renderJournal(r, handlers = {}) {
     root = r;
     const p = window.fsProfile || {};
     // Группа и месяц из адреса (nav-state.js): «Назад» из плеера возвращает в тот же журнал.
@@ -39,15 +39,31 @@ export function renderJournal(r, handlers = {}) {
         months:  [],   // T11.5: список месяцев 'YYYY-MM', отсортированный
         monthIdx: 0,   // T11.5: индекс активного месяца в months
         handlers,
+        autoSelect: !nav.g,
     };
     api = createApi(state.cfg);
     if (!state.groups.length || !state.cfg) { root.innerHTML = emptyHtml('Нет групп', 'За вами не закреплены группы.'); return; }
+    const initial = state;
+    if (initial.autoSelect && p.dashboard) {
+        try {
+            const dashboard = await createApi(p.dashboard)('getDashboard', {});
+            if (state !== initial) return;
+            if (initial.autoSelect) {
+                const current = groups.find(g => g.id === dashboard.current_group_id);
+                if (current) { state.groupId = current.id; state.pendingMonth = null; }
+            } else { return; }
+        } catch {
+            // Недоступность главной не мешает открыть журнал с прежним выбором.
+            if (state !== initial || !initial.autoSelect) return;
+        }
+    }
     load();
 }
 
 /** Вызывается из сайдбара (app.js) при выборе группы. */
 export function setJournalGroup(gid) {
     if (!state) return;
+    state.autoSelect = false;
     state.groupId = gid;
     state.pendingMonth = null;
     load();

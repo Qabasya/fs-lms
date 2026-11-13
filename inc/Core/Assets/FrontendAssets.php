@@ -168,7 +168,7 @@ class FrontendAssets extends BaseController {
 	 * @return array<string, mixed>
 	 */
 	private function examSignupVars(): array {
-		return array(
+		return (array) apply_filters( 'fs_lms_exam_signup_vars', array(
 			'ajax_url' => admin_url( 'admin-ajax.php' ),
 			'actions'  => array(
 				'submit'       => AjaxHook::SubmitExamGuestApplication->jsAction(),
@@ -176,7 +176,7 @@ class FrontendAssets extends BaseController {
 				'check_status' => AjaxHook::CheckExamApplicationStatus->jsAction(),
 			),
 			'nonce'    => Nonce::ExamGuest->create(),
-		);
+		) );
 	}
 
 	/** Страница одного задания или статьи — там живёт кнопка «Нашли ошибку?». */

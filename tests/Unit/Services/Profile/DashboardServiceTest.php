@@ -191,6 +191,30 @@ class DashboardServiceTest extends TestCase {
 		return new LessonDTO( id: 10, subjectKey: 'inf', topic: 'Тема', steps: array(), authorId: 1, status: 'publish' );
 	}
 
+	#[\PHPUnit\Framework\Attributes\DataProvider( 'currentJournalCases' )]
+	public function test_journal_current_group_uses_schedule_and_actual_teacher( string $start, ?string $end, string $status, int $teacher, ?int $expected, ?int $override = null ): void {
+		$this->groups->method( 'findAll' )->willReturn( array( (object) array( 'id' => 1, 'name' => 'Г1', 'subject_key' => 'inf', 'teacher_id' => $teacher ) ) );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array( GroupLessonDTO::fromArray( array(
+			'id' => 10, 'group_id' => 1, 'position' => 0, 'scheduled_at' => $start, 'ends_at' => $end, 'status' => $status, 'teacher_user_id' => $override,
+		) ) ) );
+		self::assertSame( $expected, $this->service->build( 99, true )['current_group_id'] );
+	}
+
+	public static function currentJournalCases(): array {
+		return array(
+			'current teacher' => array( '2026-05-20 09:30:00', '2026-05-20 10:30:00', 'scheduled', 99, 1 ),
+			'admin without own lesson' => array( '2026-05-20 09:30:00', '2026-05-20 10:30:00', 'scheduled', 55, null ),
+			'ended at boundary' => array( '2026-05-20 09:00:00', '2026-05-20 10:00:00', 'held', 99, null ),
+			'future' => array( '2026-05-20 10:30:00', '2026-05-20 11:30:00', 'scheduled', 99, null ),
+			'cancelled' => array( '2026-05-20 09:30:00', '2026-05-20 10:30:00', 'cancelled', 99, null ),
+			'moved' => array( '2026-05-20 09:30:00', '2026-05-20 10:30:00', 'moved', 99, null ),
+			'fallback hour' => array( '2026-05-20 09:30:00', null, 'scheduled', 99, 1 ),
+			'lesson assigned to another teacher' => array( '2026-05-20 09:30:00', '2026-05-20 10:30:00', 'scheduled', 99, null, 55 ),
+			'lesson assigned to current user' => array( '2026-05-20 09:30:00', '2026-05-20 10:30:00', 'scheduled', 55, 1, 99 ),
+			'fallback expired' => array( '2026-05-20 08:30:00', null, 'scheduled', 99, null ),
+		);
+	}
+
 	private function row( int $id, string $start, string $end ): GroupLessonDTO {
 		return new GroupLessonDTO(
 			id: $id, groupId: 1, lessonId: 10, position: 0, workIdsSnapshot: null, extraWorkIds: array(),

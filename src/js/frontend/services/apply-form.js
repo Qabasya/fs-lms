@@ -17,6 +17,7 @@ import { bindPhoneMask } from '../../common/input-masks.js';
 import { getCaptchaToken, resetCaptcha, captchaFailureOf, captchaFailureAllowsFallback } from './captcha.js';
 import { createApplyTracker, applyVisitId } from './apply-tracking.js';
 import { initSchoolSuggest } from './school-suggest.js';
+import { initDadataForm } from './dadata-suggest.js';
 import { createApplySession } from './apply-session.js';
 import { trapField, resetTrap } from './form-trap.js';
 
@@ -484,5 +485,6 @@ export function initApplyForm() {
     if ( ! window.fs_lms_apply_vars ) { return; }
     if ( ! document.querySelector( '.fs-lms-apply-page' ) ) { return; }
 
+    initDadataForm( document.getElementById( 'fs-lms-apply-form' ), vars.dadata_token );
     bindFormBehaviors();
 }

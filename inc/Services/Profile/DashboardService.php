@@ -6,6 +6,7 @@ namespace Inc\Services\Profile;
 
 use Inc\Contracts\ClockInterface;
 use Inc\Enums\Access\Capability;
+use Inc\Enums\Course\LessonStatus;
 use Inc\Enums\Wp\PageRoutes;
 use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\OptionsRepositories\SubjectRepository;
@@ -79,6 +80,8 @@ class DashboardService {
 		// НБ-10: счётчики «на сегодня» — уникальные группы с занятием и число инд.
 		$todayGroupIds   = array();
 		$todayIndividual = 0;
+		$currentGroupId = null;
+		$currentStart = null;
 
 		$queueCounts = $this->submissions->queueCountsByGroups( array_keys( $groups ) );
 		foreach ( $groups as $gid => $g ) {
@@ -105,7 +108,15 @@ class DashboardService {
 				}
 				$date = substr( $row->scheduledAt, 0, 10 );
 				$item = $this->lessonItem( $row, $gid, $g, $isCovering, $roomNames, $studentNames );
-				$item['teacher'] = $this->teacherShortName( $this->lessonTeacher( $row, $g, $groupSubs, $date ) );
+				$teacherId = $this->lessonTeacher( $row, $g, $groupSubs, $date );
+				$item['teacher'] = $this->teacherShortName( $teacherId );
+				$end = $row->endsAt ?? ( new \DateTimeImmutable( $row->scheduledAt ) )->modify( '+60 minutes' )->format( 'Y-m-d H:i:s' );
+				if ( $teacherId === $userId && $row->scheduledAt <= $now && $now < $end
+					&& ! LessonStatus::fromValueOrDefault( $row->status )->freesSlot()
+					&& ( null === $currentStart || $row->scheduledAt > $currentStart ) ) {
+					$currentGroupId = $gid;
+					$currentStart = $row->scheduledAt;
+				}
 
 				if ( $date === $today ) {
 					$item['state'] = $this->stateOf( (string) $row->scheduledAt, $row->endsAt, $now );
@@ -160,6 +171,7 @@ class DashboardService {
 		$toFill = array_slice( $toFill, 0, 12 );
 
 		return array(
+			'current_group_id' => $currentGroupId,
 			'stats'    => array(
 				'lessons_today' => $lessonsTd,
 				'to_review'     => $reviewTotal,

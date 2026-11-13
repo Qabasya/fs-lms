@@ -67,7 +67,7 @@ class DaDataSettingsController extends BaseController {
 		$modules[] = array(
 			'id'           => 'dadata',
 			'title'        => 'Автодополнение DaData',
-			'description'  => 'Подсказки ФИО и адреса на форме завершения регистрации (/lms/join) через API DaData. При включении в Конфигурации появляется секция с вводом токена.',
+			'description'  => 'Подсказки ФИО и email в заявке, регистрации на экзамен и завершении регистрации; адреса — при завершении регистрации. При включении в Конфигурации появляется секция с вводом токена.',
 			'enabled'      => $this->config->isEnabled(),
 			'const_locked' => defined( 'FS_LMS_DADATA' ),
 			'const_key'    => 'FS_LMS_DADATA',

@@ -134,3 +134,25 @@ export function createDadataSuggest( input, { endpoint, buildBody, getValue }, t
 		},
 	} );
 }
+
+/** Подсказки ФИО и email для публичных форм; ручной ввод остаётся доступен без токена. */
+export function initDadataForm( form, token ) {
+	if ( ! form || ! token ) { return; }
+	const parts = { last_name: 'SURNAME', first_name: 'NAME', middle_name: 'PATRONYMIC' };
+	Object.entries( parts ).forEach( ( [ name, part ] ) => {
+		form.querySelectorAll( `input[name$="${ name }"]` ).forEach( input => {
+			createDadataSuggest( input, {
+				endpoint: 'fio',
+				buildBody: query => ( { query, count: 5, parts: [ part ] } ),
+				getValue: suggestion => suggestion.value,
+			}, token );
+		} );
+	} );
+	form.querySelectorAll( 'input[type="email"]' ).forEach( input => {
+		createDadataSuggest( input, {
+			endpoint: 'email',
+			buildBody: query => ( { query, count: 5 } ),
+			getValue: suggestion => suggestion.value,
+		}, token );
+	} );
+}

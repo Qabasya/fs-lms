@@ -32,7 +32,7 @@ $dadata_from_config = $config->tokenFromConstant();
 
 		<div class="fs-card__body">
 			<p class="fs-card__desc">
-				Подсказки ФИО и адреса на форме завершения регистрации (<code>/lms/join</code>) через API DaData.
+				Подсказки ФИО и email в заявке, регистрации на экзамен и завершении регистрации; адреса — при завершении регистрации.
 				Токен можно задать здесь или константой <code>DADATA_API_TOKEN</code> в <code>wp-config.php</code> (тогда поле только для чтения).
 			</p>
 			<div class="fs-field">
