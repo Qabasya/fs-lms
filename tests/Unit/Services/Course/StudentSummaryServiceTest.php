@@ -98,6 +98,19 @@ $visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::c
 		self::assertSame( 'fraction', $works[0]['display'] );
 	}
 
+	public function test_continuation_does_not_repeat_submitted_work_as_missing(): void {
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
+			$this->glRow( 10, '2026-09-20 17:00:00' ),
+			$this->glRow( 11, '2026-09-21 17:00:00', continuedFromId: 10 ),
+		) );
+		$this->gradebook->method( 'forGroup' )->willReturn( array( $this->entry( 10, 100 ) ) );
+		$this->resolver->method( 'resolve' )->willReturn( array( $this->work( 100, WorkType::Homework, 3 ) ) );
+
+		$lessons = array_column( $this->service->forStudent( 5, self::STUDENT )['lessons'], 'works', 'group_lesson_id' );
+		self::assertSame( 'fraction', $lessons[10][0]['display'] );
+		self::assertSame( array(), $lessons[11] );
+	}
+
 	public function test_homework_before_explicit_deadline_is_listed_with_dashes_without_due_date(): void {
 		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
 			$this->glRow( 10, '2026-09-20 17:00:00', array( 100 => '2026-09-26 23:59:00' ) ),
@@ -172,12 +185,13 @@ $visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::c
 	}
 
 	/** @param array<int,string>|null $deadlines null — дедлайн работы 100 через 2 дня после занятия */
-	private function glRow( int $id, string $scheduledAt, ?array $deadlines = null, string $visibility = 'open', string $status = 'held' ): GroupLessonDTO {
+	private function glRow( int $id, string $scheduledAt, ?array $deadlines = null, string $visibility = 'open', string $status = 'held', ?int $continuedFromId = null ): GroupLessonDTO {
 		return new GroupLessonDTO(
 			id: $id, groupId: 5, lessonId: null, position: 0, workIdsSnapshot: array(), extraWorkIds: array(),
 			scheduledAt: $scheduledAt, endsAt: null, isPinned: false, teacherUserId: null, visibility: $visibility,
 			openedAt: null, homeworkDueAt: null, allowLate: true, recordingUrl: null,
 			createdByUserId: null, updatedByUserId: null, status: $status,
+			continuedFromId: $continuedFromId,
 			workDeadlines: $deadlines ?? array( 100 => '2026-09-22 23:59:00' ),
 		);
 	}

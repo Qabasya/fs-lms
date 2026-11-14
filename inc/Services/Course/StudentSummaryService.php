@@ -140,6 +140,13 @@ class StudentSummaryService {
 			);
 		}
 
+		// У продолжения отдельная дата и посещаемость, но сдачи хранятся на исходном занятии.
+		foreach ( $rows as $glid => $row ) {
+			if ( $glid !== $row->progressId() && isset( $submitted[ $row->progressId() ] ) ) {
+				$submitted[ $glid ] = ( $submitted[ $glid ] ?? array() ) + $submitted[ $row->progressId() ];
+			}
+		}
+
 		// Срок ДЗ, истёкший без сдачи: work_id → due_at (остальным работам срок в карточке не нужен).
 		$overdue = array();
 		foreach ( $this->deadlines->missed( $rows, $submitted, $now ) as $glid => $missed ) {
