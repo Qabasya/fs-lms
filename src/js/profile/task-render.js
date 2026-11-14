@@ -90,6 +90,7 @@ export function renderTask(t, ctx = {}) {
     const showCorrect = t.correct && 'correct' !== t.verdict;
     // Оценка уже выставлена преподавателем: поля заблокированы, вместо «Оценить» — «Изменить оценку».
     const locked = !!t.manually_graded;
+    const gradeValue = t.robo && !locked ? Math.min(1, t.max_score ?? 1) : (t.score ?? '');
     const dis = locked ? ' disabled' : '';
     const gradedCls = locked ? ' is-graded' : '';
     // Tasks.md, п. 6: ручной зачёт задания — опечатка в условии не должна стоить
@@ -108,13 +109,13 @@ export function renderTask(t, ctx = {}) {
     // иначе — балл, по которому определяется вердикт.
     const grade = hasCriteria ? criteriaGradeBlock(t) : hasOgeRubric ? ogeRubricGradeBlock(t) : canGrade ? `
             <div class="sum-task-grade${gradedCls}" data-task-id="${t.task_id}" data-max="${t.max_score ?? ''}">
-                <input type="number" class="stg-score" step="1" min="0" max="${t.max_score ?? 1}" value="${t.score ?? ''}" placeholder="балл"${dis}>
+                <input type="number" class="stg-score" step="1" min="0" max="${t.max_score ?? 1}" value="${gradeValue}" placeholder="балл"${dis}>
                 <span class="stg-of">/ ${t.max_score != null ? fmtNum(t.max_score) : '1'}</span>
                 <input type="text" class="stg-fb" placeholder="комментарий" value="${t.feedback ? esc(t.feedback) : ''}"${dis}>
                 ${gradeSaveButton(locked)}
             </div>` : canGradeSubmissionTask ? `
             <div class="sum-task-grade sum-task-grade--batch${gradedCls}" data-submission-id="${t.task_submission_id}" data-max="${t.max_score ?? 1}">
-                <input type="number" class="stg-score" step="1" min="0" value="${t.score ?? ''}" placeholder="балл"${dis}>
+                <input type="number" class="stg-score" step="1" min="0" value="${gradeValue}" placeholder="балл"${dis}>
                 <span class="stg-of">/ ${t.max_score != null ? fmtNum(t.max_score) : '1'}</span>
                 <input type="text" class="stg-fb" placeholder="комментарий" value="${t.feedback ? esc(t.feedback) : ''}"${dis}>
                 ${gradeSaveButton(locked)}

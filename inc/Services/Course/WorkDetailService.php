@@ -314,6 +314,9 @@ class WorkDetailService {
 				$verdict = SubmissionStatus::PendingReview === $row->status
 					? 'pending'
 					: $this->verdictFor( ( $row->score ?? 0.0 ) >= ( $row->maxScore ?? 1.0 ), $row->score, $row->maxScore ?? 1.0, false );
+				if ( $template->isCodeOnlyAnswer() && null === $row->gradedByUserId ) {
+					$verdict = '' === trim( (string) $code ) ? 'unanswered' : 'incorrect';
+				}
 				$tasks[] = array(
 					'n'                  => ++$n,
 					'condition'          => $this->condition( $taskId, $collapseCommon ),
@@ -327,6 +330,7 @@ class WorkDetailService {
 					'max_score'          => $row->maxScore,
 					'feedback'           => $row->feedback,
 					'gradable'           => true,
+					'robo'               => $template->isCodeOnlyAnswer(),
 					'task_submission_id' => $row->id,
 					'manually_graded'    => null !== $row->gradedByUserId,
 					'answered_at'        => $answeredAt[ $taskId ]['at'] ?? null,
@@ -355,6 +359,10 @@ class WorkDetailService {
 			// Ответа на задание не было вовсе — «Нерешено», а не «Неверно» (оценку преподавателя не трогаем).
 			if ( 'incorrect' === $verdict && ! $manuallyGraded && $this->correctAnswers->isEmptyStudentAnswer( $rawAnswer ) ) {
 				$verdict = 'unanswered';
+			}
+
+			if ( $template->isCodeOnlyAnswer() && ! $manuallyGraded ) {
+				$verdict = '' === trim( (string) $code ) ? 'unanswered' : 'incorrect';
 			}
 
 			$tasks[] = array(
@@ -525,6 +533,10 @@ class WorkDetailService {
 			$empty    = '' === trim( $answerText ) && array() === $files && ( null === $code || '' === trim( $code ) );
 			$verdict  = null === $ans ? 'unanswered' : $this->verdictFor( $ans->isCorrect, $score, $maxScore, $empty );
 
+			if ( $template->isCodeOnlyAnswer() && null === $ans?->gradedByUserId ) {
+				$verdict = $empty ? 'unanswered' : 'incorrect';
+			}
+
 			$unitKey = $unitKeys[ $taskId ] ?? 't:' . $taskId;
 
 			$tasks[] = array(
@@ -548,6 +560,7 @@ class WorkDetailService {
 				'answer_first_sec' => $this->offsetSec( $attempt->startedAt, $ans?->firstAnsweredAt ),
 				'answer_last_sec'  => $this->offsetSec( $attempt->startedAt, $ans?->answeredAt ),
 				'manual'     => $isManual,
+				'robo'       => $template->isCodeOnlyAnswer(),
 				// Балл мог быть выставлен/зачтён преподавателем вручную (Tasks.md,
 				// п. 6) — авто-оценка `graded_by_user_id` не пишет.
 				'manually_graded' => null !== $ans?->gradedByUserId,
