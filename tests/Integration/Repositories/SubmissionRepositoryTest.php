@@ -325,7 +325,8 @@ class SubmissionRepositoryTest extends TestCase {
 		self::assertSame( array( 7 => 12 ), $this->repo->queueCountsByGroups( array( 7, 8 ) ) );
 		self::assertStringContainsString( 'COUNT(*)', $this->wpdb->lastQuery() );
 		self::assertStringContainsString( 'IN (7, 8)', $this->wpdb->lastQuery() );
-		self::assertStringContainsString( "s.status = 'submitted'", $this->wpdb->lastQuery() );
+		self::assertStringContainsString( "s.status IN ('submitted', 'pending_review')", $this->wpdb->lastQuery() );
+		self::assertStringContainsString( 's.task_id IS NULL', $this->wpdb->lastQuery() );
 	}
 
 

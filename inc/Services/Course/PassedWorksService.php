@@ -331,7 +331,7 @@ class PassedWorksService {
 		$context['groups'][ $gid ]   ??= (string) ( $this->groups->findById( $gid )->name ?? '' );
 		$expected                    = array_intersect_key( $context['students'][ $gid ], $this->studentRows( $unit, $context['students'][ $gid ] ) );
 		$topic                       = $row->lessonId ? ( $this->lessons->get( $row->lessonId )?->topic ?? '' ) : '';
-		$pendingStatuses             = self::pendingStatuses();
+		$pendingStatuses             = SubmissionStatus::pendingReviewValues();
 
 		$out = array();
 		foreach ( $works as $work ) {
@@ -383,16 +383,11 @@ class PassedWorksService {
 	/** Сколько сдач ждут проверки в выбранных группах — число у фильтра «Ждут проверки». */
 	private function pendingTotal( array $groupIds ): int {
 		$total = 0;
-		foreach ( $this->submissions->summaryByGroups( $groupIds, self::pendingStatuses() ) as $summary ) {
+		foreach ( $this->submissions->summaryByGroups( $groupIds, SubmissionStatus::pendingReviewValues() ) as $summary ) {
 			$total += (int) $summary['cnt'];
 		}
 
 		return $total;
-	}
-
-	/** @return string[] Статусы сдачи, при которых работа ждёт проверки преподавателя. */
-	private static function pendingStatuses(): array {
-		return array( SubmissionStatus::Submitted->value, SubmissionStatus::PendingReview->value );
 	}
 
 	private function accessibleRow( int $groupLessonId, int $userId, bool $allGroups ): ?GroupLessonDTO {

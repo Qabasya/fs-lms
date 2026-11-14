@@ -150,10 +150,12 @@ class SubmissionRepository {
 			return array();
 		}
 		$placeholders = implode( ', ', array_fill( 0, count( $groupIds ), '%d' ) );
+		$statuses = SubmissionStatus::pendingReviewValues();
+		$statusPlaceholders = implode( ', ', array_fill( 0, count( $statuses ), '%s' ) );
 		$rows = $this->wpdb->get_results( $this->wpdb->prepare(
 			"SELECT gl.group_id, COUNT(*) AS cnt FROM %i s JOIN %i gl ON gl.id = s.group_lesson_id
-			 WHERE gl.group_id IN ($placeholders) AND s.status = %s GROUP BY gl.group_id",
-			array_merge( array( $this->table, $this->glTable ), $groupIds, array( SubmissionStatus::Submitted->value ) )
+			 WHERE gl.group_id IN ($placeholders) AND s.task_id IS NULL AND s.status IN ($statusPlaceholders) GROUP BY gl.group_id",
+			array_merge( array( $this->table, $this->glTable ), $groupIds, $statuses )
 		), ARRAY_A );
 		return array_map( 'intval', array_column( $rows ?: array(), 'cnt', 'group_id' ) );
 	}

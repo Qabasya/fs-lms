@@ -22,6 +22,11 @@ enum SubmissionStatus: string {
 		};
 	}
 
+	/** @return list<string> Статусы сдач, ожидающих проверки. */
+	public static function pendingReviewValues(): array {
+		return array( self::Submitted->value, self::PendingReview->value );
+	}
+
 	public function isTerminal(): bool {
 		return self::Graded === $this;
 	}
