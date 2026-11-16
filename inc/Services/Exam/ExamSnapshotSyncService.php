@@ -68,9 +68,8 @@ class ExamSnapshotSyncService {
 		$oldKey    = (string) $meta->meta_key;
 		$targetKey = false === $newKey ? $oldKey : (string) $newKey;
 		if ( ( in_array( $oldKey, ExamVariantGuard::GUARDED_META, true ) || in_array( $targetKey, ExamVariantGuard::GUARDED_META, true ) )
-			&& $this->guard->isPostFrozen( (int) $meta->post_id ) ) {
-			if ( $oldKey !== $targetKey || ( ! $this->guard->isMetaUnchanged( (int) $meta->post_id, $oldKey, $value )
-				&& ! ( PostMetaName::Meta->value === $oldKey && $this->guard->isConditionOnlyEdit( (int) $meta->post_id, $value ) ) ) ) {
+			&& $this->guard->isAssessmentFrozen( (int) $meta->post_id ) ) {
+			if ( $oldKey !== $targetKey || ! $this->guard->isMetaUnchanged( (int) $meta->post_id, $oldKey, $value ) ) {
 				return false;
 			}
 		}
@@ -89,7 +88,7 @@ class ExamSnapshotSyncService {
 		if ( ! $meta ) {
 			return $check;
 		}
-		if ( in_array( (string) $meta->meta_key, ExamVariantGuard::GUARDED_META, true ) && $this->guard->isPostFrozen( (int) $meta->post_id ) ) {
+		if ( in_array( (string) $meta->meta_key, ExamVariantGuard::GUARDED_META, true ) && $this->guard->isAssessmentFrozen( (int) $meta->post_id ) ) {
 			return false;
 		}
 		if ( PostMetaName::Meta->value !== $meta->meta_key ) {

@@ -27,6 +27,7 @@ class ExamVariantGuardControllerTest extends TestCase {
 		fs_test_reset_posts();
 		$this->guard      = $this->createMock( ExamVariantGuard::class );
 		$this->transients = $this->createMock( TransientManager::class );
+		$this->guard->method( 'isAssessmentFrozen' )->willReturnCallback( static fn ( int $id ): bool => 500 === $id );
 		$this->guard->method( 'isPostFrozen' )->willReturnCallback( static fn ( int $id ): bool => in_array( $id, array( 500, 11 ), true ) );
 		$this->guard->method( 'isAttachmentFrozen' )->willReturnCallback( static fn ( int $id ): bool => 900 === $id );
 		$this->guard->method( 'reason' )->willReturn( 'Вариант используется в экзамене «Пробный»: изменение недоступно.' );
@@ -44,18 +45,10 @@ class ExamVariantGuardControllerTest extends TestCase {
 		self::assertFalse( $this->controller->guardMeta( null, 500, 'fs_lms_template_type' ) );
 	}
 
-	public function test_task_meta_cannot_change_when_frozen_via_metabox(): void {
-		self::assertFalse( $this->controller->guardMeta( null, 11, 'fs_lms_meta' ) );
-	}
-
-	/** Правка только условия замороженного задания проходит через обновление меты; удаление и добавление — нет. */
-	public function test_update_meta_allows_condition_only_edit_of_frozen_task(): void {
-		$this->guard->method( 'isConditionOnlyEdit' )->willReturnCallback( static fn ( int $id, mixed $meta ): bool => 11 === $id && array( 'ok' ) === $meta );
-
-		self::assertNull( $this->controller->guardMetaUpdate( null, 11, 'fs_lms_meta', array( 'ok' ) ) );
-		self::assertFalse( $this->controller->guardMetaUpdate( null, 11, 'fs_lms_meta', array( 'changed answer' ) ) );
-		self::assertFalse( $this->controller->guardMetaUpdate( null, 11, 'fs_lms_template_type', array( 'ok' ) ), 'Другие ключи — только как раньше.' );
-		self::assertFalse( $this->controller->guardMeta( null, 11, 'fs_lms_meta' ), 'Удаление и добавление исключения не получают.' );
+	public function test_task_meta_can_change_even_when_used_by_frozen_variant(): void {
+		self::assertNull( $this->controller->guardMeta( null, 11, 'fs_lms_meta' ) );
+		self::assertNull( $this->controller->guardMetaUpdate( null, 11, 'fs_lms_meta', array( 'changed answer' ) ) );
+		self::assertNull( $this->controller->guardMetaUpdate( null, 11, 'fs_lms_template_type', 'new_template' ) );
 	}
 
 	public function test_unfrozen_posts_and_foreign_keys_are_untouched(): void {
@@ -66,20 +59,20 @@ class ExamVariantGuardControllerTest extends TestCase {
 
 	public function test_bundle_import_does_not_overwrite_frozen_variant(): void {
 		// Импорт и перенос предмета пишут те же posts и meta: поля поста возвращаются прежними, мета отклоняется.
-		fs_test_seed_post( array( 'ID' => 11, 'post_type' => 'inf_ege_tasks', 'post_title' => 'Прежнее', 'post_content' => 'Старое условие', 'post_status' => 'publish' ) );
-		$this->guard->expects( self::once() )->method( 'preserveFrozenPostData' )->with( 11, self::anything() )->willReturn(
+		fs_test_seed_post( array( 'ID' => 500, 'post_type' => 'inf_ege_assessments', 'post_title' => 'Прежнее', 'post_content' => 'Старое условие', 'post_status' => 'publish' ) );
+		$this->guard->expects( self::once() )->method( 'preserveFrozenPostData' )->with( 500, self::anything() )->willReturn(
 			array( 'post_title' => 'Прежнее', 'post_content' => 'Старое условие', 'post_status' => 'publish' )
 		);
 
 		$data = $this->controller->guardPostData(
 			array( 'post_title' => 'Из пакета', 'post_content' => 'Новое условие', 'post_status' => 'draft', 'post_name' => '', 'post_excerpt' => '', 'post_parent' => 0, 'menu_order' => 0 ),
-			array( 'ID' => 11 )
+			array( 'ID' => 500 )
 		);
 
 		self::assertSame( 'Прежнее', $data['post_title'] );
 		self::assertSame( 'Старое условие', $data['post_content'] );
 		self::assertSame( 'publish', $data['post_status'] );
-		self::assertFalse( $this->controller->guardMeta( null, 11, 'fs_lms_meta' ) );
+		self::assertFalse( $this->controller->guardMeta( null, 500, 'fs_lms_meta' ) );
 	}
 
 	public function test_new_post_data_passes_through(): void {
@@ -100,11 +93,11 @@ class ExamVariantGuardControllerTest extends TestCase {
 		self::assertNull( $this->controller->guardDelete( null, $free ) );
 	}
 
-	public function test_attachment_of_frozen_task_cannot_be_deleted_or_replaced(): void {
+	public function test_attachment_of_frozen_task_cannot_be_deleted_but_reference_can_change(): void {
 		self::assertFalse( $this->controller->guardAttachment( null, new \WP_Post( array( 'ID' => 900, 'post_type' => 'attachment' ) ) ) );
 		self::assertNull( $this->controller->guardAttachment( null, new \WP_Post( array( 'ID' => 901, 'post_type' => 'attachment' ) ) ) );
-		// Замена файла — это правка меты задания со ссылкой на новое вложение: она отклоняется тем же фильтром меты.
-		self::assertFalse( $this->controller->guardMeta( null, 11, 'fs_lms_meta' ) );
+		// Замена файла — это правка меты задания со ссылкой на новое вложение: она разрешена.
+		self::assertNull( $this->controller->guardMeta( null, 11, 'fs_lms_meta' ) );
 	}
 
 	public function test_refusal_reason_is_stored_for_notice(): void {

@@ -65,7 +65,7 @@ class TaskMetaService {
 				continue;
 			}
 
-			$html = $this->cleanCondition( (string) apply_filters( 'the_content', $value ) );
+			$html = $this->cleanCondition( $this->formatCondition( (string) $value ) );
 			if ( '' === $html ) {
 				continue;
 			}
@@ -85,6 +85,21 @@ class TaskMetaService {
 			) );
 
 		return $this->wrapCommon( $common, $collapseCommon ) . $own;
+	}
+
+	private function formatCondition( string $html ): string {
+		// В условиях 123x57 может быть числом с неизвестной цифрой, а не умножением.
+		$priority = function_exists( 'wptexturize' ) ? has_filter( 'the_content', 'wptexturize' ) : false;
+		if ( false === $priority ) {
+			return (string) apply_filters( 'the_content', $html );
+		}
+
+		remove_filter( 'the_content', 'wptexturize', $priority );
+		try {
+			return (string) apply_filters( 'the_content', $html );
+		} finally {
+			add_filter( 'the_content', 'wptexturize', $priority );
+		}
 	}
 
 	/**

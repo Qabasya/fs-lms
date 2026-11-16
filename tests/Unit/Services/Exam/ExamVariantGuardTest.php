@@ -59,7 +59,7 @@ class ExamVariantGuardTest extends TestCase {
 
 		$this->posts->method( 'get' )->willReturnCallback( static fn ( int $id ) => get_post( $id ) );
 
-		$this->guard = new ExamVariantGuard( $this->sessions, $this->events, $this->assessments, $this->posts, $time, new \Inc\Services\Template\TemplateRegistry() );
+		$this->guard = new ExamVariantGuard( $this->sessions, $this->events, $this->assessments, $this->posts, $time );
 	}
 
 	/** @return array<string, mixed> */
@@ -95,14 +95,6 @@ class ExamVariantGuardTest extends TestCase {
 		self::assertFalse( $this->guard->isTaskFrozen( 99 ) );
 	}
 
-	/** Условие замороженного задания править можно: опечатка не меняет ни состав, ни ответ, ни баллы. */
-	public function test_only_condition_text_of_frozen_task_may_change(): void {
-		$this->frozenRows = array( $this->row() );
-		$this->meta[11]['data'] = array( 'task_condition' => 'Старое условие', 'common_condition' => 'Общее', 'task_answer' => '42', 'points' => 2 );
-
-		self::assertTrue( $this->guard->isConditionOnlyEdit( 11, array( 'task_condition' => 'Новое условие', 'common_condition' => 'Общее!', 'task_answer' => '42', 'points' => '2' ) ) );
-	}
-
 	/** Повторная запись того же значения (метабокс пишет все поля подряд) ничего не меняет и не считается правкой. */
 	public function test_rewriting_same_meta_value_is_not_a_change(): void {
 		$this->frozenRows = array( $this->row() );
@@ -112,31 +104,11 @@ class ExamVariantGuardTest extends TestCase {
 		self::assertFalse( $this->guard->isMetaUnchanged( 11, 'fs_lms_meta', array( 'task_answer' => '43' ) ) );
 	}
 
-	public function test_changing_answer_or_adding_fields_is_still_blocked(): void {
+	public function test_frozen_variant_does_not_block_task_fields(): void {
 		$this->frozenRows = array( $this->row() );
-		$this->meta[11]['data'] = array( 'task_condition' => 'Условие', 'task_answer' => '42' );
-
-		self::assertFalse( $this->guard->isConditionOnlyEdit( 11, array( 'task_condition' => 'Условие', 'task_answer' => '43' ) ) );
-		self::assertFalse( $this->guard->isConditionOnlyEdit( 11, array( 'task_condition' => 'Условие', 'task_answer' => '42', 'extra' => 'x' ) ) );
-		self::assertFalse( $this->guard->isConditionOnlyEdit( 11, array( 'task_condition' => 'Условие' ) ), 'Удаление поля — тоже изменение.' );
-	}
-
-	public function test_legacy_solution_normalization_and_decoded_answer_are_equivalent(): void {
-		$this->frozenRows = array( $this->row() );
-		$this->meta[11]['data'] = array( 'task_condition' => 'Старое', 'task_answer' => '&lt;', 'task_text' => '<p>$x$</p><p>&nbsp;</p>' );
-		self::assertTrue( $this->guard->isConditionOnlyEdit( 11, array( 'task_condition' => 'Новое', 'task_answer' => '<', 'task_text' => "[latexpage]\n<p>\$x\$</p>" ) ) );
-		self::assertFalse( $this->guard->isConditionOnlyEdit( 11, array( 'task_condition' => 'Новое', 'task_answer' => '>', 'task_text' => "[latexpage]\n<p>\$x\$</p>" ) ) );
-	}
-
-	/** Правило только для заданий: вариант (контрольная) и свободные посты остаются как были. */
-	public function test_condition_exception_does_not_apply_to_variant_or_free_posts(): void {
-		$this->frozenRows = array( $this->row() );
-		$this->meta[500]['data'] = array( 'task_condition' => 'a' );
-		$this->meta[99]['data']  = array( 'task_condition' => 'a' );
-
-		self::assertFalse( $this->guard->isConditionOnlyEdit( 500, array( 'task_condition' => 'b' ) ) );
-		self::assertFalse( $this->guard->isConditionOnlyEdit( 99, array( 'task_condition' => 'b' ) ) );
-		self::assertFalse( $this->guard->isConditionOnlyEdit( 11, 'не массив' ) );
+		self::assertTrue( $this->guard->isTaskFrozen( 11 ) );
+		$data = array( 'post_title' => 'Новое название', 'post_content' => 'Новое условие' );
+		self::assertSame( $data, $this->guard->preserveFrozenPostData( 11, $data ) );
 	}
 
 	public function test_frozen_post_keeps_saved_fields_and_unrelated_data(): void {
@@ -210,7 +182,7 @@ class ExamVariantGuardTest extends TestCase {
 			scoringPolicy: \Inc\Enums\Assessment\ScoringPolicy::Highest, status: 'publish', kind: \Inc\Enums\Assessment\AssessmentKind::EgeComputer, taskPoints: array(), scoreMap: array()
 		) );
 		$time = $this->createStub( ExamTime::class );
-		$guard = new ExamVariantGuard( $this->sessions, $events, $this->assessments, $this->posts, $time, new \Inc\Services\Template\TemplateRegistry() );
+		$guard = new ExamVariantGuard( $this->sessions, $events, $this->assessments, $this->posts, $time );
 
 		self::assertTrue( $guard->isTaskFrozen( 31 ) );
 	}

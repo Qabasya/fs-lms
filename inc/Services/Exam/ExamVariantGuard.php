@@ -14,8 +14,6 @@ use Inc\Managers\Assessment\AssessmentManager;
 use Inc\Managers\Wp\PostManager;
 use Inc\Repositories\WPDBRepositories\ExamEventRepository;
 use Inc\Repositories\WPDBRepositories\ExamSessionRepository;
-use Inc\MetaBoxes\Fields\TextareaField;
-use Inc\Services\Template\TemplateRegistry;
 
 /**
  * Неизменяемость варианта экзамена (этап 13.2, SPEC §12): после первого старта (или начала сеанса по времени) состав, веса, длительность
@@ -60,7 +58,6 @@ class ExamVariantGuard {
 		private readonly AssessmentManager $assessments,
 		private readonly PostManager $posts,
 		private readonly ExamTime $time,
-		private readonly TemplateRegistry $templates,
 	) {}
 
 	/**
@@ -90,30 +87,6 @@ class ExamVariantGuard {
 		return isset( $this->taskMap()[ $taskId ] );
 	}
 
-	/**
-	 * Правка только текста условия замороженного задания: поля `*_condition` меняются, всё остальное
-	 * (ответ, баллы, шаблон, состав) остаётся как было. Опечатку в условии исправить можно — на
-	 * результат и оценивание она не влияет. Только для заданий; сам вариант (контрольная) этим не открывается.
-	 *
-	 * @param mixed $newMeta Новое значение меты `fs_lms_meta` задания
-	 */
-	public function isConditionOnlyEdit( int $taskId, mixed $newMeta ): bool {
-		if ( ! is_array( $newMeta ) || ! $this->isTaskFrozen( $taskId ) || $this->isAssessmentFrozen( $taskId ) ) {
-			return false;
-		}
-
-		$current = $this->posts->getMeta( $taskId, PostMetaName::Meta->value );
-
-		if ( ! is_array( $current ) ) {
-			return false;
-		}
-		$templateId = $this->posts->getMeta( $taskId, PostMetaName::TemplateType->value );
-		$template = $this->templates->get( is_string( $templateId ) ? $templateId : '' );
-		$fields = $template?->get_fields() ?? array();
-
-		return $this->withoutConditions( $current, $fields ) === $this->withoutConditions( $newMeta, $fields );
-	}
-
 	/** Значение меты не меняется (запись того же): такая запись безвредна и отказа не вызывает. */
 	public function isMetaUnchanged( int $postId, string $metaKey, mixed $newValue ): bool {
 		$current = $this->posts->getMeta( $postId, $metaKey );
@@ -138,32 +111,6 @@ class ExamVariantGuard {
 		return $out;
 	}
 
-	/**
-	 * Мета без полей условия, значения приведены к строкам: «2» и 2 не считаются правкой.
-	 *
-	 * @param array<mixed> $meta
-	 *
-	 * @return array<mixed>
-	 */
-	private function withoutConditions( array $meta, array $fields = array() ): array {
-		$kept = array();
-		foreach ( $meta as $key => $value ) {
-			if ( is_string( $key ) && str_ends_with( $key, '_condition' ) ) {
-				continue;
-			}
-			$field = $fields[ $key ]['object'] ?? null;
-			if ( null !== $field && ! is_array( $value ) ) {
-				// TextareaField decodes stored entities when rendering, before its sanitize step.
-				$value = $field instanceof TextareaField ? html_entity_decode( (string) $value, ENT_QUOTES | ENT_HTML5, 'UTF-8' ) : $value;
-				$value = $field->sanitize( $value );
-			}
-			$kept[ $key ] = is_array( $value ) ? $this->withoutConditions( $value ) : (string) $value;
-		}
-		ksort( $kept );
-
-		return $kept;
-	}
-
 	/** Любой пост работы или задания: вариант либо задание замороженного варианта. */
 	public function isPostFrozen( int $postId ): bool {
 		return $this->isAssessmentFrozen( $postId ) || $this->isTaskFrozen( $postId );
@@ -177,7 +124,7 @@ class ExamVariantGuard {
 	 * @return array<string, mixed>
 	 */
 	public function preserveFrozenPostData( int $postId, array $data ): array {
-		if ( $postId <= 0 || ! $this->isPostFrozen( $postId ) ) {
+		if ( $postId <= 0 || ! $this->isAssessmentFrozen( $postId ) ) {
 			return $data;
 		}
 

@@ -1,6 +1,6 @@
 <?php
 /**
- * Хуки неизменяемости варианта экзамена (этап 13.2): мета работы и заданий, поля поста, корзина, удаление поста и вложения.
+ * Хуки неизменяемости варианта экзамена (этап 13.2): мета варианта, поля поста, корзина, удаление поста и вложения.
  *
  * @package FS_LMS
  */
@@ -11,7 +11,6 @@ namespace Inc\Controllers\Exam;
 
 use Inc\Contracts\ServiceInterface;
 use Inc\Core\BaseController;
-use Inc\Enums\Wp\PostMetaName;
 use Inc\Enums\Wp\TransientKey;
 use Inc\Managers\Wp\TransientManager;
 use Inc\Services\Exam\ExamVariantGuard;
@@ -19,7 +18,7 @@ use Inc\Services\Exam\ExamSnapshotSyncService;
 use Inc\Shared\Traits\TemplateRenderer;
 
 /**
- * Хуки неизменяемости варианта экзамена (этап 13.2): мета работы и заданий, поля поста, корзина, удаление поста и вложения.
+ * Хуки неизменяемости варианта экзамена (этап 13.2): мета варианта, поля поста, корзина, удаление поста и вложения.
  *
  * Правило одно: изменяющая операция над замороженным объектом отклоняется, чтение не затрагивается. Решает {@see ExamVariantGuard};
  * здесь — только перехват. Метаданные перехватываются общими фильтрами `*_post_metadata`: так закрыты метабокс, модалка задания, конструктор
@@ -61,8 +60,7 @@ class ExamVariantGuardController extends BaseController implements ServiceInterf
 	}
 
 	/**
-	 * Обновление меты: как {@see guardMeta()}, но правка одного лишь текста условия замороженного
-	 * задания проходит — опечатку в условии исправить можно, ответ и баллы остаются прежними.
+	 * Обновление меты: как {@see guardMeta()}, но повторная запись прежнего значения проходит.
 	 *
 	 * @param mixed  $check     null — штатный путь; не null — операция отменена.
 	 * @param int    $objectId  Пост.
@@ -72,12 +70,9 @@ class ExamVariantGuardController extends BaseController implements ServiceInterf
 	 * @return mixed
 	 */
 	public function guardMetaUpdate( mixed $check, mixed $objectId, mixed $metaKey, mixed $metaValue = null ): mixed {
-		if ( null === $check && in_array( (string) $metaKey, ExamVariantGuard::GUARDED_META, true ) && $this->guard->isPostFrozen( (int) $objectId ) ) {
+		if ( null === $check && in_array( (string) $metaKey, ExamVariantGuard::GUARDED_META, true ) && $this->guard->isAssessmentFrozen( (int) $objectId ) ) {
 			// Та же запись, что уже хранится (метабокс пишет все поля подряд), — не правка: молча пропускаем.
 			if ( $this->guard->isMetaUnchanged( (int) $objectId, (string) $metaKey, $metaValue ) ) {
-				return $check;
-			}
-			if ( PostMetaName::Meta->value === (string) $metaKey && $this->guard->isConditionOnlyEdit( (int) $objectId, $metaValue ) ) {
 				return $check;
 			}
 		}
@@ -95,7 +90,7 @@ class ExamVariantGuardController extends BaseController implements ServiceInterf
 	 * @return mixed
 	 */
 	public function guardMeta( mixed $check, mixed $objectId, mixed $metaKey ): mixed {
-		if ( null !== $check || ! in_array( (string) $metaKey, ExamVariantGuard::GUARDED_META, true ) || ! $this->guard->isPostFrozen( (int) $objectId ) ) {
+		if ( null !== $check || ! in_array( (string) $metaKey, ExamVariantGuard::GUARDED_META, true ) || ! $this->guard->isAssessmentFrozen( (int) $objectId ) ) {
 			return $check;
 		}
 

@@ -100,23 +100,21 @@ namespace Tests\Unit\Services\Exam {
 			$posts->expects( self::never() )->method( 'updateMetaById' );
 			$posts->expects( self::never() )->method( 'deleteMetaById' );
 			$guard = $this->createMock( ExamVariantGuard::class );
-			$guard->method( 'isPostFrozen' )->willReturn( true );
+			$guard->method( 'isAssessmentFrozen' )->willReturn( true );
 			$guard->method( 'isMetaUnchanged' )->willReturn( false );
-			$guard->method( 'isConditionOnlyEdit' )->willReturn( false );
 			$service = $this->service( $guard, $this->createMock( ExamSessionRepository::class ), $this->createMock( ExamEventService::class ), $posts );
 			self::assertFalse( $service->filterUpdateById( null, 20, array( 'task_answer' => 'changed' ) ) );
 			self::assertFalse( $service->filterDeleteById( null, 20 ) );
 		}
 
-		public function test_metadata_by_id_allows_condition_only_edit_of_frozen_task(): void {
+		public function test_metadata_by_id_allows_edits_to_tasks_used_in_frozen_variants(): void {
 			$posts = $this->createMock( PostManager::class );
 			$posts->method( 'metaById' )->willReturn( (object) array( 'post_id' => 11, 'meta_key' => 'fs_lms_meta' ) );
 			$posts->method( 'get' )->willReturn( new \WP_Post( array( 'ID' => 11, 'post_type' => 'inf_ege_tasks' ) ) );
 			$guard = $this->createMock( ExamVariantGuard::class );
-			$guard->method( 'isPostFrozen' )->willReturn( true );
-			$guard->method( 'isConditionOnlyEdit' )->willReturn( true );
+			$guard->method( 'isAssessmentFrozen' )->willReturn( false );
 			$service = $this->service( $guard, $this->createMock( ExamSessionRepository::class ), $this->createMock( ExamEventService::class ), $posts );
-			self::assertNull( $service->filterUpdateById( null, 20, array( 'task_condition' => 'новое' ) ) );
+			self::assertNull( $service->filterUpdateById( null, 20, array( 'task_answer' => 'новый ответ' ) ) );
 		}
 	}
 }

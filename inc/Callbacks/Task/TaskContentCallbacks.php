@@ -12,7 +12,6 @@ use Inc\Managers\Wp\MetaBoxManager;
 use Inc\Managers\Wp\PostManager;
 use Inc\Services\Subject\PostTypeResolver;
 use Inc\Services\Template\TemplateRegistry;
-use Inc\Services\Exam\ExamVariantGuard;
 use Inc\Services\Task\TaskFileNormalizationService;
 use Inc\Shared\PluginLogger;
 use Inc\Shared\Traits\Authorizer;
@@ -35,7 +34,6 @@ class TaskContentCallbacks extends BaseController {
 		private readonly TemplateRegistry $templateRegistry,
 		private readonly MetaBoxManager   $metaBoxManager,
 		private readonly PostManager      $posts,
-		private readonly ExamVariantGuard $variantGuard,
 		private readonly ?TaskFileNormalizationService $fileNormalization = null,
 	) {}
 
@@ -88,12 +86,6 @@ class TaskContentCallbacks extends BaseController {
 		$title      = $this->requireText( 'title' );
 		$postId     = $this->sanitizeInt( 'post_id' );
 		$rawMeta    = $this->unslashArray( PostMetaName::Meta->value );
-
-		// Замороженное задание правится только в тексте условия (остальное — копией варианта).
-		if ( $postId > 0 && $this->variantGuard->isTaskFrozen( $postId ) && ! $this->variantGuard->isConditionOnlyEdit( $postId, $rawMeta ) ) {
-			$this->error( $this->variantGuard->reason( $postId ) );
-			return;
-		}
 
 		$template = $this->templateRegistry->get( $templateId );
 		if ( ! $template ) {
