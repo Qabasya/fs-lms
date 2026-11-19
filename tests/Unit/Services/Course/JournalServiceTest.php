@@ -157,6 +157,30 @@ class JournalServiceTest extends TestCase {
 		self::assertSame( '2026-09-10', $result['lessons'][0]['date'] );
 	}
 
+	public function test_scheduled_columns_follow_dates_instead_of_program_order(): void {
+		$this->groups->method( 'findById' )->willReturn( (object) array( 'access_mode' => 'scheduled' ) );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
+			$this->glRow( 10, 20, '2026-11-18 10:00:00' ),
+			$this->glRow( 11, 21, '2026-11-04 10:00:00' ),
+			$this->glRow( 12, 22, '2026-11-07 10:00:00' ),
+			$this->glRow( 13, 23, '2026-11-07 12:00:00' ),
+		) );
+
+		$result = $this->service->forGroup( 5 );
+
+		self::assertSame( array( 11, 12, 13, 10 ), array_column( $result['lessons'], 'group_lesson_id' ) );
+	}
+
+	public function test_open_columns_keep_program_order(): void {
+		$this->groups->method( 'findById' )->willReturn( (object) array( 'access_mode' => 'open' ) );
+		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
+			$this->glRow( 10, 20, '2026-11-18 10:00:00' ),
+			$this->glRow( 11, 21, '2026-11-04 10:00:00' ),
+		) );
+
+		self::assertSame( array( 10, 11 ), array_column( $this->service->forGroup( 5 )['lessons'], 'group_lesson_id' ) );
+	}
+
 	private function extraRow( int $id, int $personId, string $at = '2026-10-22 15:00:00' ): GroupLessonDTO {
 		return GroupLessonDTO::fromArray( array(
 			'id' => $id, 'group_id' => 5, 'lesson_id' => null, 'position' => 0, 'kind' => 'individual', 'status' => 'scheduled',

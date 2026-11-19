@@ -105,6 +105,9 @@ class JournalService {
 		// «extra_students» — кто в нём участвует, остальные ячейки столбца не отмечаются.
 		if ( ! $isOpen ) {
 			$lessons = $this->withExtraColumns( $lessons, $rows, $groupRoomId, $roomNames );
+			// Журнал следует календарю, даже если строки КТП переставили или перенесли.
+			// Для одной даты сохраняем исходный порядок занятий и продолжений.
+			usort( $lessons, static fn( array $a, array $b ): int => strcmp( $a['date'], $b['date'] ) );
 		}
 
 		// Посещаемость (+/−). В открытой группе учителя нет — вручную никто не отмечает,
