@@ -8,7 +8,7 @@ use Inc\Repositories\OptionsRepositories\LoginBlockRepository;
 
 /** Постоянные блокировки IP и известных учётных записей. */
 class LoginBlockService {
-	public const IP_LIMIT = 20;
+	public const IP_LIMIT = 5;
 	public const IP_WINDOW = 10 * MINUTE_IN_SECONDS;
 
 	public function __construct( private readonly LoginBlockRepository $repository ) {}
@@ -22,10 +22,27 @@ class LoginBlockService {
 		return $userId > 0 && $this->repository->isBlocked( 'user:' . $userId );
 	}
 
-	public function recordIpFailure( string $ip ): void {
+	public function recordIpFailure( string $ip, string $login = '' ): void {
 		$key = $this->ipKey( $ip );
 		if ( null !== $key ) {
-			$this->repository->recordFailure( $key, self::IP_LIMIT, self::IP_WINDOW );
+			$this->repository->recordTemporaryFailure( $key, self::IP_LIMIT, self::IP_WINDOW, RateLimitService::LOGIN_LOCK_STEPS, RateLimitService::LOGIN_LOCK_MEMORY, $login );
+		}
+	}
+
+	public function ipDiagnostics( string $ip ): array {
+		$key = $this->ipKey( $ip );
+		return null === $key ? array() : $this->repository->ipDiagnostics( $key );
+	}
+
+	public function ipRetrySeconds( string $ip ): int {
+		$key = $this->ipKey( $ip );
+		return null === $key ? 0 : $this->repository->retrySeconds( $key );
+	}
+
+	public function clearIpFailures( string $ip ): void {
+		$key = $this->ipKey( $ip );
+		if ( null !== $key ) {
+			$this->repository->clearFailures( $key );
 		}
 	}
 
@@ -45,7 +62,8 @@ class LoginBlockService {
 		if ( null === $key ) {
 			return null;
 		}
-		return $this->repository->unblock( $key );
+		$temporary = $this->repository->retrySeconds( $key ) > 0;
+		return $this->repository->unblock( $key ) || $temporary;
 	}
 
 	public function unblockUser( int $userId ): void {

@@ -84,6 +84,19 @@ class LoginGuardServiceTest extends TestCase {
 		self::assertTrue( $service->isPermanentlyBlocked( '', self::IP ) );
 	}
 
+	public function test_temporary_ip_lock_applies_to_all_logins_and_empty_form(): void {
+		$blocks = $this->createStub( LoginBlockService::class );
+		$blocks->method( 'ipRetrySeconds' )->willReturn( 900 );
+		$service = $this->makeService( blocks: $blocks );
+		foreach ( array( '', 'first', 'second' ) as $login ) {
+			self::assertSame( LoginGuardService::CODE_LOCKED, $service->guard( null, $login, '', self::IP, true )->get_error_code() );
+			self::assertSame( 900, $service->lockSecondsFor( $login, self::IP ) );
+			self::assertFalse( $service->isPermanentlyBlocked( $login, self::IP ) );
+		}
+		$trusted = $this->makeService( trusted: true, blocks: $blocks );
+		self::assertSame( 0, $trusted->lockSecondsFor( '', self::IP ) );
+	}
+
 	public function test_captcha_rejection_counts_ip_but_not_account(): void {
 		$blocks = $this->createMock( LoginBlockService::class );
 		$blocks->expects( self::once() )->method( 'recordIpFailure' )->with( self::IP );

@@ -71,6 +71,10 @@ readonly class LoginGuardService {
 		if ( ! $this->pluginConfig->isTrustedIp( $ip ) && $this->blocks->ipBlocked( $ip ) ) {
 			return new WP_Error( self::CODE_PERMANENT, 'Вход временно недоступен. Обратитесь к администратору.' );
 		}
+		$ipWait = $this->pluginConfig->isTrustedIp( $ip ) ? 0 : $this->blocks->ipRetrySeconds( $ip );
+		if ( $ipWait > 0 ) {
+			return new WP_Error( self::CODE_LOCKED, LoginNotice::Locked->message( (int) ceil( $ipWait / MINUTE_IN_SECONDS ) ) );
+		}
 		if ( '' === trim( $login ) ) {
 			return $user;
 		}
@@ -110,7 +114,7 @@ readonly class LoginGuardService {
 		if ( $this->pluginConfig->isTrustedIp( $ip ) ) {
 			return;
 		}
-		$this->blocks->recordIpFailure( $ip );
+		$this->blocks->recordIpFailure( $ip, $login );
 		if ( '' === trim( $login ) || $this->isGuardRejection( $error ) ) {
 			return;
 		}
@@ -133,6 +137,7 @@ readonly class LoginGuardService {
 	 * @return void
 	 */
 	public function onSuccess( WP_User $user, string $ip ): void {
+		$this->blocks->clearIpFailures( $ip );
 		$this->blocks->clearUserFailures( $user->ID );
 		$this->rateLimit->clearLoginFailures( $ip, $this->userIdKey( $user->ID ) );
 	}
@@ -158,6 +163,10 @@ readonly class LoginGuardService {
 			if ( $this->blocks->ipBlocked( $ip ) || $this->blocks->userBlocked( $userId ) ) {
 				return new LoginNoticeDTO( LoginNotice::Blocked );
 			}
+		}
+		$ipWait = $this->pluginConfig->isTrustedIp( $ip ) ? 0 : $this->blocks->ipRetrySeconds( $ip );
+		if ( $ipWait > 0 ) {
+			return new LoginNoticeDTO( LoginNotice::Locked, (int) ceil( $ipWait / MINUTE_IN_SECONDS ) );
 		}
 		if ( null !== $error && self::CODE_CAPTCHA === $error->get_error_code() ) {
 			return new LoginNoticeDTO( LoginNotice::Captcha );
@@ -189,6 +198,9 @@ readonly class LoginGuardService {
 	 * @return int 0 — вход открыт
 	 */
 	public function lockSecondsFor( string $login, string $ip ): int {
+		if ( ! $this->pluginConfig->isTrustedIp( $ip ) && $this->blocks->ipRetrySeconds( $ip ) > 0 ) {
+			return max( $this->blocks->ipRetrySeconds( $ip ), '' === trim( $login ) ? 0 : $this->rateLimit->loginRetrySeconds( $ip, $this->userKey( $login ) ) );
+		}
 		if ( '' === trim( $login ) || $this->pluginConfig->isTrustedIp( $ip ) ) {
 			return 0;
 		}

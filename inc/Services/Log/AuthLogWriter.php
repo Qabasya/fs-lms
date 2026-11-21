@@ -43,6 +43,9 @@ use Inc\Shared\Traits\RequestContextProvider;
  */
 class AuthLogWriter {
 
+	private ?string $requestId = null;
+	private int $eventNumber = 0;
+
 	use RequestContextProvider;  // Трейт с методом requestContext() для получения IP/UA
 
 	/**
@@ -54,6 +57,7 @@ class AuthLogWriter {
 	public function __construct(
 		private readonly AuthLogRepository $repository,
 		private readonly ClockInterface    $clock,
+		private readonly ?\Inc\Services\Security\LoginBlockService $blocks = null,
 	) {}
 
 	public function record(
@@ -85,11 +89,41 @@ class AuthLogWriter {
 		$this->write( $loginIdentifier, $action, $result, $reason, array() !== $details ? $details : null );
 	}
 
+	private function safePath( string $url ): string {
+		$path = parse_url( $url, PHP_URL_PATH );
+		return is_string( $path ) ? substr( preg_replace( '/[\x00-\x1f\x7f]/', '', $path ) ?? '', 0, 256 ) : '';
+	}
+
 	/**
 	 * @param array<string, mixed>|null $details
 	 */
 	private function write( ?string $loginIdentifier, AuthAction $action, AuthResult $result, ?LoginFailReason $reason, ?array $details ): void {
 		$ctx = $this->requestContext();
+		$this->requestId ??= bin2hex( random_bytes( 16 ) );
+		$details = array_merge( $details ?? array(), array(
+			'request_id' => $this->requestId,
+			'request_time_ms' => (int) round( (float) ( $_SERVER['REQUEST_TIME_FLOAT'] ?? microtime( true ) ) * 1000 ),
+			'request_event' => ++$this->eventNumber,
+			'request_method' => substr( (string) ( $_SERVER['REQUEST_METHOD'] ?? '' ), 0, 16 ),
+			// Только путь: параметры адреса могут содержать персональные данные и токены.
+			'request_path' => $this->safePath( (string) ( $_SERVER['REQUEST_URI'] ?? '' ) ),
+			'referer_path' => $this->safePath( (string) ( $_SERVER['HTTP_REFERER'] ?? '' ) ),
+		) );
+		$details = array_merge( $details, $this->blocks?->ipDiagnostics( $ctx->ip ) ?? array() );
+		if ( AuthAction::Login->value === $action->value ) {
+			$cookieName = defined( 'LOGGED_IN_COOKIE' ) ? LOGGED_IN_COOKIE : '';
+			$details['incoming_session_user'] = function_exists( 'wp_validate_auth_cookie' ) ? (int) wp_validate_auth_cookie( '', 'logged_in' ) : 0;
+			$details['incoming_login_cookie'] = '' !== $cookieName && ! empty( $_COOKIE[ $cookieName ] );
+			if ( $details['incoming_login_cookie'] && function_exists( 'wp_parse_auth_cookie' ) ) {
+				$cookie = wp_parse_auth_cookie( '', 'logged_in' );
+				if ( is_array( $cookie ) && ! empty( $cookie['token'] ) ) {
+					$details['session_ref'] = hash_hmac( 'sha256', $cookie['token'], wp_salt( 'auth' ) );
+				}
+			}
+			$details['form'] = ! empty( $_POST['fs_lms_login'] ) ? 'sign_in' : 'wp_login';
+			$details['remember_me'] = ! empty( $_POST['rememberme'] );
+		}
+
 
 		$this->repository->create( new AuthLogInputDTO(
 			loginIdentifier: $loginIdentifier,

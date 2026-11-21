@@ -41,6 +41,61 @@ class LoginBlockRepository {
 		} );
 	}
 
+	/** Ступенчатая блокировка IP; запросы во время паузы её не продлевают. */
+	public function recordTemporaryFailure( string $key, int $limit, int $window, array $steps, int $memory, string $login = '' ): void {
+		$this->synchronized( $key, function () use ( $key, $limit, $window, $steps, $memory, $login ): void {
+			$counterKey = $this->counterKey( $key );
+			$this->refreshCounterCache( $counterKey );
+			$state = get_transient( $counterKey );
+			$now = time();
+			$state = is_array( $state ) ? $state : array();
+			if ( (int) ( $state['locked_until'] ?? 0 ) > $now ) {
+				return;
+			}
+			if ( (int) ( $state['until'] ?? 0 ) <= $now ) {
+				$state['count'] = 0;
+				$state['until'] = $now + $window;
+				$state['switches'] = 0;
+				$state['logins'] = array();
+				unset( $state['last_login'] );
+			}
+			$state['count'] = (int) ( $state['count'] ?? 0 ) + 1;
+			$loginHash = hash( 'sha256', mb_strtolower( trim( $login ) ) );
+			if ( isset( $state['last_login'] ) && $state['last_login'] !== $loginHash ) {
+				$state['switches'] = (int) ( $state['switches'] ?? 0 ) + 1;
+			}
+			$state['last_login'] = $loginHash;
+			$state['logins'][ $loginHash ] = true;
+			if ( $state['count'] >= $limit || (int) ( $state['switches'] ?? 0 ) > 2 ) {
+				$state['trigger'] = (int) ( $state['switches'] ?? 0 ) > 2 ? 'login_switches' : 'failures';
+
+				$state['level'] = min( (int) ( $state['level'] ?? 0 ) + 1, count( $steps ) );
+				$state['locked_until'] = $now + $steps[ $state['level'] - 1 ];
+				$state['count'] = 0;
+				$state['until'] = $state['locked_until'];
+			}
+			set_transient( $counterKey, $state, max( $state['until'], (int) ( $state['locked_until'] ?? 0 ) ) - $now + $memory );
+		} );
+	}
+
+	public function ipDiagnostics( string $key ): array {
+		$state = get_transient( $this->counterKey( $key ) );
+		if ( ! is_array( $state ) ) { return array(); }
+		return array(
+			'ip_failures' => (int) ( $state['count'] ?? 0 ),
+			'ip_login_switches' => (int) ( $state['switches'] ?? 0 ),
+			'ip_distinct_logins' => count( $state['logins'] ?? array() ),
+			'ip_lock_level' => (int) ( $state['level'] ?? 0 ),
+			'ip_lock_trigger' => (string) ( $state['trigger'] ?? '' ),
+			'ip_retry_seconds' => $this->retrySeconds( $key ),
+		);
+	}
+
+	public function retrySeconds( string $key ): int {
+		$state = get_transient( $this->counterKey( $key ) );
+		return max( 0, (int) ( is_array( $state ) ? ( $state['locked_until'] ?? 0 ) : 0 ) - time() );
+	}
+
 	/** Возвращает true, если постоянная блокировка действительно существовала. */
 	public function unblock( string $key ): bool {
 		return $this->synchronized( $key, function () use ( $key ): bool {

@@ -138,6 +138,17 @@ readonly class AuthLogDTO {
 			$lines[] = (string) $d['note'];
 		}
 
+		foreach ( array( 'request_time_ms' => 'Время запроса (Unix, мс)', 'incoming_session_user' => 'Пользователь входящей сессии', 'session_ref' => 'Метка сессии', 'ip_failures' => 'Неудач IP в серии', 'ip_distinct_logins' => 'Разных логинов', 'ip_login_switches' => 'Смен логина', 'ip_lock_level' => 'Ступень блокировки IP', 'ip_lock_trigger' => 'Причина блокировки IP', 'ip_retry_seconds' => 'Осталось секунд', 'request_id' => 'Запрос', 'request_event' => 'Событие в запросе', 'request_method' => 'Метод', 'request_path' => 'Путь', 'referer_path' => 'Переход со страницы' ) as $key => $label ) {
+			if ( isset( $d[ $key ] ) && '' !== (string) $d[ $key ] ) {
+				$lines[] = $label . ': ' . $d[ $key ];
+			}
+		}
+		foreach ( array( 'incoming_login_cookie' => 'Cookie входа в запросе', 'remember_me' => 'Запомнить меня' ) as $key => $label ) {
+			if ( isset( $d[ $key ] ) ) {
+				$lines[] = $label . ': ' . ( $d[ $key ] ? 'да' : 'нет' );
+			}
+		}
+
 		return $lines;
 	}
 

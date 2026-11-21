@@ -27,16 +27,36 @@ class LoginBlockServiceTest extends TestCase {
 		parent::tearDown();
 	}
 
-	public function test_ip_blocks_on_twentieth_failure_and_persists_until_unblocked(): void {
-		for ( $i = 0; $i < 19; ++$i ) { $this->service->recordIpFailure( '203.0.113.5' ); }
-		self::assertFalse( $this->service->ipBlocked( '203.0.113.5' ) );
-		$this->service->recordIpFailure( '203.0.113.5' );
-		self::assertTrue( $this->service->ipBlocked( '203.0.113.5' ) );
-		$GLOBALS['_test_transients'] = array();
-		self::assertTrue( $this->service->ipBlocked( '203.0.113.5' ) );
-		self::assertTrue( $this->service->unblockIpWithStatus( '203.0.113.5' ) );
-		self::assertFalse( $this->service->ipBlocked( '203.0.113.5' ) );
-		self::assertFalse( $this->service->unblockIpWithStatus( '203.0.113.5' ), 'повторное снятие сообщает об отсутствии блока' );
+	public function test_ip_blocks_after_five_failures_and_escalates(): void {
+		$ip = '203.0.113.5';
+		$key = 'fs_lms_login_abuse_' . hash_hmac( 'sha256', 'ip:' . $ip, FS_LMS_HASH_SALT );
+		foreach ( array( 900, 3600, 86400, 86400 ) as $seconds ) {
+			for ( $i = 0; $i < 4; ++$i ) { $this->service->recordIpFailure( $ip ); }
+			self::assertSame( 0, $this->service->ipRetrySeconds( $ip ) );
+			$this->service->recordIpFailure( $ip );
+			self::assertEqualsWithDelta( $seconds, $this->service->ipRetrySeconds( $ip ), 1 );
+			$before = $GLOBALS['_test_transients'][ $key ];
+			$this->service->recordIpFailure( $ip );
+			self::assertSame( $before, $GLOBALS['_test_transients'][ $key ] );
+			$GLOBALS['_test_transients'][ $key ]['locked_until'] = time() - 1;
+			$GLOBALS['_test_transients'][ $key ]['until'] = time() - 1;
+		}
+		$this->service->clearIpFailures( $ip );
+		for ( $i = 0; $i < 5; ++$i ) { $this->service->recordIpFailure( $ip ); }
+		self::assertEqualsWithDelta( 900, $this->service->ipRetrySeconds( $ip ), 1 );
+		self::assertTrue( $this->service->unblockIpWithStatus( $ip ) );
+		self::assertSame( 0, $this->service->ipRetrySeconds( $ip ) );
+	}
+
+	public function test_third_login_switch_locks_ip_before_five_failures(): void {
+		$ip = '203.0.113.99';
+		foreach ( array( 'one', 'two', 'one' ) as $login ) {
+			$this->service->recordIpFailure( $ip, $login );
+		}
+		self::assertSame( 0, $this->service->ipRetrySeconds( $ip ) );
+		$this->service->recordIpFailure( $ip, 'two' );
+		self::assertGreaterThan( 0, $this->service->ipRetrySeconds( $ip ) );
+		self::assertSame( 'login_switches', $this->service->ipDiagnostics( $ip )['ip_lock_trigger'] );
 	}
 
 	public function test_user_blocks_after_three_failures_and_success_does_not_clear_a_block(): void {
@@ -49,15 +69,15 @@ class LoginBlockServiceTest extends TestCase {
 	}
 
 	public function test_ip_is_normalized_and_invalid_ip_is_rejected(): void {
-		for ( $i = 0; $i < 20; ++$i ) { $this->service->recordIpFailure( '2001:0db8::1' ); }
-		self::assertTrue( $this->service->ipBlocked( '2001:db8::1' ) );
+		for ( $i = 0; $i < 5; ++$i ) { $this->service->recordIpFailure( '2001:0db8::1' ); }
+		self::assertGreaterThan( 0, $this->service->ipRetrySeconds( '2001:db8::1' ) );
 		self::assertFalse( $this->service->unblockIp( 'not-an-ip' ) );
 		self::assertNull( $this->service->unblockIpWithStatus( 'not-an-ip' ) );
 	}
 
 	public function test_unblocking_ip_does_not_unblock_the_account(): void {
 		$ip = '203.0.113.9';
-		for ( $i = 0; $i < 20; ++$i ) { $this->service->recordIpFailure( $ip ); }
+		for ( $i = 0; $i < 5; ++$i ) { $this->service->recordIpFailure( $ip ); }
 		for ( $i = 0; $i < 3; ++$i ) { $this->service->recordUserFailure( 17 ); }
 		self::assertTrue( $this->service->unblockIpWithStatus( $ip ) );
 		self::assertFalse( $this->service->ipBlocked( $ip ) );
@@ -68,13 +88,13 @@ class LoginBlockServiceTest extends TestCase {
 
 	public function test_expired_window_starts_a_new_counter(): void {
 		$ip = '203.0.113.7';
-		for ( $i = 0; $i < 19; ++$i ) { $this->service->recordIpFailure( $ip ); }
+		for ( $i = 0; $i < 4; ++$i ) { $this->service->recordIpFailure( $ip ); }
 		$key = 'fs_lms_login_abuse_' . hash_hmac( 'sha256', 'ip:' . $ip, FS_LMS_HASH_SALT );
 		$GLOBALS['_test_transients'][ $key ]['until'] = time() - 1;
 		$this->service->recordIpFailure( $ip );
 		self::assertFalse( $this->service->ipBlocked( $ip ) );
-		for ( $i = 0; $i < 19; ++$i ) { $this->service->recordIpFailure( $ip ); }
-		self::assertTrue( $this->service->ipBlocked( $ip ) );
+		for ( $i = 0; $i < 4; ++$i ) { $this->service->recordIpFailure( $ip ); }
+		self::assertGreaterThan( 0, $this->service->ipRetrySeconds( $ip ) );
 	}
 
 	public function test_lock_failure_cannot_silently_skip_counter_update(): void {
