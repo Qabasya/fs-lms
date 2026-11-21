@@ -45,6 +45,7 @@ readonly class LoginGuardService {
 
 	public const CODE_LOCKED  = 'fs_lms_login_locked';
 	public const CODE_CAPTCHA = 'fs_lms_login_captcha';
+	public const CODE_HONEYPOT = 'fs_lms_login_honeypot';
 	public const CODE_PERMANENT = 'fs_lms_login_blocked';
 
 	public function __construct(
@@ -53,6 +54,7 @@ readonly class LoginGuardService {
 		private UserManager      $users,
 		private PluginConfig     $pluginConfig,
 		private LoginBlockService $blocks,
+		private LoginHoneypotService $honeypot,
 	) {}
 
 	/**
@@ -70,6 +72,10 @@ readonly class LoginGuardService {
 	public function guard( mixed $user, string $login, string $captchaToken, string $ip, bool $fromLoginForm, ?CaptchaFailure $captchaFailure = null ): mixed {
 		if ( ! $this->pluginConfig->isTrustedIp( $ip ) && $this->blocks->ipBlocked( $ip ) ) {
 			return new WP_Error( self::CODE_PERMANENT, 'Вход временно недоступен. Обратитесь к администратору.' );
+		}
+		if ( ! $this->pluginConfig->isTrustedIp( $ip ) && $this->honeypot->matches( $login ) ) {
+			$this->blocks->blockIp( $ip );
+			return new WP_Error( self::CODE_HONEYPOT, 'Вход временно недоступен. Обратитесь к администратору.' );
 		}
 		$ipWait = $this->pluginConfig->isTrustedIp( $ip ) ? 0 : $this->blocks->ipRetrySeconds( $ip );
 		if ( $ipWait > 0 ) {
@@ -154,7 +160,7 @@ readonly class LoginGuardService {
 	 * @return LoginNoticeDTO
 	 */
 	public function noticeFor( string $login, ?WP_Error $error, string $ip ): LoginNoticeDTO {
-		if ( null !== $error && self::CODE_PERMANENT === $error->get_error_code() ) {
+		if ( null !== $error && in_array( $error->get_error_code(), array( self::CODE_PERMANENT, self::CODE_HONEYPOT ), true ) ) {
 			return new LoginNoticeDTO( LoginNotice::Blocked );
 		}
 		if ( ! $this->pluginConfig->isTrustedIp( $ip ) ) {
@@ -273,6 +279,6 @@ readonly class LoginGuardService {
 
 	private function isGuardRejection( ?WP_Error $error ): bool {
 		return null !== $error
-			&& in_array( $error->get_error_code(), array( self::CODE_LOCKED, self::CODE_CAPTCHA, self::CODE_PERMANENT ), true );
+			&& in_array( $error->get_error_code(), array( self::CODE_LOCKED, self::CODE_CAPTCHA, self::CODE_PERMANENT, self::CODE_HONEYPOT ), true );
 	}
 }

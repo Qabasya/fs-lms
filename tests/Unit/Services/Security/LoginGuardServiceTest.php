@@ -62,7 +62,20 @@ class LoginGuardServiceTest extends TestCase {
 		$users->method( 'findByLogin' )->willReturnCallback( static fn ( string $l ): ?WP_User => $logins[ $l ] ?? null );
 		$users->method( 'findByEmail' )->willReturnCallback( static fn ( string $e ): ?WP_User => $emails[ $e ] ?? null );
 
-		return new LoginGuardService( $this->rateLimit, $captcha, $users, $config, $blocks ?? $this->createStub( LoginBlockService::class ) );
+		return new LoginGuardService( $this->rateLimit, $captcha, $users, $config, $blocks ?? $this->createStub( LoginBlockService::class ), new \Inc\Services\Security\LoginHoneypotService( $users ) );
+	}
+
+	public function test_honeypot_blocks_ip_immediately_but_existing_accounts_and_trusted_ips_are_exempt(): void {
+		$blocks = $this->createMock( LoginBlockService::class );
+		$blocks->expects( self::once() )->method( 'blockIp' )->with( self::IP );
+		$service = $this->makeService( blocks: $blocks );
+		self::assertSame( LoginGuardService::CODE_HONEYPOT, $service->guard( null, ' ADMIN ', '', self::IP, true )->get_error_code() );
+		$trusted = $this->makeService( trusted: true, blocks: $blocks );
+		self::assertNull( $trusted->guard( null, 'admin', '', self::IP, false ) );
+		$user = $this->user( 5 );
+		$existing = $this->makeService( logins: array( 'admin' => $user ), blocks: $blocks );
+		self::assertSame( $user, $existing->guard( $user, 'admin', '', self::IP, false ) );
+		self::assertNull( $service->guard( null, 'admin-real', '', self::IP, false ) );
 	}
 
 	public function test_permanent_user_block_applies_across_ips_and_trusted_ip_bypasses_it(): void {

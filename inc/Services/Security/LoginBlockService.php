@@ -13,6 +13,13 @@ class LoginBlockService {
 
 	public function __construct( private readonly LoginBlockRepository $repository ) {}
 
+	public function blockIp( string $ip ): void {
+		$key = $this->ipKey( $ip );
+		if ( null !== $key ) {
+			$this->repository->recordFailure( $key, 1, self::IP_WINDOW );
+		}
+	}
+
 	public function ipBlocked( string $ip ): bool {
 		$key = $this->ipKey( $ip );
 		return null !== $key && $this->repository->isBlocked( $key );

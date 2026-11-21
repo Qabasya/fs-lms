@@ -93,6 +93,7 @@ readonly class LoginDiagnosticsService {
 
 	private function reason( string $code, LoginAttemptDTO $attempt, ?WP_User $user, string $rawLogin, string $password ): LoginFailReason {
 		return match ( $code ) {
+			LoginGuardService::CODE_HONEYPOT => LoginFailReason::Honeypot,
 			LoginGuardService::CODE_CAPTCHA => $this->captchaReason( $attempt ),
 			LoginGuardService::CODE_LOCKED  => LoginFailReason::Locked,
 			LoginGuardService::CODE_PERMANENT => LoginFailReason::Locked,

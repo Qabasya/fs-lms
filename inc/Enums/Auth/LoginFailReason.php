@@ -28,6 +28,7 @@ enum LoginFailReason: string {
 	case CaptchaDismissed = 'captcha_dismissed';
 	case CaptchaFallbackLimit = 'captcha_fallback_limit';
 	case Locked          = 'locked';
+	case Honeypot = 'honeypot';
 	case Other           = 'other';
 
 	public function label(): string {
@@ -46,6 +47,7 @@ enum LoginFailReason: string {
 			self::CaptchaDismissed => 'Капча: задание закрыто, не решено',
 			self::CaptchaFallbackLimit => 'Капча не дошла до браузера (VPN или блокировщик), а лимит пропусков для этого адреса исчерпан',
 			self::Locked          => 'Вход закрыт после неудачных попыток',
+			self::Honeypot => 'Логин-ловушка: IP заблокирован до ручного снятия',
 			self::Other           => 'Другая ошибка',
 		};
 	}
