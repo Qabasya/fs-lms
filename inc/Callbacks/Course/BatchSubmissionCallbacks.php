@@ -13,6 +13,7 @@ use Inc\Managers\Course\WorkManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\PersonRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
+use Inc\Services\Course\ContinuationWorkProgressService;
 use Inc\Services\Course\GroupAccessGuard;
 use Inc\Services\Course\SubmissionService;
 use Inc\Services\Course\WorkSolutionReveal;
@@ -45,6 +46,7 @@ class BatchSubmissionCallbacks extends BaseController {
 		private readonly WorkManager           $works,
 		private readonly WorkTaskCheckService  $taskChecks,
 		private readonly WorkSolutionReveal    $solutionReveal,
+		private readonly ContinuationWorkProgressService $continuations,
 	) {
 		parent::__construct();
 	}
@@ -129,6 +131,7 @@ class BatchSubmissionCallbacks extends BaseController {
 					'total'           => count( $perTask ),
 					'tally'           => ( $aggregate->score ?? 0 ) . '/' . ( $aggregate->maxScore ?? 0 ),
 				'per_task'      => $perTask,
+				'lesson_results' => $this->continuations->forSubmission( $groupLesson, $aggregate ),
 					'task_results'    => $taskResults,
 				// Решение вопросов опроса: после верного ответа или исчерпания попыток (иначе пусто).
 				'solutions'     => null !== $work ? $this->solutionReveal->forStudent( $work, $perTask, $attemptsUsed ) : array(),

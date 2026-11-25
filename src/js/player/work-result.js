@@ -28,6 +28,7 @@ export function workSubmissionFromResponse( response ) {
         score: response.score ?? response.correct,
         max_score: response.max_score ?? response.total,
         verdicts: response.per_task || {},
+        lesson_results: response.lesson_results || [],
         submitted_at: response.submitted_at,
     };
 }
@@ -40,9 +41,41 @@ export function mergeWorkTaskResult( previous, verdict, answer ) {
         status: verdict.verdict === 'pending' ? 'pending_review' : 'submitted' };
 }
 
-export function workTaskVerdictHtml( verdict, result, solution = '', manual = false ) {
-    if ( result?.status === 'graded' && ( manual || !verdict || verdict.verdict === 'pending' ) ) {
-        return vdBlock( 'ok', `Проверено · ${ result.score ?? 0 } / ${ workPointsLabel( workTaskMaximum( verdict, result ) ) }`, result.feedback || '' );
+function reviewedByTeacher( verdict, result, manual ) {
+    return result?.status === 'graded' && ( manual || !verdict || verdict.verdict === 'pending' );
+}
+
+function hasFullScore( score, maximum ) {
+    return maximum > 0 && Number( score ) >= maximum;
+}
+
+/** Сводка по всем заданиям, включая задания без ответа и ожидающие проверки. */
+export function workResultSummary( tasks, verdicts, results ) {
+    let correct = 0;
+    let pending = 0;
+    for ( const { id, manual, maximum } of tasks ) {
+        const verdict = verdicts[ id ];
+        const result = results[ id ];
+        if ( reviewedByTeacher( verdict, result, manual ) ) {
+            if ( hasFullScore( result.score, workTaskMaximum( verdict, result, maximum ) ) ) ++correct;
+        } else if ( verdict?.verdict === 'correct' ) {
+            ++correct;
+        } else if ( verdict?.verdict === 'pending' || result?.status === 'pending_review' ) {
+            ++pending;
+        }
+    }
+    const total = tasks.length;
+    const allCorrect = total > 0 && correct === total;
+    const title = pending ? 'Работа на проверке' : allCorrect ? 'Работа завершена' : 'Работа проверена.';
+    return { correct, total, pending, allCorrect, title };
+}
+
+export function workTaskVerdictHtml( verdict, result, solution = '', manual = false, currentMaximum = 1 ) {
+    if ( reviewedByTeacher( verdict, result, manual ) ) {
+        const maximum = workTaskMaximum( verdict, result, currentMaximum );
+        const correct = hasFullScore( result.score, maximum );
+        const label = correct ? 'Проверено' : 'Решено неверно или не решено';
+        return vdBlock( correct ? 'ok' : 'no', `${ label } · ${ result.score ?? 0 } / ${ workPointsLabel( maximum ) }`, result.feedback || '' );
     }
     if ( ! verdict ) return vdBlock( 'wait', 'Нет данных проверки', 'Результат появится после проверки.' );
     if ( verdict.verdict === 'pending' ) {

@@ -351,25 +351,39 @@ function studentsHtml() {
         ? `<div class="wk-credit-all"><button type="button" class="prof-btn prof-btn-sm prof-btn-primary" data-credit-all>Засчитать всем несдавшим (${missing.length})</button></div>`
         : '';
 
-    return `${all}<div class="wk-sub-list">${students.map((st) => st.submission_id
-        ? workCardHtml({
+    return `${all}<div class="wk-sub-list">${students.map(studentCard).join('')}</div>`;
+}
+
+function studentCard(st) {
+    const parts = st.lesson_results || [];
+    // По выдаче открыта конкретная дата. «Новые сдачи» показывает одну общую сдачу с обеими датами.
+    const results = state.sortBy === 'submissions' ? parts : parts.filter(r => r.group_lesson_id === state.selected.group_lesson_id);
+    if (st.submission_id || results.length) {
+        return workCardHtml({
             title:      st.student_name,
             badge:      state.selected.badge,
-            subtitle:   studentSubtitle(st),
-            marks:      st.marks,
+            subtitle:   st.submission_id ? studentSubtitle(st) : 'Нет сдачи',
+            marks:      results.at(-1)?.marks || st.marks,
+            lessonResults: results,
             date:       st.submitted_at,
             duration:   st.duration_sec,
             sourceType: 'submission',
             sourceId:   st.submission_id,
             rowClass:   'wk-sub-row',
             // Засчитано вручную — можно отменить зачёт; настоящую сдачу ученика только открывают.
-            action:     st.credited ? `<button type="button" class="prof-btn prof-btn-sm" data-uncredit="${st.student_person_id}">Отменить зачёт</button>` : '',
-        })
-        : `<div class="wcard wcard--static wk-credit-row">
+            action:     st.credited ? `<button type="button" class="prof-btn prof-btn-sm" data-uncredit="${st.student_person_id}">Отменить зачёт</button>`
+                : (!st.submission_id ? creditButton(st) : ''),
+        });
+    }
+    return `<div class="wcard wcard--static wk-credit-row">
             <span class="wcard-type">${badgeHtml(state.selected.badge)}</span>
             <div class="wcard-main"><span class="wcard-title">${esc(st.student_name)}</span><span class="wcard-sub">Нет сдачи</span></div>
-            <button type="button" class="prof-btn prof-btn-sm" data-credit="${st.student_person_id}">Засчитать</button>
-        </div>`).join('')}</div>`;
+            ${creditButton(st)}
+        </div>`;
+}
+
+function creditButton(st) {
+    return `<button type="button" class="prof-btn prof-btn-sm" data-credit="${st.student_person_id}">Засчитать</button>`;
 }
 
 /** Подпись под ФИО по статусу сдачи (оценка, «на проверке», зачёт…). */
@@ -379,7 +393,7 @@ function studentSubtitle(st) {
     if (PENDING_STATUSES.includes(st.status)) { return 'На проверке'; }
     if ('returned' === st.status) { return 'Возвращена на доработку'; }
     if ('assigned' === st.status) { return 'Начата, не сдана'; }
-    return score;
+    return score && st.lesson_results?.length ? `Баллы за всю работу ${score}` : score;
 }
 
 /** «Засчитать» одному или всем несдавшим: подтверждение → зачёт → перечитать учеников. */

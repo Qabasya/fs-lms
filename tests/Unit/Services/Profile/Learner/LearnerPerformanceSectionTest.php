@@ -17,6 +17,7 @@ use Inc\Repositories\WPDBRepositories\AttendanceRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Services\Assessment\AttemptRevealPolicy;
 use Inc\Services\Course\GradebookService;
+use Inc\Services\Course\ContinuationWorkProgressService;
 use Inc\Services\Course\HomeworkDeadlineService;
 use Inc\Services\Course\WorkMarksService;
 use Inc\Services\Profile\Learner\LearnerPerformanceSection;
@@ -34,6 +35,7 @@ class LearnerPerformanceSectionTest extends TestCase {
 	private AssessmentManager&MockObject $assessments;
 	private WorkMarksService&MockObject $marks;
 	private LearnerPerformanceSection $section;
+	private ContinuationWorkProgressService $continuations;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -55,6 +57,7 @@ class LearnerPerformanceSectionTest extends TestCase {
 			$this->marks,
 			$this->assessments,
 			new AttemptRevealPolicy( $this->createStub( \Inc\Repositories\WPDBRepositories\ExamParticipationRepository::class ), $this->createStub( \Inc\Repositories\WPDBRepositories\ExamAccessTokenRepository::class ) ),
+			$this->continuations = $this->createStub( ContinuationWorkProgressService::class ),
 		);
 	}
 

@@ -99,6 +99,13 @@
 .wmark--corrected { background: var(--wait-soft); color: var(--wait); }
 .wmark--incorrect { background: var(--err-soft); color: var(--err); }
 .wmark--pending   { background: var(--surface-2); color: var(--muted-2); }
+.wmark--remaining { background: var(--surface-2); color: var(--muted); }
+
+.wcard-progress {
+  grid-column: 1 / -1;
+  font-size: rem(13);
+  color: var(--ink);
+}
 
 /* ДЗ не сдано к дедлайну или на задание не отвечали: красная плашка с прочерком — ответа не было, разбирать нечего. */
 .wmark--missed,

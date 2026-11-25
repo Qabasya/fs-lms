@@ -229,6 +229,17 @@
   border: 1px solid var(--ok-line);
   margin-bottom: rem(14);
 
+  &.res--neutral {
+    background: var(--surface);
+    border-color: var(--line);
+
+    .ri {
+      background: var(--surface-2);
+      color: var(--muted);
+      box-shadow: none;
+    }
+  }
+
   .ri {
     width: rem(48);
     height: rem(48);

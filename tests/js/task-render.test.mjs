@@ -141,3 +141,30 @@ test('работа: зачтённое автозадание тоже отме�
     assert.match(renderTask(auto, ctx), /stg-uncredit/);
     assert.doesNotMatch(renderTask(manual, ctx), /stg-uncredit/);
 });
+
+test('Робо в работе предлагает 1 за код и 0 без кода, сохраняя выставленный балл', () => {
+    const ctx = { mode: 'manage', kind: 'work', canGradeBatch: true };
+    const robo = { robo: true, answer: '', score: 0, max_score: 1 };
+    const gradeField = /class="stg-score"[^>]* value="([^"]*)"/;
+
+    for (const [code, expected] of [['move()', '1'], ['0', '1'], [null, '0'], ['', '0'], [' \n\t', '0']]) {
+        const html = renderTask(manualTask({ ...robo, code }), ctx);
+        assert.equal(html.match(gradeField)?.[1], expected);
+        assert.match(html, /stg-save">Оценить</);
+    }
+    const graded = renderTask(manualTask({ ...robo, code: 'move()', manually_graded: true }), ctx);
+    assert.equal(graded.match(gradeField)?.[1], '0');
+    assert.match(graded, /stg-save">Изменить оценку</);
+});
+
+test('код Робо подсвечивает Wiring и экранирует содержимое, остальные задания выводят код без этой подсветки', () => {
+    const task = manualTask({ code: 'void setup() {\n  digitalWrite(8, HIGH); // <img src=x>\n}', robo: true });
+    const html = renderTask(task);
+    assert.match(html, /fs-hl-keyword">void/);
+    assert.match(html, /fs-hl-function">setup/);
+    assert.match(html, /fs-hl-builtin">digitalWrite/);
+    assert.match(html, /fs-hl-number">8/);
+    assert.match(html, /fs-hl-comment">\/\/ &lt;img src=x&gt;/);
+    assert.doesNotMatch(html, /<img/);
+    assert.doesNotMatch(renderTask({ ...task, robo: false }), /fs-hl-/);
+});

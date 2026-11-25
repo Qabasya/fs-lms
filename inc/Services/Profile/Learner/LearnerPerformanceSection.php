@@ -13,6 +13,7 @@ use Inc\Repositories\WPDBRepositories\AssessmentAttemptRepository;
 use Inc\Repositories\WPDBRepositories\AttendanceRepository;
 use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Services\Assessment\AttemptRevealPolicy;
+use Inc\Services\Course\ContinuationWorkProgressService;
 use Inc\Services\Course\GradebookService;
 use Inc\Services\Course\HomeworkDeadlineService;
 use Inc\Services\Course\LessonWorkLink;
@@ -40,6 +41,7 @@ class LearnerPerformanceSection {
 		private readonly WorkMarksService            $marks,
 		private readonly AssessmentManager           $assessments,
 		private readonly AttemptRevealPolicy         $revealPolicy,
+		private readonly ContinuationWorkProgressService $continuations,
 	) {}
 
 	/**
@@ -53,13 +55,14 @@ class LearnerPerformanceSection {
 	public function grades( LearnerContextDTO $ctx, int $personId ): array {
 		$grades    = array();
 		$submitted = array();
+		$dates     = $this->continuations->lessonDates( $ctx->rawRows );
 
 		foreach ( $this->gradebook->forStudent( $personId ) as $e ) {
 			// Ключ сдачи работы — `work:{id}` ({@see \Inc\Services\Course\SubmissionGradeSource}).
-			if ( WorkSourceType::Submission->value === $e->sourceType && null !== $e->groupLessonId ) {
-				$submitted[ $e->groupLessonId ][ (int) substr( (string) $e->groupKey, 5 ) ] = true;
-			}
-			$grades[] = array(
+			$isWork = WorkSourceType::Submission->value === $e->sourceType && null !== $e->groupLessonId;
+			$workId = $isWork ? (int) substr( (string) $e->groupKey, 5 ) : 0;
+			$parts  = $isWork ? ( $dates[ $e->groupLessonId ] ?? array() ) : array();
+			$grade = array(
 				'title'       => $e->title,
 				'category'    => $e->category,
 				'type'        => $e->badge?->label() ?? '', // Домашнее задание / Практическая / Контрольная / Экзамен…
@@ -68,26 +71,38 @@ class LearnerPerformanceSection {
 				'display'     => $e->displayType,
 				'graded_at'   => $e->gradedAt,
 				'group_name'  => $ctx->groups[ $e->groupId ]['name'] ?? '',
-				// Ссылка на саму работу/попытку — та же страница, что открывает плеер
-				// курса (контрольная — её permalink, обычная работа — шаг плеера).
-				'url'         => $this->workUrl( $ctx, $e ),
-			) + $this->lessonFields( $ctx, $e->groupLessonId ) + array(
 				// Карточка работы — та же, что у преподавателя (work-card.js).
 				'badge'        => $e->badge?->badge() ?? '',
-				'marks'        => $this->marks->marksFor( $e->sourceType, $e->sourceId ),
 				'submitted_at' => $e->submittedAt,
 				'duration_sec' => $e->durationSec,
 				'overdue'      => $e->isLate,
 			);
-
+			if ( $isWork ) {
+				$submitted[ $e->groupLessonId ][ $workId ] = true;
+			}
+			if ( $parts ) {
+				$results = $this->continuations->forWork( $parts, $personId, $e->groupLessonId, $workId, $this->submissions->find( $e->sourceId ) );
+				foreach ( $parts as $id => $at ) {
+					$submitted[ $id ][ $workId ] = true;
+					$grades[] = $grade + $this->lessonFields( $ctx, $id ) + array(
+						'url'           => $this->workStepUrl( $ctx, $id, $workId ),
+						'lesson_result' => $results[ $id ] ?? null,
+						'marks'         => $results[ $id ]['marks'] ?? $this->marks->marksFor( $e->sourceType, $e->sourceId ),
+						'earlier_part'  => $id !== array_key_last( $parts ),
+					);
+				}
+				continue;
+			}
+			$grade['url']   = $this->workUrl( $ctx, $e );
+			$grade['marks'] = $this->marks->marksFor( $e->sourceType, $e->sourceId );
 			// Экзамен станции до утверждения преподавателем: результат ученику ещё не открыт
 			// ({@see AttemptRevealPolicy}) — ни балла, ни крестиков по заданиям, только «На проверке».
-			$last = array_key_last( $grades );
 			if ( $this->isHiddenAttempt( $e ) ) {
-				$grades[ $last ]['value']   = GradebookEntryDTO::PENDING_LABEL;
-				$grades[ $last ]['display'] = 'pending';
-				$grades[ $last ]['marks']   = array_fill( 0, count( $grades[ $last ]['marks'] ), 'pending' );
+				$grade['value']   = GradebookEntryDTO::PENDING_LABEL;
+				$grade['display'] = 'pending';
+				$grade['marks']   = array_fill( 0, count( $grade['marks'] ), 'pending' );
 			}
+			$grades[] = $grade + $this->lessonFields( $ctx, $e->groupLessonId );
 		}
 
 		foreach ( $this->deadlines->missed( $ctx->rawRows, $submitted, $ctx->now ) as $glid => $missed ) {
@@ -221,7 +236,7 @@ class LearnerPerformanceSection {
 	 * @return array<int, array<string, mixed>>
 	 */
 	public function recentGrades( array $grades ): array {
-		$recent = array_values( array_filter( $grades, static fn( $g ) => ! empty( $g['graded_at'] ) ) );
+		$recent = array_values( array_filter( $grades, static fn( $g ) => ! empty( $g['graded_at'] ) && empty( $g['earlier_part'] ) ) );
 		usort( $recent, static fn( $a, $b ) => strcmp( (string) $b['graded_at'], (string) $a['graded_at'] ) );
 
 		return $recent;
@@ -247,7 +262,7 @@ class LearnerPerformanceSection {
 			if ( ! empty( $g['group_lesson_id'] ) ) {
 				$worksByLesson[ $g['group_lesson_id'] ][] = array_intersect_key(
 					$g,
-					array_flip( array( 'title', 'badge', 'value', 'display', 'overdue', 'due_at', 'url' ) )
+					array_flip( array( 'title', 'badge', 'value', 'display', 'overdue', 'due_at', 'url', 'lesson_result' ) )
 				);
 			}
 		}

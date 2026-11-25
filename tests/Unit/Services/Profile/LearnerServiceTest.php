@@ -109,7 +109,12 @@ $visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::c
 		$this->service = new LearnerService(
 			$contextBuilder,
 			new \Inc\Services\Profile\Learner\LearnerScheduleSection( $this->submissions, $this->worksResolver, new \Inc\Services\Course\LessonWorkLink( $this->lessons ), $homework, $this->createStub( \Inc\Services\Course\SubmissionService::class ) ),
-			new \Inc\Services\Profile\Learner\LearnerPerformanceSection( $this->gradebook, $this->attendance, $this->submissions, $this->attempts, new \Inc\Services\Course\LessonWorkLink( $this->lessons ), $homework, $this->createStub( \Inc\Services\Course\WorkMarksService::class ), $this->createStub( \Inc\Managers\Assessment\AssessmentManager::class ), new \Inc\Services\Assessment\AttemptRevealPolicy( $this->createStub( \Inc\Repositories\WPDBRepositories\ExamParticipationRepository::class ), $this->createStub( \Inc\Repositories\WPDBRepositories\ExamAccessTokenRepository::class ) ) ),
+			new \Inc\Services\Profile\Learner\LearnerPerformanceSection(
+				$this->gradebook, $this->attendance, $this->submissions, $this->attempts, new \Inc\Services\Course\LessonWorkLink( $this->lessons ), $homework,
+				$this->createStub( \Inc\Services\Course\WorkMarksService::class ), $this->createStub( \Inc\Managers\Assessment\AssessmentManager::class ),
+				new \Inc\Services\Assessment\AttemptRevealPolicy( $this->createStub( \Inc\Repositories\WPDBRepositories\ExamParticipationRepository::class ), $this->createStub( \Inc\Repositories\WPDBRepositories\ExamAccessTokenRepository::class ) ),
+				$this->createStub( \Inc\Services\Course\ContinuationWorkProgressService::class )
+			),
 			new \Inc\Services\Profile\Learner\LearnerCoursesSection(
 				$this->courses, $this->lessons, $this->progress, $this->examLock, $contextBuilder, $this->createStub( \Inc\Managers\Assessment\AssessmentManager::class ),
 				$this->createStub( \Inc\Services\Profile\Learner\SelfPacedCourseCatalog::class ),

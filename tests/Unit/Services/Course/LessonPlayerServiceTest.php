@@ -101,7 +101,8 @@ class LessonPlayerServiceTest extends TestCase {
 			$this->createMock( \Inc\Services\Course\WorkTaskCheckService::class ),
 			$this->groups,
 			new \Inc\Services\Course\WorkSolutionReveal( new \Inc\Services\Task\TaskSolutionService( $this->createMock( \Inc\Services\Task\CorrectAnswerResolver::class ) ), new \Inc\Managers\Wp\PostManager() ),
-			$this->selfPacedAccess
+			$this->selfPacedAccess,
+			$this->createStub( \Inc\Services\Course\ContinuationWorkProgressService::class ),
 		);
 	}
 

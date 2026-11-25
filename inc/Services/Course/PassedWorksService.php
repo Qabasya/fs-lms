@@ -62,6 +62,7 @@ class PassedWorksService {
 		private readonly WorkManager              $works,
 		private readonly WorkMarksService         $marks,
 		private readonly ClockInterface           $clock,
+		private readonly ContinuationWorkProgressService $continuations,
 	) {}
 
 	/**
@@ -212,10 +213,12 @@ class PassedWorksService {
 		$active   = $this->activeStudents( $row->groupId );
 		$owners   = $this->studentRows( $unit, $active );
 		$byPerson = $this->unitSubmissions( $unit )[ $workId ] ?? array();
+		$dates    = $this->continuations->datesFor( $row );
 
 		$out = array();
 		foreach ( $owners as $personId => $owner ) {
 			$sub   = $byPerson[ $personId ] ?? null;
+			$results = $this->continuations->forWork( $dates, $personId, $owner->progressId(), $workId, $sub );
 			$out[] = array(
 				'student_person_id' => $personId,
 				'student_name'      => $active[ $personId ],
@@ -225,7 +228,8 @@ class PassedWorksService {
 				'score'             => $sub?->score,
 				'max_score'         => $sub?->maxScore,
 				'credited'          => $sub?->isCredited() ?? false,
-				'marks'             => null !== $sub ? $this->marks->marksFor( 'submission', $sub->id ) : array(),
+				'lesson_results'    => array_values( $results ),
+				'marks'             => $results ? end( $results )['marks'] : ( $sub ? $this->marks->marksFor( 'submission', $sub->id ) : array() ),
 				'submitted_at'      => $sub?->submittedAt,
 				'duration_sec'      => $sub?->durationSec,
 			);

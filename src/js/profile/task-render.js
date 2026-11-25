@@ -9,6 +9,7 @@
 
 import { esc, fmtNum, fmtDateTime, fmtClock } from './utils.js';
 import { solutionBlock } from './work-review-solution.js';
+import { highlightWiring } from '../common/wiring-highlight.js';
 
 export const VERDICT_LABEL = {
     correct: 'Верно',
@@ -90,7 +91,10 @@ export function renderTask(t, ctx = {}) {
     const showCorrect = t.correct && 'correct' !== t.verdict;
     // Оценка уже выставлена преподавателем: поля заблокированы, вместо «Оценить» — «Изменить оценку».
     const locked = !!t.manually_graded;
-    const gradeValue = t.robo && !locked ? Math.min(1, t.max_score ?? 1) : (t.score ?? '');
+    const hasRoboAnswer = t.robo && Boolean(t.code?.trim());
+    const gradeValue = t.robo && !locked
+        ? (hasRoboAnswer ? Math.min(1, t.max_score ?? 1) : 0)
+        : (t.score ?? '');
     const dis = locked ? ' disabled' : '';
     const gradedCls = locked ? ' is-graded' : '';
     // Tasks.md, п. 6: ручной зачёт задания — опечатка в условии не должна стоить
@@ -153,7 +157,7 @@ export function renderTask(t, ctx = {}) {
             </div>
             <div class="sum-task-cond">${t.condition || '<i>условие недоступно</i>'}</div>
             ${t.answer || !t.code ? `<div class="sum-task-ans"><span class="sta-label">Ответ ученика:</span> <span class="sta-val">${t.answer ? esc(t.answer) : '—'}</span></div>` : ''}
-            ${t.code ? codeBlock(t.code) : ''}
+            ${t.code ? codeBlock(t.code, t.robo) : ''}
             ${t.task_files && t.task_files.length ? taskFilesBlock(t.task_files, 'Файлы задания:') : ''}
             ${t.files && t.files.length ? taskFilesBlock(t.files) : ''}
             ${showCorrect ? `<div class="sum-task-ans sum-task-correct"><span class="sta-label">Правильный ответ:</span> <span class="sta-val">${esc(t.correct)}</span></div>` : ''}
@@ -166,10 +170,10 @@ export function renderTask(t, ctx = {}) {
 /* Код ученика (TaskTemplate::hasCodeField()): у Code/FileCode — необязательное
    поле рядом с ответом, в проверке не участвует; у «Задания Робо» — весь ответ
    (строка «Ответ ученика» тогда не выводится). Моноширинным блоком. */
-export function codeBlock(code) {
+export function codeBlock(code, wiring = false) {
     return `<div class="sum-task-code">
         <span class="sta-label">Код ученика:</span>
-        <pre class="sum-task-code-pre"><code>${esc(code)}</code></pre>
+        <pre ${wiring ? 'class="sum-task-code-pre fs-code-highlight" data-fs-highlighted="1"' : 'class="sum-task-code-pre"'}><code>${wiring ? highlightWiring(code) : esc(code)}</code></pre>
     </div>`;
 }
 

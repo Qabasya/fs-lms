@@ -11,6 +11,7 @@
 
 import { esc, fmtDateTime, fmtDuration } from './utils.js';
 import { icoCheck, icoCross, icoClock } from '../common/icons.js';
+import { workLessonResultText } from '../common/work-lesson-result.js';
 
 /** Бейдж → модификатор цвета (палитра — _work-card.scss). */
 const BADGE_MOD = { 'СР': 'sr', 'ПР': 'pr', 'ДЗ': 'dz', 'КР': 'kr', 'ЭКЗ': 'ex' };
@@ -22,9 +23,10 @@ const MARK_ICON = {
     pending:   () => icoClock(12),
     missed:    () => '–',
     unanswered: () => '–',
+    remaining: () => '–',
 };
 
-const MARK_TITLE = { correct: 'Решено', corrected: 'Решено с исправлением', incorrect: 'Не решено', pending: 'На проверке', missed: 'Не сдано', unanswered: 'Нерешено' };
+const MARK_TITLE = { correct: 'Решено', corrected: 'Решено с исправлением', incorrect: 'Не решено', pending: 'На проверке', missed: 'Не сдано', unanswered: 'Нерешено', remaining: 'К этому занятию ещё не решено' };
 
 /**
  * @param {Object}   card
@@ -32,6 +34,7 @@ const MARK_TITLE = { correct: 'Решено', corrected: 'Решено с исп
  * @param {string}  [card.badge]      Короткая метка типа работы (СР/ПР/ДЗ/КР/ЭКЗ)
  * @param {string[]}[card.marks]      Вердикты заданий: correct | corrected | incorrect | pending | missed
  * @param {string}  [card.subtitle]   Строка под заголовком (группа, статус и т.п.)
+ * @param {Array}   [card.lessonResults] Решено за занятие и всего по теме, в порядке дат
  * @param {string}  [card.date]       ISO-дата сдачи
  * @param {number}  [card.duration]   Секунд от открытия работы до сдачи (нет замера — не выводится)
  * @param {string}  [card.sourceType] submission | attempt — для перехода в деталь (кабинет преподавателя)
@@ -51,6 +54,7 @@ export function workCardHtml(card) {
         act = ` role="button" tabindex="0" data-src-type="${esc(card.sourceType)}" data-src-id="${card.sourceId}"`;
     }
 
+    const results = card.lessonResults || [];
     return `<${tag} class="${cls}"${act}>
         <span class="wcard-type">${badgeHtml(card.badge)}</span>
         <div class="wcard-main" title="${esc([card.title, card.subtitle].filter(Boolean).join(' · '))}">
@@ -59,10 +63,11 @@ export function workCardHtml(card) {
         </div>
         ${marksHtml(card.marks)}
         <div class="wcard-when">
-            <span class="wcard-date">${card.date ? esc(fmtDateTime(card.date)) : '—'}</span>
+            <span class="wcard-date" title="Последняя сдача работы">${card.date ? esc(fmtDateTime(card.date)) : '—'}</span>
             ${durationHtml(card.duration)}
             ${card.action || ''}
         </div>
+        ${results.length ? `<div class="wcard-progress">${results.map(r => `<div>${esc(workLessonResultText(r, results.length > 1))}</div>`).join('')}</div>` : ''}
     </${tag}>`;
 }
 
@@ -86,7 +91,8 @@ export function badgeHtml(badge) {
 export function workStatusText(w) {
     if ('missed' === w.display) { return w.due_at ? `Не сдано · срок ${fmtDateTime(w.due_at)}` : 'Нет сдачи'; }
     if ('pending' === w.display) { return 'На проверке'; }
-    return w.overdue ? `Просрочено · ${w.value}` : w.value;
+    const value = w.lesson_result ? `Баллы за всю работу ${w.value}` : w.value;
+    return w.overdue ? `Просрочено · ${value}` : value;
 }
 
 /**
@@ -105,6 +111,11 @@ export function workChipHtml(w, attrs = '', tag = 'span') {
     if (missed) { text = `-/${w.max_score ?? '?'}`; } else if ('pending' === w.display) { text = 'на проверке'; }
     let hint = w.title;
     if (missed) { hint += w.due_at ? ` — не сдано, срок ${fmtDateTime(w.due_at)}` : ' — не приступали'; } else if (w.overdue) { hint += ' — сдано после дедлайна'; }
+    if (w.lesson_result) {
+        text = esc(workLessonResultText(w.lesson_result));
+        hint = `${w.title} · ${workStatusText(w)}`;
+        if ('pending' === w.display) { text += ' · на проверке'; }
+    }
 
     return `<${tag} class="${cls}"${attrs ? ' ' + attrs : ''} title="${esc(hint)}">${w.badge ? `<b>${esc(w.badge)}</b> ` : ''}${text}${w.overdue ? ' <span class="sum-work-late">просрочено</span>' : ''}</${tag}>`;
 }

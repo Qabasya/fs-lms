@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { pendingWorkPoints, workPointsLabel, workTaskMaximum, workTaskVerdictHtml, workSubmissionFromResponse, mergeWorkTaskResult } from '../../src/js/player/work-result.js';
+import { pendingWorkPoints, workPointsLabel, workTaskMaximum, workResultSummary, workTaskVerdictHtml, workSubmissionFromResponse, mergeWorkTaskResult } from '../../src/js/player/work-result.js';
 
 for ( const [ score, label ] of [ [ 1, '1 балл' ], [ 2, '2 балла' ], [ 5, '5 баллов' ], [ 11, '11 баллов' ], [ 21, '21 балл' ] ] ) {
     test( `correct result displays server award +${ label }`, () => {
@@ -27,10 +27,10 @@ test( 'pending manual result awards no points and reveals no solution before rev
 test( 'graded manual result displays actual awarded score and persisted maximum, including zero', () => {
     const verdict = { verdict: 'pending', score: 0, maxScore: 1 };
     const partial = workTaskVerdictHtml( verdict, { status: 'graded', score: 2.5, max_score: 5, feedback: 'Частичный ответ <script>' } );
-    assert.match( partial, /Проверено · 2.5 \/ 5 баллов/ );
+    assert.match( partial, /Решено неверно или не решено · 2.5 \/ 5 баллов/ );
     assert.match( partial, /&lt;script&gt;/ );
     const zero = workTaskVerdictHtml( verdict, { status: 'graded', score: 0, max_score: 2 } );
-    assert.match( zero, /Проверено · 0 \/ 2 балла/ );
+    assert.match( zero, /Решено неверно или не решено · 0 \/ 2 балла/ );
 } );
 
 test( 'wrong result remains zero even if an answer solution is available', () => {
@@ -75,7 +75,7 @@ test( 'a locked graded manual result survives a retry pending verdict and shows 
     const result = mergeWorkTaskResult( previous, { verdict: 'pending', score: 0, maxScore: 5 }, 'essay' );
     assert.equal( result.score, 1.5 );
     assert.equal( result.status, 'graded' );
-    assert.match( workTaskVerdictHtml( { verdict: 'pending' }, result ), /Проверено · 1.5 \/ 5 баллов/ );
+    assert.match( workTaskVerdictHtml( { verdict: 'pending' }, result ), /Решено неверно или не решено · 1.5 \/ 5 баллов/ );
     assert.equal( pendingWorkPoints( { 3: { verdict: 'pending', maxScore: 5 } }, { 3: result }, {} ), 0 );
 } );
 
@@ -83,10 +83,27 @@ test( 'a locked graded manual result survives a retry pending verdict and shows 
 test( 'manual partial review uses persisted score when aggregate snapshot says incorrect', () => {
     const html = workTaskVerdictHtml( { verdict: 'incorrect', score: 2, maxScore: 5 },
         { status: 'graded', score: 2, max_score: 5, feedback: 'Есть верная часть' }, '', true );
-    assert.match( html, /Проверено · 2 \/ 5 баллов/ );
+    assert.match( html, /Решено неверно или не решено · 2 \/ 5 баллов/ );
+    assert.match( html, /vd-no/ );
     assert.match( html, /Есть верная часть/ );
     assert.doesNotMatch( html, /Неверно · 0 баллов/ );
     const zero = workTaskVerdictHtml( { verdict: 'incorrect', score: 0, maxScore: 5 },
         { status: 'graded', score: 0, max_score: 5 }, '', true );
-    assert.match( zero, /Проверено · 0 \/ 5 баллов/ );
+    assert.match( zero, /Решено неверно или не решено · 0 \/ 5 баллов/ );
+    assert.match( zero, /vd-no/ );
+} );
+
+test( 'all six tasks count, including old pending snapshots graded with zero and tasks without an answer', () => {
+    const tasks = Array.from( { length: 6 }, ( _, id ) => ( { id, manual: true, maximum: 1 } ) );
+    const verdicts = Object.fromEntries( tasks.slice( 0, 5 ).map( ( { id } ) => [ id, { verdict: 'pending' } ] ) );
+    const results = Object.fromEntries( tasks.slice( 0, 5 ).map( ( { id } ) => [ id, { status: 'graded', score: id < 4 ? 1 : 0 } ] ) );
+    assert.deepEqual( workResultSummary( tasks, verdicts, results ), {
+        correct: 4, total: 6, pending: 0, allCorrect: false, title: 'Работа проверена.',
+    } );
+    results[ 4 ].score = 1;
+    results[ 5 ] = { status: 'pending_review' };
+    assert.equal( workResultSummary( tasks, verdicts, results ).title, 'Работа на проверке' );
+    results[ 5 ] = { status: 'graded', score: 1 };
+    assert.equal( workResultSummary( tasks, verdicts, results ).allCorrect, true );
+    assert.match( workTaskVerdictHtml( verdicts[ 4 ], results[ 4 ], '', true ), /vd-ok/ );
 } );

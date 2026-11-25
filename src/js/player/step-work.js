@@ -19,7 +19,10 @@
  * уходят секунды ДО сдачи — сервер откладывает их от своих часов.
  */
 import { restoreWorkAnswer, retryAvailable } from './work-retry.js';
-import { workPointsLabel, workTaskMaximum, pendingWorkPoints, workTaskVerdictHtml, workSubmissionFromResponse, mergeWorkTaskResult } from './work-result.js';
+import { workLessonResultText } from '../common/work-lesson-result.js';
+import { highlightWiring } from '../common/wiring-highlight.js';
+import { icoFile } from '../common/icons.js';
+import { workPointsLabel, workTaskMaximum, pendingWorkPoints, workResultSummary, workTaskVerdictHtml, workSubmissionFromResponse, mergeWorkTaskResult } from './work-result.js';
 import { initTaskWidget } from '../frontend/components/task-widget.js';
 import { getCore, onPanelShow, isPreview, isTeacherMode } from './core.js';
 import { esc, ICO } from './icons.js';
@@ -447,10 +450,13 @@ function mountWork( panel, root ) {
 		const sub      = state.submission;
 		const verdicts = sub?.verdicts || {};
 
-		const okCount     = countVerdicts( verdicts, 'correct' );
-		const manualCount = Object.entries( verdicts ).filter( ( [ id, verdict ] ) => verdict?.verdict === 'pending' && state.task_results[ id ]?.status !== 'graded' ).length;
+		const summary = workResultSummary( cards.map( card => ( {
+			id: card.dataset.taskId,
+			manual: card.dataset.auto === '0',
+			maximum: card.dataset.maxScore ?? 1,
+		} ) ), verdicts, state.task_results );
+		const manualCount = summary.pending;
 		const manualMax = pendingWorkPoints( verdicts, state.task_results, Object.fromEntries( cards.map( card => [ card.dataset.taskId, card.dataset.maxScore ] ) ) );
-		const autoTotal   = Object.keys( verdicts ).length - countVerdicts( verdicts, 'pending' );
 
 		// «Исправить и сдать заново» — вверху, справа от баллов: пока есть что исправлять, остались попытки.
 		const canRetry = retryAvailable( {
@@ -460,11 +466,13 @@ function mountWork( panel, root ) {
 			taskIds:   cards.map( ( card ) => card.dataset.taskId ),
 		} );
 
-		let h = '<div class="res">' +
-			`<span class="ri">${ ICO.check( 22 ) }</span>` +
-			'<span class="rt"><b>Работа завершена</b>' +
-				`<span>${ okCount } из ${ autoTotal } задач решено верно` +
-				( manualCount ? ' · развёрнутые ответы на проверке у преподавателя' : '' ) + '</span></span>' +
+		const summaryIcon = summary.allCorrect ? ICO.check : manualCount ? ICO.clock : icoFile;
+		let h = `<div class="res${ summary.allCorrect ? '' : ' res--neutral' }">` +
+			`<span class="ri" aria-hidden="true">${ summaryIcon( 22 ) }</span>` +
+			`<span class="rt"><b>${ summary.title }</b>` +
+				`<span>${ summary.correct } из ${ summary.total } задач решено верно` +
+				( manualCount ? ' · развёрнутые ответы на проверке у преподавателя' : '' ) + '</span>' +
+				( sub?.lesson_results || [] ).map( r => `<span>${ esc( workLessonResultText( r, true ) ) }</span>` ).join( '' ) + '</span>' +
 			'<span class="rstats">' +
 				`<span class="rs"><b>${ sub?.score ?? 0 } / ${ sub?.max_score ?? 0 }</b><span>баллов</span></span>` +
 				( manualCount ? `<span class="rs"><b>до ${ esc( workPointsLabel( manualMax ) ) }</b><span>за ручную проверку</span></span>` : '' ) +
@@ -527,7 +535,7 @@ function mountWork( panel, root ) {
 		const widgetEl      = card.querySelector( '.fs-task-widget' );
 		const isChoice      = verdict && Array.isArray( verdict.correctOptionIds );
 		const solution = state.solutions[ taskId ] || '';
-		const vd = workTaskVerdictHtml( verdict, result, solution, card.dataset.auto === '0' );
+		const vd = workTaskVerdictHtml( verdict, result, solution, card.dataset.auto === '0', card.dataset.maxScore ?? 1 );
 		const maximum = workTaskMaximum( verdict, result, card.dataset.maxScore ?? 1 );
 		const points = card.dataset.maxScore !== undefined ? `<span class="stc">${ esc( workPointsLabel( maximum ) ) }</span>` : '';
 
@@ -535,7 +543,7 @@ function mountWork( panel, root ) {
 		// вместо текста выбранных id. Для остальных типов — как раньше, текстом.
 		const answerHtml = isChoice
 			? `<div class="fs-task-widget" data-template="${ esc( widgetEl?.dataset.template || '' ) }" data-widget="${ esc( widgetEl?.dataset.widget || '{}' ) }"></div>`
-			: answerBlock( result?.answer );
+			: answerBlock( result?.answer, widgetEl?.dataset.template === 'robo_task' );
 
 		return `<div class="a-task" data-result-task-id="${ esc( taskId ) }">` +
 			`<div class="th"><span class="tkn">${ n }</span><b>${ esc( title ) }</b>${ points }</div>` +
@@ -638,10 +646,6 @@ function mountWork( panel, root ) {
 
 /* ── Вспомогательные ──────────────────────────────────────────────────── */
 
-function countVerdicts( verdicts, kind ) {
-	return Object.values( verdicts ).filter( ( v ) => v && v.verdict === kind ).length;
-}
-
 /** Ответ хранится JSON-строкой (или сырой строкой) — вернуть значение. */
 function parseAnswer( raw ) {
 	if ( undefined === raw || null === raw ) { return undefined; }
@@ -656,8 +660,16 @@ function parseAnswer( raw ) {
  * текст — как обычный ответ, код — моноширинным <pre>, где переводы строк и
  * отступы сохраняются (в .ansbox они схлопывались в одну строку).
  */
-function answerBlock( raw ) {
+function answerBlock( raw, wiring ) {
 	const v = parseAnswer( raw );
+
+	if ( wiring ) {
+		const code = typeof v?.code === 'string' ? v.code
+			: typeof v === 'string' ? v : typeof v === 'number' ? String( v ) : '';
+		return code.trim()
+			? `<pre class="a-task-code fs-code-highlight" data-fs-highlighted="1"><code>${ highlightWiring( code ) }</code></pre>`
+			: '<p class="wnote">Ответ не был дан</p>';
+	}
 
 	if ( v && 'object' === typeof v && ! Array.isArray( v )
 		&& ( 'string' === typeof v.code || 'string' === typeof v.text ) ) {

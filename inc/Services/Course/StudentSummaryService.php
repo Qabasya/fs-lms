@@ -41,6 +41,7 @@ class StudentSummaryService {
 		private readonly HomeworkDeadlineService $deadlines,
 		private readonly ClockInterface          $clock,
 		private readonly SubmissionRepository    $submissions,
+		private readonly ContinuationWorkProgressService $continuations,
 	) {}
 
 	/**
@@ -62,7 +63,9 @@ class StudentSummaryService {
 		$isOpen = $group && AccessMode::Open === AccessMode::fromValueOrDefault( (string) ( $group->access_mode ?? '' ) );
 
 		// Занятия: групповые датированные + личные индивидуальные этого ученика.
-		foreach ( $this->groupLessons->listByGroup( $groupId ) as $gl ) {
+		$program = $this->groupLessons->listByGroup( $groupId );
+		$dates = $this->continuations->lessonDates( $program );
+		foreach ( $program as $gl ) {
 			if ( $gl->kind->isIndividual() && $gl->studentPersonId !== $personId ) {
 				continue;
 			}
@@ -98,6 +101,7 @@ class StudentSummaryService {
 
 		// Работы ученика, разложенные по занятию (badge + сырой балл).
 		$submitted = array();
+		$results = array();
 		foreach ( $this->gradebook->forGroup( $groupId ) as $entry ) {
 			if ( $entry->studentPersonId !== $personId || null === $entry->groupLessonId ) {
 				continue;
@@ -106,18 +110,21 @@ class StudentSummaryService {
 				continue;
 			}
 			// Ключ сдачи работы — `work:{id}` ({@see SubmissionGradeSource}).
-			$credited = false;
+			$sub      = null;
 			$workId   = 0;
+			$targets  = array( $entry->groupLessonId );
 			if ( WorkSourceType::Submission->value === $entry->sourceType ) {
 				$workId = (int) substr( (string) $entry->groupKey, 5 );
-				$submitted[ $entry->groupLessonId ][ $workId ] = true;
-				// Засчитана преподавателем вручную — вместо «Засчитать» у карточки «Отменить зачёт».
-				$credited = $this->submissions->find( $entry->sourceId )?->isCredited() ?? false;
+				$sub = $this->submissions->find( $entry->sourceId );
+				if ( isset( $dates[ $entry->groupLessonId ] ) ) {
+					$parts   = $dates[ $entry->groupLessonId ];
+					$targets = array_keys( array_intersect_key( $parts, $lessons ) );
+					$results[ $entry->groupLessonId ][ $workId ] = $this->continuations->forWork( $parts, $personId, $entry->groupLessonId, $workId, $sub );
+				}
 			}
-			$lessons[ $entry->groupLessonId ]['works'][] = array(
-				'credited'        => $credited,
+			$card = array(
+				'credited'        => $sub?->isCredited() ?? false,
 				'work_id'         => $workId,
-				'group_lesson_id' => $entry->groupLessonId,
 				'badge'       => $entry->badge?->badge(),
 				'value'       => $entry->displayValue(),
 				'display'     => $entry->displayType,
@@ -134,16 +141,19 @@ class StudentSummaryService {
 				'group_key'   => $entry->groupKey,
 				// Карточка работы (Tasks.md п.7): «полоска» вердиктов по заданиям
 				// и время сдачи — без них карточка была бы просто строкой таблицы.
-				'marks'        => $this->marks->marksFor( $entry->sourceType, $entry->sourceId ),
 				'submitted_at' => $entry->submittedAt,
 				'duration_sec' => $entry->durationSec,
 			);
-		}
-
-		// У продолжения отдельная дата и посещаемость, но сдачи хранятся на исходном занятии.
-		foreach ( $rows as $glid => $row ) {
-			if ( $glid !== $row->progressId() && isset( $submitted[ $row->progressId() ] ) ) {
-				$submitted[ $glid ] = ( $submitted[ $glid ] ?? array() ) + $submitted[ $row->progressId() ];
+			foreach ( $targets as $id ) {
+				if ( $workId ) {
+					$submitted[ $id ][ $workId ] = true;
+				}
+				$result = $results[ $entry->groupLessonId ][ $workId ][ $id ] ?? null;
+				$lessons[ $id ]['works'][] = $card + array(
+					'group_lesson_id' => $id,
+					'lesson_result'   => $result,
+					'marks'           => $result['marks'] ?? $this->marks->marksFor( $entry->sourceType, $entry->sourceId ),
+				);
 			}
 		}
 
@@ -161,7 +171,14 @@ class StudentSummaryService {
 				if ( isset( $submitted[ $glid ][ $work->id ] ) ) {
 					continue;
 				}
-				$lessons[ $glid ]['works'][] = $this->missedCard( $work, $glid, $overdue[ $glid ][ $work->id ] ?? null );
+				$card = $this->missedCard( $work, $glid, $overdue[ $glid ][ $work->id ] ?? null );
+				$source = $row->progressId();
+				if ( isset( $dates[ $source ][ $glid ] ) ) {
+					$results[ $source ][ $work->id ] ??= $this->continuations->forWork( $dates[ $source ], $personId, $source, $work->id, null );
+					$card['lesson_result'] = $results[ $source ][ $work->id ][ $glid ] ?? null;
+					$card['marks'] = $card['lesson_result']['marks'] ?? $card['marks'];
+				}
+				$lessons[ $glid ]['works'][] = $card;
 			}
 		}
 

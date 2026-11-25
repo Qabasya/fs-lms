@@ -54,6 +54,7 @@ class LessonPlayerService {
 		private readonly GroupsRepository             $groups,
 		private readonly WorkSolutionReveal           $solutionReveal,
 		private readonly SelfPacedAccessPolicy $selfPacedAccess,
+		private readonly ContinuationWorkProgressService $continuations,
 	) {}
 
 	/**
@@ -329,7 +330,7 @@ class LessonPlayerService {
 		}
 
 		$attemptsUsed = $this->submissionService->workAttemptsUsed( $studentPersonId, $groupLesson->id, $workId );
-		$current      = $this->currentSubmission( $studentPersonId, $groupLesson->id, $workId );
+		$current      = $this->currentSubmission( $studentPersonId, $groupLesson, $workId );
 		foreach ( $tasks as &$task ) {
 			$taskId = (int) $task['task_id'];
 			// Цена сданной задачи — снимок, изменения работы не меняют её задним числом.
@@ -373,11 +374,11 @@ class LessonPlayerService {
 	 *
 	 * @return array{submission: array<string,mixed>|null, task_results: array<int, array<string,mixed>>}
 	 */
-	private function currentSubmission( int $studentPersonId, int $groupLessonId, int $workId ): array {
+	private function currentSubmission( int $studentPersonId, GroupLessonDTO $row, int $workId ): array {
 		$aggregate   = null;
 		$taskResults = array();
 
-		foreach ( $this->submissionService->getSubmissionsForView( $studentPersonId, $groupLessonId ) as $submission ) {
+		foreach ( $this->submissionService->getSubmissionsForView( $studentPersonId, $row->id ) as $submission ) {
 			if ( $submission->workId !== $workId ) {
 				continue;
 			}
@@ -391,6 +392,7 @@ class LessonPlayerService {
 					'max_score'    => $submission->maxScore,
 					'submitted_at' => $submission->submittedAt,
 					'verdicts'     => is_array( $verdicts ) ? $verdicts : array(),
+					'lesson_results' => $this->continuations->forSubmission( $row, $submission ),
 				);
 				continue;
 			}

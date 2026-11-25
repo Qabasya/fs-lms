@@ -56,7 +56,8 @@ class BatchSubmissionCallbacksTest extends TestCase {
 			$this->service, $this->persons, $this->submissionRepo, $this->groupLessons, $this->guard,
 			$this->createStub( \Inc\Managers\Course\WorkManager::class ),
 			$this->taskChecks,
-			new \Inc\Services\Course\WorkSolutionReveal( new \Inc\Services\Task\TaskSolutionService( $this->createStub( \Inc\Services\Task\CorrectAnswerResolver::class ) ), new \Inc\Managers\Wp\PostManager() )
+			new \Inc\Services\Course\WorkSolutionReveal( new \Inc\Services\Task\TaskSolutionService( $this->createStub( \Inc\Services\Task\CorrectAnswerResolver::class ) ), new \Inc\Managers\Wp\PostManager() ),
+			$this->createStub( \Inc\Services\Course\ContinuationWorkProgressService::class ),
 		);
 	}
 

@@ -286,6 +286,26 @@ test('открытая работа показывает учеников; «О�
     assert.match(root.html, /Иванов Иван/, 'после неудачного обновления показаны прежние ученики');
 });
 
+test('карточка ученика в продолжении показывает новые задачи и общий итог', async () => {
+    const { root } = await setup((action) => {
+        if ('students' === action) {
+            return [{
+                student_person_id: 10, student_name: 'Иванов Иван', submission_id: 91, status: 'graded', score: 18, max_score: 18,
+                lesson_results: [
+                    { group_lesson_id: 5, at: '2026-10-19 10:00:00', new_solved: 8, solved: 8, total: 14 },
+                    { group_lesson_id: 6, at: '2026-10-20 10:00:00', new_solved: 6, solved: 14, total: 14 },
+                ],
+            }];
+        }
+        return { items: [item(6, 3)], next: null, pending_total: 0 };
+    });
+    root.rows[0].fire('click');
+    await tick();
+    assert.match(root.html, /За занятие 6\/14 · всего 14\/14/);
+    assert.match(root.html, /Баллы за всю работу 18 из 18/);
+    assert.doesNotMatch(root.html, /За занятие 8\/14/);
+});
+
 test('после обновления учеников счётчики работы в списке меняются на месте', async () => {
     let credited = false;
     const { root } = await setup((action) => {

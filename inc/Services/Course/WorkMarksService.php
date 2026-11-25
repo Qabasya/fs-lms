@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace Inc\Services\Course;
 
+use Inc\DTO\Course\SubmissionDTO;
 use Inc\Enums\Course\SubmissionStatus;
 use Inc\Enums\Course\WorkSourceType;
 use Inc\Managers\Assessment\AssessmentManager;
@@ -36,6 +37,7 @@ class WorkMarksService {
 	/** Ответа на задание не было вовсе: красный квадрат с прочерком. */
 	private const string UNANSWERED = 'unanswered';
 	private const string PENDING   = 'pending';
+	public const SOLVED_MARKS = array( self::CORRECT, self::CORRECTED );
 
 	public function __construct(
 		private readonly SubmissionRepository        $submissions,
@@ -71,10 +73,11 @@ class WorkMarksService {
 	 */
 	private function fromSubmission( int $submissionId ): array {
 		$sub = $this->submissions->find( $submissionId );
-		if ( null === $sub || null !== $sub->taskId ) {
-			return array();
-		}
+		return null === $sub || null !== $sub->taskId ? array() : array_column( $this->submissionTasks( $sub ), 'mark' );
+	}
 
+	/** Вердикт и дата сдачи ответа по ID задачи, в порядке работы. */
+	public function submissionTasks( SubmissionDTO $sub ): array {
 		$snapshot = json_decode( (string) $sub->answerText, true );
 		$snapshot = is_array( $snapshot ) ? $snapshot : array();
 
@@ -88,30 +91,32 @@ class WorkMarksService {
 		$work    = $this->works->get( $sub->workId );
 		$taskIds = $work?->itemIds ? array_map( 'intval', $work->itemIds ) : array_map( 'intval', array_keys( $snapshot ) );
 
-		$marks = array();
+		$tasks = array();
 		foreach ( $taskIds as $taskId ) {
 			$row = $rowsByTask[ $taskId ] ?? null;
-
-			if ( null !== $row && SubmissionStatus::PendingReview === $row->status ) {
-				$marks[] = self::PENDING;
-				continue;
-			}
-			// Строки первой сдачи прошлых версий лежат без баллов — вердикт тогда из снапшота.
-			if ( null !== $row && SubmissionStatus::Graded === $row->status && null !== $row->score ) {
-				$marks[] = ( $row->score ?? 0.0 ) >= ( $row->maxScore ?? 1.0 )
-					? $this->correctMark( $snapshot[ $taskId ] ?? array() )
-					: $this->wrongMark( $row );
-				continue;
-			}
-
-			$verdict = $this->normalize( $snapshot[ $taskId ]['verdict'] ?? null );
-			if ( self::INCORRECT === $verdict ) {
-				$verdict = $this->wrongMark( $row );
-			}
-			$marks[] = self::CORRECT === $verdict ? $this->correctMark( $snapshot[ $taskId ] ) : $verdict;
+			$verdict = is_array( $snapshot[ $taskId ] ?? null ) ? $snapshot[ $taskId ] : array();
+			$tasks[ $taskId ] = array(
+				'mark'         => $this->submissionMark( $row, $verdict ),
+				'submitted_at' => $row?->submittedAt,
+				'recorded'     => null !== $row || isset( $verdict['verdict'] ),
+			);
 		}
+		return $tasks;
+	}
 
-		return $marks;
+	private function submissionMark( ?SubmissionDTO $row, array $snapshot ): string {
+		if ( SubmissionStatus::PendingReview === $row?->status ) {
+			return self::PENDING;
+		}
+		if ( SubmissionStatus::Graded === $row?->status && null !== $row->score ) {
+			return ( $row->maxScore ?? 1.0 ) > 0 && $row->score >= ( $row->maxScore ?? 1.0 ) ? $this->correctMark( $snapshot ) : $this->wrongMark( $row );
+		}
+		// У старых сдач баллы отдельных строк могут отсутствовать.
+		return match ( $this->normalize( $snapshot['verdict'] ?? null ) ) {
+			self::CORRECT   => $this->correctMark( $snapshot ),
+			self::INCORRECT => $this->wrongMark( $row ),
+			default         => self::PENDING,
+		};
 	}
 
 	/**

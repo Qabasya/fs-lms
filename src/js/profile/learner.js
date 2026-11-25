@@ -535,6 +535,7 @@ function gradeLessonHtml(g) {
         title:    w.title,
         badge:    w.badge,
         marks:    w.marks,
+        lessonResults: w.lesson_result ? [w.lesson_result] : [],
         subtitle: workStatusText(w),
         date:     w.submitted_at,
         duration: w.duration_sec,

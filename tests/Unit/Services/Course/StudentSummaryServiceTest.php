@@ -7,12 +7,18 @@ namespace Unit\Services\Course;
 use Inc\Contracts\ClockInterface;
 use Inc\DTO\Course\GradebookEntryDTO;
 use Inc\DTO\Course\GroupLessonDTO;
+use Inc\DTO\Course\SubmissionDTO;
 use Inc\DTO\Course\WorkDTO;
 use Inc\Enums\Course\WorkType;
+use Inc\Managers\Course\WorkManager;
 use Inc\Managers\Course\LessonManager;
 use Inc\Repositories\WPDBRepositories\GroupLessonRepository;
 use Inc\Repositories\WPDBRepositories\GroupsRepository;
+use Inc\Repositories\WPDBRepositories\SubmissionRepository;
+use Inc\Repositories\WPDBRepositories\TaskAttemptRepository;
+use Inc\Repositories\WPDBRepositories\WorkTaskCheckRepository;
 use Inc\Services\Course\AttendanceService;
+use Inc\Services\Course\ContinuationWorkProgressService;
 use Inc\Services\Course\EffectiveWorksResolver;
 use Inc\Services\Course\GradebookService;
 use Inc\Services\Course\HomeworkDeadlineService;
@@ -35,6 +41,9 @@ class StudentSummaryServiceTest extends TestCase {
 	private bool $selfPaced = false;
 	private LessonProgressService $progress;
 	private int $attendanceReads = 0;
+	private WorkManager $works;
+	private SubmissionRepository $submissions;
+	private WorkMarksService $marks;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -49,13 +58,13 @@ class StudentSummaryServiceTest extends TestCase {
 		$attendance->method( 'matrixForGroup' )->willReturnCallback( function(): array { ++$this->attendanceReads; return array(); } );
 		$this->progress = $this->createStub( LessonProgressService::class );
 
-		$marks = $this->createStub( WorkMarksService::class );
+		$marks = $this->marks = $this->createStub( WorkMarksService::class );
 		$marks->method( 'marksFor' )->willReturn( array( 'correct' ) );
 
 		$clock = $this->createStub( ClockInterface::class );
 		$clock->method( 'now' )->willReturn( '2026-09-25 12:00:00' );
 
-$visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::class );
+		$visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::class );
 		$visibility->method( 'effectiveVisibility' )->willReturnCallback( static fn( $row ) => $row->visibility );
 		
 		$this->service = new StudentSummaryService(
@@ -68,7 +77,11 @@ $visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::c
 			$marks,
 			new HomeworkDeadlineService( $this->resolver, $visibility, $this->groupLessons ),
 			$clock,
-			$this->createStub( \Inc\Repositories\WPDBRepositories\SubmissionRepository::class ),
+			$this->submissions = $this->createStub( SubmissionRepository::class ),
+			new ContinuationWorkProgressService(
+				$this->groupLessons, $this->works = $this->createStub( WorkManager::class ), $marks,
+				$this->createStub( TaskAttemptRepository::class ), $this->createStub( WorkTaskCheckRepository::class ), $visibility, $clock
+			),
 		);
 	}
 
@@ -98,17 +111,38 @@ $visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::c
 		self::assertSame( 'fraction', $works[0]['display'] );
 	}
 
-	public function test_continuation_does_not_repeat_submitted_work_as_missing(): void {
+	public function test_continuation_shows_the_shared_submission_instead_of_an_empty_lesson(): void {
 		$this->groupLessons->method( 'listByGroup' )->willReturn( array(
 			$this->glRow( 10, '2026-09-20 17:00:00' ),
 			$this->glRow( 11, '2026-09-21 17:00:00', continuedFromId: 10 ),
 		) );
-		$this->gradebook->method( 'forGroup' )->willReturn( array( $this->entry( 10, 100 ) ) );
-		$this->resolver->method( 'resolve' )->willReturn( array( $this->work( 100, WorkType::Homework, 3 ) ) );
+		$works = array( 100 => $this->work( 100, WorkType::Practice, 14 ), 101 => $this->work( 101, WorkType::Homework, 5 ) );
+		$this->resolver->method( 'resolve' )->willReturn( array_values( $works ) );
+		$this->works->method( 'get' )->willReturnCallback( static fn( int $id ) => $works[ $id ] );
+		$this->gradebook->method( 'forGroup' )->willReturn( array( $this->entry( 10, 100 ), $this->entry( 10, 101, 56 ) ) );
+		$this->submissions->method( 'find' )->willReturnCallback( static fn( int $id ) => SubmissionDTO::fromArray( array(
+			'id' => $id, 'student_person_id' => self::STUDENT, 'group_lesson_id' => 10, 'work_id' => 55 === $id ? 100 : 101,
+			'status' => 'graded', 'attempt_count' => 2, 'submitted_at' => '2026-09-22 18:00:00',
+		) ) );
+		$this->marks->method( 'submissionTasks' )->willReturnCallback( static function ( SubmissionDTO $sub ) use ( $works ): array {
+			$tasks = array();
+			foreach ( $works[ $sub->workId ]->itemIds as $id ) {
+				$first = $id <= ( 100 === $sub->workId ? 8 : 2 );
+				$tasks[ $id ] = array( 'mark' => 'correct', 'recorded' => true, 'submitted_at' => $first ? '2026-09-20 20:00:00' : '2026-09-21 17:00:00' );
+			}
+			return $tasks;
+		} );
 
 		$lessons = array_column( $this->service->forStudent( 5, self::STUDENT )['lessons'], 'works', 'group_lesson_id' );
 		self::assertSame( 'fraction', $lessons[10][0]['display'] );
-		self::assertSame( array(), $lessons[11] );
+		self::assertCount( 2, $lessons[11] );
+		self::assertSame( $lessons[10][0]['source_id'], $lessons[11][0]['source_id'] );
+		self::assertSame( 11, $lessons[11][0]['group_lesson_id'] );
+		foreach ( array( array( 10, 0, 8, 8, 14 ), array( 11, 0, 6, 14, 14 ), array( 10, 1, 2, 2, 5 ), array( 11, 1, 3, 5, 5 ) ) as [ $gl, $work, $new, $solved, $total ] ) {
+			$result = $lessons[ $gl ][ $work ]['lesson_result'];
+			self::assertSame( array( $new, $solved, $total ), array( $result['new_solved'], $result['solved'], $result['total'] ) );
+			self::assertSame( $solved, count( array_keys( $lessons[ $gl ][ $work ]['marks'], 'correct', true ) ) );
+		}
 	}
 
 	public function test_homework_before_explicit_deadline_is_listed_with_dashes_without_due_date(): void {
@@ -203,9 +237,9 @@ $visibility = $this->createStub( \Inc\Services\Course\LessonVisibilityService::c
 		);
 	}
 
-	private function entry( int $groupLessonId, int $workId ): GradebookEntryDTO {
+	private function entry( int $groupLessonId, int $workId, int $sourceId = 55 ): GradebookEntryDTO {
 		return new GradebookEntryDTO(
-			studentPersonId: self::STUDENT, groupId: 5, sourceType: 'submission', sourceId: 55,
+			studentPersonId: self::STUDENT, groupId: 5, sourceType: 'submission', sourceId: $sourceId,
 			title: 'ДЗ ' . $workId, category: 'homework', score: 2.0, maxScore: 3.0, gradedAt: null,
 			displayType: 'fraction', groupLessonId: $groupLessonId, groupKey: 'work:' . $workId,
 		);

@@ -5,6 +5,7 @@ declare( strict_types=1 );
 namespace Inc\Repositories\WPDBRepositories;
 
 use Inc\DTO\Task\TaskAttemptDTO;
+use Inc\Enums\Course\AttemptSource;
 use Inc\Enums\Settings\TableName;
 
 /**
@@ -135,6 +136,27 @@ class TaskAttemptRepository {
 		);
 
 		return array_map( array( TaskAttemptDTO::class, 'fromArray' ), $rows ?: array() );
+	}
+
+	/** Время первого верного и последнего ответа по каждой задаче работы, в часовом поясе расписания. */
+	public function workAnswerTimes( int $personId, int $progressId, int $workId ): array {
+		$rows = $this->wpdb->get_results( $this->wpdb->prepare(
+			'SELECT task_id, is_correct, answered_at, UNIX_TIMESTAMP(created_at) AS submitted_ts
+			 FROM %i WHERE student_person_id = %d AND group_lesson_id = %d AND step_key = %s
+			 ORDER BY attempt_number, id',
+			$this->table, $personId, $progressId, AttemptSource::workStepKey( $workId )
+		), ARRAY_A );
+
+		$times = array();
+		foreach ( $rows ?: array() as $row ) {
+			$id = (int) $row['task_id'];
+			$at = $row['answered_at'] ?? wp_date( 'Y-m-d H:i:s', (int) $row['submitted_ts'] );
+			$times[ $id ]['last'] = $at;
+			if ( (int) $row['is_correct'] ) {
+				$times[ $id ]['correct'] ??= $at;
+			}
+		}
+		return $times;
 	}
 
 	/**

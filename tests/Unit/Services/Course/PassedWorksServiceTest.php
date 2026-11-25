@@ -20,6 +20,7 @@ use Inc\Repositories\WPDBRepositories\SubmissionRepository;
 use Inc\Services\Course\HomeworkDeadlineService;
 use Inc\Services\Course\PassedWorksService;
 use Inc\Services\Course\SubmissionService;
+use Inc\Services\Course\ContinuationWorkProgressService;
 use Inc\Services\Course\TeacherGroupResolver;
 use Inc\Services\Course\WorkMarksService;
 use PHPUnit\Framework\TestCase;
@@ -36,6 +37,7 @@ class PassedWorksServiceTest extends TestCase {
 	private WorkManager&\PHPUnit\Framework\MockObject\MockObject $works;
 	private WorkMarksService&\PHPUnit\Framework\MockObject\MockObject $marks;
 	private PassedWorksService $service;
+	private ContinuationWorkProgressService $continuations;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -88,7 +90,8 @@ class PassedWorksServiceTest extends TestCase {
 			$this->createStub( LessonManager::class ),
 			$this->works,
 			$this->marks,
-			$clock
+			$clock,
+			$this->continuations = $this->createStub( ContinuationWorkProgressService::class ),
 		);
 	}
 

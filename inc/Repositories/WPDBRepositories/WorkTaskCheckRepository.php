@@ -72,6 +72,24 @@ class WorkTaskCheckRepository {
 		return array_map( array( WorkTaskCheckDTO::class, 'fromArray' ), $rows ?: array() );
 	}
 
+	/** Первая верная проверка задачи в раунде. Сама проверка ещё не означает сдачу работы. */
+	public function correctTimes( int $personId, int $progressId, int $workId ): array {
+		$rows = $this->wpdb->get_results( $this->wpdb->prepare(
+			'SELECT task_id, round, UNIX_TIMESTAMP(MIN(created_at)) AS checked_ts
+			 FROM %i WHERE student_person_id = %d AND group_lesson_id = %d AND work_id = %d AND is_correct = 1
+			 GROUP BY task_id, round ORDER BY round',
+			$this->table, $personId, $progressId, $workId
+		), ARRAY_A );
+		$times = array();
+		foreach ( $rows ?: array() as $row ) {
+			$times[ (int) $row['task_id'] ] = array(
+				'round' => (int) $row['round'],
+				'at'    => wp_date( 'Y-m-d H:i:s', (int) $row['checked_ts'] ),
+			);
+		}
+		return $times;
+	}
+
 	/** Сброс работы преподавателем: проверки уходят вместе со сдачей и историей попыток. */
 	public function deleteByStudentWork( int $studentPersonId, int $groupLessonId, int $workId ): int {
 		return (int) $this->wpdb->delete(
