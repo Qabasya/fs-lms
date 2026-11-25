@@ -99,7 +99,8 @@ class TaskBulkFileServiceTest extends TestCase {
 		try {
 			$service = new TaskBulkFileService();
 			$plan = $service->plan( array( 'file' => 'https://site.example/wp-content/uploads/source.txt' ), '1000', 42, true, 'inf' );
-			symlink( $outside, $root . '/fs-lms' );
+			self::assertCount( 1, $plan['ops'] );
+			$this->createSymlink( $outside, $root . '/fs-lms' );
 			try {
 				$service->execute( $plan['ops'] );
 				self::fail( 'The destination must remain inside uploads.' );
@@ -108,7 +109,7 @@ class TaskBulkFileServiceTest extends TestCase {
 			}
 		} finally {
 			@unlink( $outside . '/task-files/inf/42/1000.txt' );
-			@unlink( $root . '/fs-lms' );
+			$this->removeSymlink( $root . '/fs-lms' );
 			rmdir( $outside . '/task-files/inf/42' );
 			rmdir( $outside . '/task-files/inf' );
 			rmdir( $outside . '/task-files' );
@@ -283,21 +284,35 @@ class TaskBulkFileServiceTest extends TestCase {
 		self::assertSame( array(), $plan['warnings'] );
 	}
 
-	public function test_safe_preview_rejects_encoded_traversal_and_external_symlinks(): void {
+	public function test_safe_preview_rejects_encoded_traversal(): void {
+		$root = sys_get_temp_dir() . '/fs-lms-upload-' . uniqid();
+		$uploads = $root . '/uploads';
+		mkdir( $uploads, 0755, true );
+		file_put_contents( $root . '/secret.txt', 'outside uploads' );
+		$GLOBALS['_fs_test_upload_dir']['basedir'] = $uploads;
+		try {
+			$plan = ( new TaskBulkFileService() )->plan( array( 'file' => 'https://site.example/wp-content/uploads/%2e%2e/secret.txt' ), '1000', 1, true );
+			self::assertSame( array(), $plan['ops'] );
+			self::assertNotEmpty( $plan['warnings'] );
+		} finally {
+			unlink( $root . '/secret.txt' );
+			rmdir( $uploads );
+			rmdir( $root );
+		}
+	}
+
+	public function test_safe_preview_rejects_external_symlinks(): void {
 		$root = sys_get_temp_dir() . '/fs-lms-upload-' . uniqid();
 		mkdir( $root );
 		$outside = tempnam( sys_get_temp_dir(), 'fs-lms-outside-' );
-		symlink( $outside, $root . '/linked.txt' );
 		$GLOBALS['_fs_test_upload_dir']['basedir'] = $root;
 		try {
-			$service = new TaskBulkFileService();
-			foreach ( array( '%2e%2e/secret.txt', 'linked.txt' ) as $path ) {
-				$plan = $service->plan( array( 'file' => 'https://site.example/wp-content/uploads/' . $path ), '1000', 1, true );
-				self::assertSame( array(), $plan['ops'] );
-				self::assertNotEmpty( $plan['warnings'] );
-			}
+			$this->createSymlink( $outside, $root . '/linked.txt' );
+			$plan = ( new TaskBulkFileService() )->plan( array( 'file' => 'https://site.example/wp-content/uploads/linked.txt' ), '1000', 1, true );
+			self::assertSame( array(), $plan['ops'] );
+			self::assertNotEmpty( $plan['warnings'] );
 		} finally {
-			unlink( $root . '/linked.txt' );
+			$this->removeSymlink( $root . '/linked.txt' );
 			unlink( $outside );
 			rmdir( $root );
 		}
@@ -386,18 +401,16 @@ class TaskBulkFileServiceTest extends TestCase {
 		$root = sys_get_temp_dir() . '/fs-lms-upload-' . uniqid();
 		mkdir( $root );
 		file_put_contents( $root . '/source.txt', 'original' );
-		symlink( $root . '/missing', $root . '/1000.txt' );
-		symlink( sys_get_temp_dir(), $root . '/fs-lms' );
 		$GLOBALS['_fs_test_upload_dir']['basedir'] = $root;
 		try {
+			$this->createSymlink( sys_get_temp_dir(), $root . '/fs-lms' );
 			$plan = ( new TaskBulkFileService() )->plan( array( 'file' => 'https://site.example/wp-content/uploads/source.txt' ), '1000', 42, true, 'inf' );
 			self::assertSame( array(), $plan['ops'] );
 			self::assertNotEmpty( $plan['warnings'] );
 			self::assertSame( 'original', file_get_contents( $root . '/source.txt' ) );
 		} finally {
+			$this->removeSymlink( $root . '/fs-lms' );
 			unlink( $root . '/source.txt' );
-			unlink( $root . '/1000.txt' );
-			unlink( $root . '/fs-lms' );
 			rmdir( $root );
 		}
 	}
@@ -420,6 +433,27 @@ class TaskBulkFileServiceTest extends TestCase {
 			rmdir( $root . '/fs-lms' );
 			rmdir( $root );
 		}
+	}
+
+	private function createSymlink( string $target, string $link ): void {
+		if ( @symlink( $target, $link ) ) {
+			return;
+		}
+		if ( 'Windows' === PHP_OS_FAMILY ) {
+			self::markTestSkipped( 'PHP cannot create symbolic links on this Windows host.' );
+		}
+		self::fail( 'Could not create the test symbolic link.' );
+	}
+
+	private function removeSymlink( string $link ): void {
+		if ( ! is_link( $link ) ) {
+			return;
+		}
+		if ( 'Windows' === PHP_OS_FAMILY && is_dir( $link ) ) {
+			rmdir( $link );
+			return;
+		}
+		unlink( $link );
 	}
 
 }

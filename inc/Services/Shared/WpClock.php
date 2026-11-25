@@ -42,13 +42,13 @@ class WpClock implements ClockInterface {
 	/**
 	 * Возвращает текущее время.
 	 *
-	 * @param string $type Формат вывода: 'mysql' (datetime) или 'timestamp'
+	 * @param string $type Формат вывода, например 'mysql', 'U' или 'timestamp'
 	 * @param bool   $gmt  true — UTC, false — локальное время WordPress
 	 *
 	 * @return string
 	 */
 	public function now( string $type = 'mysql', bool $gmt = false ): string {
-		// current_time() — встроенная функция WordPress
-		return current_time( $type, $gmt );
+		// WordPress возвращает Unix timestamp как int, остальные форматы как string.
+		return (string) current_time( $type, $gmt );
 	}
 }
