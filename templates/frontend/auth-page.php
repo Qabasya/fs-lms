@@ -38,6 +38,8 @@ $locked = $permanent_lock || $lock_seconds > 0;
 
 		<!-- Маркер: вход инициирован с кастомной страницы (для wp_login_failed) -->
 		<input type="hidden" name="fs_lms_login" value="1">
+		<?php // Штатная длительная сессия WordPress для входа через форму LMS. ?>
+		<input type="hidden" name="rememberme" value="forever">
 
 		<div class="fs-auth-card__field-group">
 			<span class="dashicons dashicons-email"></span>

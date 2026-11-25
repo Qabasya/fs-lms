@@ -113,6 +113,13 @@ class AuthPageControllerTest extends TestCase {
 		self::assertStringContainsString( 'Неверный логин или пароль.', $this->controller->renderLoginPage() );
 	}
 
+	public function test_persistent_login_is_enabled_without_a_checkbox(): void {
+		$html = $this->controller->renderLoginPage();
+
+		self::assertStringContainsString( '<input type="hidden" name="rememberme" value="forever">', $html );
+		self::assertDoesNotMatchRegularExpression( '/<input[^>]*type="checkbox"[^>]*name="rememberme"/', $html );
+	}
+
 	public function test_wait_in_address_is_capped_to_the_longest_lock(): void {
 		$_GET = array( 'login' => 'last', 'wait' => '999999' );
 		$this->guard->method( 'lockSecondsFor' )->willReturn( 0 );

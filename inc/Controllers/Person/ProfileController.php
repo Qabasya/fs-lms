@@ -61,19 +61,29 @@ class ProfileController extends BaseController implements ServiceInterface {
 	 * @return void
 	 */
 	public function handleRoutingAndPrivacy(): void {
+		$isProfile = PageRoutes::UserProfile->isCurrent();
+		$isSignIn  = PageRoutes::SignIn->isCurrent();
+		if ( ! $isProfile && ! $isSignIn ) {
+			return;
+		}
+
+		// Ответ зависит от сессии, включая гостевой редирект с /profile/ на /sign-in/.
+		nocache_headers();
+		$loggedIn = is_user_logged_in();
+
 		// Залогинен и на странице входа → в профиль.
-		if ( is_user_logged_in() && PageRoutes::SignIn->isCurrent() ) {
+		if ( $loggedIn && $isSignIn ) {
 			wp_safe_redirect( PageRoutes::UserProfile->url() );
 			exit;
 		}
 
 		// Не залогинен и на профиле → на вход.
-		if ( ! is_user_logged_in() && PageRoutes::UserProfile->isCurrent() ) {
+		if ( ! $loggedIn && $isProfile ) {
 			wp_safe_redirect( PageRoutes::SignIn->url() );
 			exit;
 		}
 
-		if ( is_user_logged_in() && PageRoutes::UserProfile->isCurrent() ) {
+		if ( $loggedIn && $isProfile ) {
 			$user = wp_get_current_user();
 
 			// Роли без фронт-витрины (методист/маркетолог) работают в админке WP.

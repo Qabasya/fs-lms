@@ -135,16 +135,18 @@ function setupForm(t, vars) {
 
     const made = makeForm();
     const pageshow = [];
+    let reloads = 0;
     made.button.disabled = true; // как в разметке: кнопка неактивна до подключения обработчика
     globalThis.window = {
         ...(vars ? { fs_lms_login_vars: vars } : {}),
         setTimeout: (...args) => globalThis.setTimeout(...args),
         clearTimeout: (...args) => globalThis.clearTimeout(...args),
         addEventListener: (name, listener) => { if ('pageshow' === name) { pageshow.push(listener); } },
+        location: { reload: () => { reloads++; } },
     };
     globalThis.document = { getElementById: id => ('loginform' === id ? made.form : {}), querySelector: () => null };
 
-    return { ...made, pageshow };
+    return { ...made, pageshow, reloads: () => reloads };
 }
 
 // Регресс: форма стоит в DOM раньше бандла в футере, и «Войти» успевали нажать без обработчика.
@@ -163,21 +165,17 @@ test('капча не подключена: форма всё равно ста�
     assert.equal(button.disabled, false);
 });
 
-// Назад из bfcache: страница возвращается с прошлым состоянием JS — кнопка заблокирована, токен старый.
-test('возврат кнопкой «Назад» (bfcache) сбрасывает состояние формы', async t => {
-    const { form, button, pageshow } = setupForm(t, { captcha_key: 'key' });
-    const tokenInput = form.querySelector('[name="captcha_token"]');
-
-    initLoginForm();
-    tokenInput.value = 'old-token';
-    button.disabled = true;
-
-    pageshow.forEach(listener => listener({ persisted: false }));
-    assert.equal(button.disabled, true, 'обычная загрузка состояние не трогает');
-
-    pageshow.forEach(listener => listener({ persisted: true }));
-    assert.equal(button.disabled, false);
-    assert.equal(tokenInput.value, '');
+test('при восстановлении старой страницы входа сервер повторно проверяет сессию даже без капчи', t => {
+    for (const vars of [{}, { captcha_key: 'key' }]) {
+        const { button, pageshow, reloads } = setupForm(t, vars);
+        initLoginForm();
+        pageshow.forEach(listener => listener({ persisted: false }));
+        assert.equal(reloads(), 0);
+        assert.equal(button.disabled, false);
+        pageshow.forEach(listener => listener({ persisted: true }));
+        assert.equal(reloads(), 1);
+        assert.equal(button.disabled, true);
+    }
 });
 
 /**

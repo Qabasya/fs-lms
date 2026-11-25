@@ -11,30 +11,28 @@ export function profileReferrer( referrer, profileUrl ) {
 	try {
 		const ref     = new URL( referrer );
 		const profile = new URL( profileUrl );
-		return ( ref.origin === profile.origin && ref.pathname === profile.pathname ) ? ref.href : '';
+		return ( ref.origin === profile.origin && ref.pathname === profile.pathname && ! ref.username && ! ref.password ) ? ref.href : '';
 	} catch ( e ) {
 		return '';
 	}
 }
 
 /**
- * Что делает «Назад».
- *
- * - пришли из кабинета и в истории есть куда вернуться — `back` (браузер сам вернёт экран в прежнем виде);
- * - пришли из кабинета в свежей вкладке или перешли между уроками — `go` на запомненный адрес кабинета;
- * - кабинет не открывали (прямая ссылка) — `link`: обычный переход по ссылке кнопки.
- *
- * @param {{referrer: string, profileUrl: string, stored: string, historyLength: number}} ctx
- *
- * @returns {{action: 'back'|'go'|'link', url: string}}
+ * Возврат на известный адрес кабинета. История и referrer не обязаны описывать одну страницу.
+ * На экране «Мои курсы» выбранная группа может не попасть в адрес кабинета — берём её из ссылки урока.
+ * @param {{referrer: string, profileUrl: string, stored: string, fallback: string}} ctx
  */
-export function backAction( { referrer, profileUrl, stored, historyLength } ) {
-	const fromProfile = profileReferrer( referrer, profileUrl );
-	if ( fromProfile ) {
-		return historyLength > 1 ? { action: 'back', url: fromProfile } : { action: 'go', url: fromProfile };
+export function profileReturnUrl( { referrer, profileUrl, stored, fallback } ) {
+	const address = profileReferrer( referrer, profileUrl ) || profileReferrer( stored, profileUrl );
+	if ( ! address ) { return fallback; }
+
+	const target = new URL( address );
+	const course = profileReferrer( fallback, profileUrl );
+	if ( course && target.searchParams.get( 'screen' ) === 'student-lessons' && ! target.searchParams.has( 'group' ) ) {
+		const group = new URL( course ).searchParams.get( 'group' );
+		if ( group ) { target.searchParams.set( 'group', group ); }
 	}
-	const remembered = profileReferrer( stored || '', profileUrl );
-	return remembered ? { action: 'go', url: remembered } : { action: 'link', url: '' };
+	return target.href;
 }
 
 /** Номер шага для адреса (с 1, виртуальный шаг «Трансляция» не считается); у виртуального — 0: параметр убирается. */

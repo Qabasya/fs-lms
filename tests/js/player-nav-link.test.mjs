@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { backAction, profileReferrer, stepIndexFromParam, stepNumberOf } from '../../src/js/player/nav-link.js';
+import { profileReturnUrl, profileReferrer, stepIndexFromParam, stepNumberOf } from '../../src/js/player/nav-link.js';
 
 const PROFILE = 'https://example.test/profile/';
 const panel = (step, virtual = '') => ({ dataset: { step, virtual } });
@@ -13,21 +13,22 @@ test('referrer counts only when it is the profile page of the same site', () => 
     assert.equal(profileReferrer('', PROFILE), '');
 });
 
-test('back returns through history when the profile is the previous page', () => {
+test('back opens the exact cabinet URL, preserving journal filters', () => {
     const ref = `${PROFILE}?screen=journal&journal_g=7&journal_m=2026-10`;
 
     assert.deepEqual(
-        backAction({ referrer: ref, profileUrl: PROFILE, stored: '', historyLength: 3 }),
-        { action: 'back', url: ref },
+        profileReturnUrl({ referrer: ref, profileUrl: PROFILE, stored: '', fallback: PROFILE }),
+        ref,
     );
 });
 
-test('back opens the profile address in a fresh tab (empty history)', () => {
-    const ref = `${PROFILE}?screen=ktp&ktp_g=4`;
+test('back from a course lesson restores its group when the profile URL omitted it', () => {
+    const ref = `${PROFILE}?screen=student-lessons`;
+    const fallback = `${ref}&group=7`;
 
     assert.deepEqual(
-        backAction({ referrer: ref, profileUrl: PROFILE, stored: '', historyLength: 1 }),
-        { action: 'go', url: ref },
+        profileReturnUrl({ referrer: ref, profileUrl: PROFILE, stored: '', fallback }),
+        fallback,
     );
 });
 
@@ -35,15 +36,15 @@ test('back survives a hop between lessons through the remembered profile screen'
     const stored = `${PROFILE}?screen=ktp&ktp_g=4&ktp_m=2026-10`;
 
     assert.deepEqual(
-        backAction({ referrer: 'https://example.test/group/?gl=2', profileUrl: PROFILE, stored, historyLength: 4 }),
-        { action: 'go', url: stored },
+        profileReturnUrl({ referrer: 'https://example.test/group/?gl=2', profileUrl: PROFILE, stored, fallback: PROFILE }),
+        stored,
     );
 });
 
 test('back falls back to the button link when the profile was never opened', () => {
     assert.deepEqual(
-        backAction({ referrer: '', profileUrl: PROFILE, stored: '', historyLength: 1 }),
-        { action: 'link', url: '' },
+        profileReturnUrl({ referrer: 'https://example.test/sign-in/', profileUrl: PROFILE, stored: '', fallback: PROFILE }),
+        PROFILE,
     );
 });
 

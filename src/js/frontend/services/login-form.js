@@ -16,8 +16,8 @@
  *
  * Кнопка «Войти» в разметке неактивна (форма идёт в DOM раньше бандла в футере — между ними
  * браузер успевал отправить её без обработчика): включается здесь, в любом исходе инициализации.
- * После возврата кнопкой «Назад» (страница из bfcache) состояние формы сбрасывается — иначе
- * кнопка остаётся заблокированной, а токен прошлой попытки — в скрытом поле.
+ * При восстановлении формы из истории перезапрашиваем страницу: сервер проверит сессию и
+ * вернёт уже вошедшего пользователя в кабинет.
  *
  * Блокировка входа (серия неверных паролей): сервер отдаёт форму с отключёнными полями и блоком
  * `[data-login-lock]` с остатком в секундах. Здесь идёт обратный отсчёт; по его концу поля и кнопка
@@ -44,6 +44,12 @@ export function initLoginForm() {
     // даже если блок таймера не нашёлся (кнопка не должна быть активной при отключённых полях).
     const isLocked = () => lock.active || true === form.querySelector( '#user_pass' )?.disabled;
 
+    window.addEventListener?.( 'pageshow', ( event ) => {
+        if ( ! event.persisted ) { return; }
+        if ( button ) { button.disabled = true; }
+        window.location.reload();
+    } );
+
     // Капчи нет — обработчик не нужен, но форма должна стать доступной.
     if ( ! vars || ! isCaptchaEnabled() ) {
         if ( button && ! isLocked() ) { button.disabled = false; }
@@ -55,16 +61,6 @@ export function initLoginForm() {
     const status       = form.querySelector( '[data-login-status]' );
     const showStatus   = ( visible ) => { if ( status ) { status.hidden = ! visible; } };
     let tokenReady     = false;
-
-    window.addEventListener?.( 'pageshow', ( event ) => {
-        if ( ! event.persisted ) { return; }
-        tokenReady       = false;
-        showStatus( false );
-        tokenInput.value = '';
-        if ( failureInput ) { failureInput.value = ''; }
-        button.disabled  = isLocked();
-        resetCaptcha();
-    } );
 
     form.addEventListener( 'submit', async ( event ) => {
         // Повторный проход из requestSubmit — токен уже в форме.

@@ -42,6 +42,7 @@ use Inc\Controllers\Subject\ContentDeletionGuard;
 use Inc\Controllers\Problems\ProblemsController;
 use Inc\Controllers\Task\MetaBoxController;
 use Inc\Controllers\Person\AuthPageController;
+use Inc\Controllers\Person\LmsSessionController;
 use Inc\Controllers\Person\LoginGuardController;
 use Inc\Controllers\Person\UserEnumerationController;
 use Inc\Controllers\Person\PresenceController;
@@ -225,6 +226,7 @@ final class Init {
 			UserController::class,
 			ApplyPageController::class,
 			AuthPageController::class,       // Страница входа /sign-in/ (шорткод + перехват wp-login.php)
+			LmsSessionController::class,
 			LoginGuardController::class,     // Лимит неудачных входов + капча на входе
 			UserEnumerationController::class, // Логины не утекают гостям (REST, архивы авторов, сброс пароля)
 			PresenceController::class,       // Отметка «преподаватель в системе» для «Преподавателя нет на месте»

@@ -124,7 +124,7 @@ $next_url    = null !== $next_lesson
 
 	<!-- Шапка — часть страницы: уезжает при прокрутке (липкий — только воркбар работы). -->
 	<header class="s-top">
-		<?php // «Назад» возвращает на экран кабинета, откуда пришли (КТП, журнал…) в том же состоянии — оно хранится в адресе (nav-state.js, player/shell.js initBack); без кабинета в истории ссылка ведёт к курсу. ?>
+		<?php // «Назад» открывает адрес исходного экрана кабинета (player/shell.js); при прямом входе в урок ссылка ведёт к курсу. ?>
 		<a class="s-back" href="<?php echo esc_url( $back_url ); ?>" data-profile="<?php echo esc_url( $profile_url ); ?>">
 			<?php echo Icon::Back->svg(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 			<?php esc_html_e( 'Назад', 'fs-lms' ); ?>

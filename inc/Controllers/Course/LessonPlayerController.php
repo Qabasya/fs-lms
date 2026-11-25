@@ -52,6 +52,8 @@ class LessonPlayerController extends BaseController implements ServiceInterface 
 			return $template;
 		}
 
+		// И сам урок, и переход на вход зависят от сессии текущего пользователя.
+		nocache_headers();
 		$userId = get_current_user_id();
 		if ( ! $userId ) {
 			// Глубокая ссылка на шаг могла прийти из соцсетей — после логина

@@ -14,5 +14,7 @@ enum MetaKeys: string {
 	case LastSeenAt = "fs_lms_last_seen_at";
 	/** Раскладка главной ученика/родителя («Кастомизация»): порядок секций и набор плиток (JSON-массив). */
 	case HomeLayout = "fs_lms_home_layout";
+	/** Штатное хранилище токенов WordPress. */
+	case SessionTokens = "session_tokens";
 
 }

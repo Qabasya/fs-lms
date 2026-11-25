@@ -148,19 +148,27 @@ class AuthPageController extends BaseController implements ServiceInterface {
 	/**
 	 * Уводит GET-заходы на `wp-login.php` на страницу входа плагина.
 	 *
-	 * POST (отправка самой формы) и `action=logout` не трогаем — иначе сломается
-	 * вход и выход.
+	 * POST формы обрабатывает WordPress. Повторную отправку нашей формы при
+	 * активной сессии возвращаем в кабинет без нового входа.
 	 *
 	 * @return void
 	 */
 	public function redirectToCustomLogin(): void {
 		global $pagenow;
 
-		if ( 'wp-login.php' === $pagenow
-			&& ! $this->hasParam( 'wp-submit' )
-			&& 'GET' === $_SERVER['REQUEST_METHOD']
-			&& 'logout' !== $this->sanitizeGetText( 'action' )
-		) {
+		if ( 'wp-login.php' !== $pagenow || 'logout' === $this->sanitizeGetText( 'action' ) ) {
+			return;
+		}
+
+		$method = $_SERVER['REQUEST_METHOD'] ?? '';
+		if ( 'POST' === $method && $this->sanitizeBool( 'fs_lms_login' ) && is_user_logged_in() ) {
+			nocache_headers();
+			wp_safe_redirect( PageRoutes::UserProfile->url(), 303 );
+			exit;
+		}
+
+		if ( 'GET' === $method && ! $this->hasParam( 'wp-submit' ) ) {
+			nocache_headers();
 			wp_safe_redirect( PageRoutes::SignIn->url() );
 			exit;
 		}
@@ -190,6 +198,7 @@ class AuthPageController extends BaseController implements ServiceInterface {
 			PageRoutes::SignIn->url()
 		);
 
+		nocache_headers();
 		wp_safe_redirect( $url );
 		exit;
 	}
