@@ -8,8 +8,8 @@ use Inc\Repositories\OptionsRepositories\LoginBlockRepository;
 
 /** Постоянные блокировки IP и известных учётных записей. */
 class LoginBlockService {
-	public const IP_LIMIT = 5;
-	public const IP_WINDOW = 10 * MINUTE_IN_SECONDS;
+	public const IP_LIMIT = 10;
+	public const IP_WINDOW = 2 * MINUTE_IN_SECONDS;
 
 	public function __construct( private readonly LoginBlockRepository $repository ) {}
 

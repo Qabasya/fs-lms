@@ -268,9 +268,7 @@ export const ApplicationEnrollmentModal = {
         const $select = this.$modal.find( '[name="period_key"]' );
         $select.empty().append( '<option value="">— Выберите период —</option>' );
         periods.forEach( p => {
-            // Тернарный оператор для установки атрибута selected у текущего периода
-            const selected = p.id === currentId ? ' selected' : '';
-            $select.append( `<option value="${ p.id }"${ selected }>${ p.name }</option>` );
+            $select.append( new Option( p.name, p.id, p.id === currentId, p.id === currentId ) );
         } );
     },
 
@@ -282,7 +280,7 @@ export const ApplicationEnrollmentModal = {
         const $select = this.$modal.find( '[name="subject_key"]' );
         $select.empty().append( '<option value="">— Выберите предмет —</option>' );
         subjects.forEach( s => {
-            $select.append( `<option value="${ s.key }">${ s.name }</option>` );
+            $select.append( new Option( s.name, s.key ) );
         } );
     },
 
@@ -302,7 +300,7 @@ export const ApplicationEnrollmentModal = {
         } else {
             $select.append( '<option value="">— Выберите группу —</option>' );
             groups.forEach( g => {
-                $select.append( `<option value="${ g.id }">${ g.title }</option>` );
+                $select.append( new Option( g.title, g.id ) );
             } );
             $select.prop( 'disabled', false );
         }

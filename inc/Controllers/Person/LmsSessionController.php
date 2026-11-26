@@ -5,7 +5,6 @@ declare( strict_types=1 );
 namespace Inc\Controllers\Person;
 
 use Inc\Contracts\ServiceInterface;
-use Inc\Enums\Wp\PageRoutes;
 use Inc\Repositories\WPDBRepositories\UserSessionRepository;
 use Inc\Services\Security\LmsSessionService;
 use Inc\Shared\Traits\Sanitizer;
@@ -38,8 +37,7 @@ class LmsSessionController implements ServiceInterface {
 		if ( 'GET' !== ( $_SERVER['REQUEST_METHOD'] ?? '' )
 			|| preg_match( '/\b(?:prefetch|prerender)\b/i', ( $_SERVER['HTTP_SEC_PURPOSE'] ?? '' ) . ' ' . ( $_SERVER['HTTP_PURPOSE'] ?? '' ) )
 			|| ( isset( $_SERVER['HTTP_SEC_FETCH_MODE'] ) && 'navigate' !== $_SERVER['HTTP_SEC_FETCH_MODE'] )
-			|| ( isset( $_SERVER['HTTP_SEC_FETCH_DEST'] ) && 'document' !== $_SERVER['HTTP_SEC_FETCH_DEST'] )
-			|| ( ! PageRoutes::UserProfile->isCurrent() && ! PageRoutes::LessonPlayer->isCurrent() ) ) {
+			|| ( isset( $_SERVER['HTTP_SEC_FETCH_DEST'] ) && 'document' !== $_SERVER['HTTP_SEC_FETCH_DEST'] ) ) {
 			return;
 		}
 

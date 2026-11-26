@@ -13,7 +13,7 @@ class LmsSessionService {
 
 	use ScopedFilter;
 
-	public const int IDLE_SECONDS = 30 * DAY_IN_SECONDS;
+	public const int IDLE_SECONDS = 90 * DAY_IN_SECONDS;
 
 	public function __construct(
 		private readonly UserSessionRepository $sessions,

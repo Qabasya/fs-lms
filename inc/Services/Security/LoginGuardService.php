@@ -11,6 +11,7 @@ use Inc\Enums\Auth\LoginNotice;
 use Inc\Managers\Person\UserManager;
 use Inc\Services\Captcha\CaptchaService;
 use Inc\Services\Shared\PluginConfig;
+use Inc\Shared\PluginLogger;
 use WP_Error;
 use WP_User;
 
@@ -120,6 +121,7 @@ readonly class LoginGuardService {
 		if ( $this->pluginConfig->isTrustedIp( $ip ) ) {
 			return;
 		}
+		PluginLogger::loginFailure( $ip );
 		$this->blocks->recordIpFailure( $ip, $login );
 		if ( '' === trim( $login ) || $this->isGuardRejection( $error ) ) {
 			return;

@@ -15,6 +15,15 @@ namespace Inc\Shared;
  */
 final class PluginLogger {
 
+	/** Машиночитаемое событие для Fail2ban, без пользовательского текста. */
+	public static function loginFailure( string $ip ): void {
+		$packed = @inet_pton( $ip );
+		if ( false === $packed ) {
+			return;
+		}
+		syslog( LOG_AUTHPRIV | LOG_WARNING, 'fs-lms-login failure ip=' . inet_ntop( $packed ) );
+	}
+
 	public static function debug( string $context, string $message, array $data = array() ): void {
 		if ( ! defined( 'WP_DEBUG' ) || ! WP_DEBUG ) {
 			return;

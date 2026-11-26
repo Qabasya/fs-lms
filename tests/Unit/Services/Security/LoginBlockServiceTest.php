@@ -27,11 +27,11 @@ class LoginBlockServiceTest extends TestCase {
 		parent::tearDown();
 	}
 
-	public function test_ip_blocks_after_five_failures_and_escalates(): void {
+	public function test_ip_blocks_after_ten_failures_and_escalates(): void {
 		$ip = '203.0.113.5';
 		$key = 'fs_lms_login_abuse_' . hash_hmac( 'sha256', 'ip:' . $ip, FS_LMS_HASH_SALT );
 		foreach ( array( 900, 3600, 86400, 86400 ) as $seconds ) {
-			for ( $i = 0; $i < 4; ++$i ) { $this->service->recordIpFailure( $ip ); }
+			for ( $i = 0; $i < 9; ++$i ) { $this->service->recordIpFailure( $ip ); }
 			self::assertSame( 0, $this->service->ipRetrySeconds( $ip ) );
 			$this->service->recordIpFailure( $ip );
 			self::assertEqualsWithDelta( $seconds, $this->service->ipRetrySeconds( $ip ), 1 );
@@ -42,13 +42,13 @@ class LoginBlockServiceTest extends TestCase {
 			$GLOBALS['_test_transients'][ $key ]['until'] = time() - 1;
 		}
 		$this->service->clearIpFailures( $ip );
-		for ( $i = 0; $i < 5; ++$i ) { $this->service->recordIpFailure( $ip ); }
+		for ( $i = 0; $i < 10; ++$i ) { $this->service->recordIpFailure( $ip ); }
 		self::assertEqualsWithDelta( 900, $this->service->ipRetrySeconds( $ip ), 1 );
 		self::assertTrue( $this->service->unblockIpWithStatus( $ip ) );
 		self::assertSame( 0, $this->service->ipRetrySeconds( $ip ) );
 	}
 
-	public function test_third_login_switch_locks_ip_before_five_failures(): void {
+	public function test_third_login_switch_locks_ip_before_ten_failures(): void {
 		$ip = '203.0.113.99';
 		foreach ( array( 'one', 'two', 'one' ) as $login ) {
 			$this->service->recordIpFailure( $ip, $login );
@@ -69,7 +69,7 @@ class LoginBlockServiceTest extends TestCase {
 	}
 
 	public function test_ip_is_normalized_and_invalid_ip_is_rejected(): void {
-		for ( $i = 0; $i < 5; ++$i ) { $this->service->recordIpFailure( '2001:0db8::1' ); }
+		for ( $i = 0; $i < 10; ++$i ) { $this->service->recordIpFailure( '2001:0db8::1' ); }
 		self::assertGreaterThan( 0, $this->service->ipRetrySeconds( '2001:db8::1' ) );
 		self::assertFalse( $this->service->unblockIp( 'not-an-ip' ) );
 		self::assertNull( $this->service->unblockIpWithStatus( 'not-an-ip' ) );
@@ -77,7 +77,7 @@ class LoginBlockServiceTest extends TestCase {
 
 	public function test_unblocking_ip_does_not_unblock_the_account(): void {
 		$ip = '203.0.113.9';
-		for ( $i = 0; $i < 5; ++$i ) { $this->service->recordIpFailure( $ip ); }
+		for ( $i = 0; $i < 10; ++$i ) { $this->service->recordIpFailure( $ip ); }
 		for ( $i = 0; $i < 3; ++$i ) { $this->service->recordUserFailure( 17 ); }
 		self::assertTrue( $this->service->unblockIpWithStatus( $ip ) );
 		self::assertFalse( $this->service->ipBlocked( $ip ) );
@@ -88,12 +88,12 @@ class LoginBlockServiceTest extends TestCase {
 
 	public function test_expired_window_starts_a_new_counter(): void {
 		$ip = '203.0.113.7';
-		for ( $i = 0; $i < 4; ++$i ) { $this->service->recordIpFailure( $ip ); }
+		for ( $i = 0; $i < 9; ++$i ) { $this->service->recordIpFailure( $ip ); }
 		$key = 'fs_lms_login_abuse_' . hash_hmac( 'sha256', 'ip:' . $ip, FS_LMS_HASH_SALT );
 		$GLOBALS['_test_transients'][ $key ]['until'] = time() - 1;
 		$this->service->recordIpFailure( $ip );
 		self::assertFalse( $this->service->ipBlocked( $ip ) );
-		for ( $i = 0; $i < 4; ++$i ) { $this->service->recordIpFailure( $ip ); }
+		for ( $i = 0; $i < 9; ++$i ) { $this->service->recordIpFailure( $ip ); }
 		self::assertGreaterThan( 0, $this->service->ipRetrySeconds( $ip ) );
 	}
 

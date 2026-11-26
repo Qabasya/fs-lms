@@ -11,7 +11,7 @@ use PHPUnit\Framework\TestCase;
 
 class LmsSessionControllerTest extends TestCase {
 
-	public function test_only_lms_form_login_marks_a_persistent_session_for_thirty_days(): void {
+	public function test_only_lms_form_login_marks_a_persistent_session_for_ninety_days(): void {
 		$controller = new LmsSessionController( $this->createStub( LmsSessionService::class ) );
 		$server = $_SERVER;
 		$post = $_POST;
@@ -21,7 +21,7 @@ class LmsSessionControllerTest extends TestCase {
 			$_POST = array( 'fs_lms_login' => '1', 'rememberme' => 'forever' );
 			$GLOBALS['pagenow'] = 'wp-login.php';
 
-			self::assertSame( 30 * DAY_IN_SECONDS, $controller->loginLifetime( 14 * DAY_IN_SECONDS, 7, true ) );
+			self::assertSame( 90 * DAY_IN_SECONDS, $controller->loginLifetime( 14 * DAY_IN_SECONDS, 7, true ) );
 			self::assertTrue( $controller->tagSession( array() )[ UserSessionRepository::LMS_SESSION ] );
 
 			unset( $_POST['fs_lms_login'] );
@@ -34,9 +34,9 @@ class LmsSessionControllerTest extends TestCase {
 		}
 	}
 
-	public function test_only_opening_the_cabinet_or_lesson_renews_the_session(): void {
+	public function test_page_navigation_renews_the_session_but_background_requests_do_not(): void {
 		$service = $this->createMock( LmsSessionService::class );
-		$service->expects( self::exactly( 2 ) )->method( 'renewCurrent' )->with( 7 );
+		$service->expects( self::exactly( 3 ) )->method( 'renewCurrent' )->with( 7 );
 		$controller = new LmsSessionController( $service );
 		$server = $_SERVER;
 		$userId = $GLOBALS['_fs_test_user_id'] ?? null;
