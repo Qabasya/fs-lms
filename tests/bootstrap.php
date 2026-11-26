@@ -242,8 +242,11 @@ if (!function_exists('has_filter')) {
     }
 }
 if (!function_exists('current_time')) {
-    function current_time(string $type, bool $gmt = false): string {
-        return '2024-01-01 12:00:00';
+    function current_time(string $type, bool $gmt = false): int|string {
+        return match ($type) {
+            'U', 'timestamp' => 1704110400,
+            default => '2024-01-01 12:00:00',
+        };
     }
 }
 if (!function_exists('get_option')) {
