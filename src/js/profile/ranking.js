@@ -58,6 +58,11 @@ export function rankingPickersHtml(subject, groups, groupId, periods, periodFrom
  */
 export function rankingTableHtml(data, canOpenSummary = false, learner = false) {
     const rows = data?.rows || [];
+    const rowAttributes = row => {
+        const self = learner && Number(data.viewer_person_id) > 0 && Number(row.person_id) === Number(data.viewer_person_id);
+        const clickable = (!learner || self) && Array.isArray(row.breakdown);
+        return `${self ? ' class="ranking-self"' : ''}${clickable ? ` data-score-row="${Number(row.person_id)}" tabindex="0" role="button" aria-label="${learner ? 'Расчёт моих баллов' : `Расчёт баллов: ${esc(row.name)}`}"` : ''}`;
+    };
     const nameCell = (row) => {
         const inner = `<span class="cn-name">${esc(row.name || '—')}</span>`;
         const gid = row.groups?.[0]?.id;
@@ -70,14 +75,16 @@ export function rankingTableHtml(data, canOpenSummary = false, learner = false) 
             <th class="col-name"><div class="hd-name">Ученик</div></th>
             <th class="col-mid"><div class="hd-name">Группа</div></th>
             <th class="col-mid"><div class="hd-name">Баллы</div></th>
+            <th class="col-mid"><div class="hd-name">Процент прохождения</div></th>
             <th class="col-rank"><div class="hd-name">Место в рейтинге</div></th>
         </tr></thead>
-        <tbody>${rows.length ? rows.map(row => `<tr${learner && Number(data.viewer_person_id) > 0 && Number(row.person_id) === Number(data.viewer_person_id) ? ` class="ranking-self"${Array.isArray(row.breakdown) ? ` data-score-row="${Number(row.person_id)}" tabindex="0" role="button" aria-label="Расчёт моих баллов"` : ''}` : ''}>
+        <tbody>${rows.length ? rows.map(row => `<tr${rowAttributes(row)}>
             <td class="cell-name">${nameCell(row)}</td>
             <td class="cell-c">${esc((row.groups || []).map(group => group.name).join(', '))}</td>
-            <td class="cell-c${!learner && Array.isArray(row.breakdown) ? ' ranking-score-cell' : ''}">${!learner && Array.isArray(row.breakdown) ? `<button type="button" class="ranking-score" data-score-pid="${Number(row.person_id)}" aria-label="Расчёт баллов: ${esc(row.name)}">${scoreNumber(row.score)}${row.score_unknown ? ' (неполный результат)' : ''}</button>` : `${scoreNumber(row.score)}${row.score_unknown ? ' (неполный результат)' : ''}`}</td>
+            <td class="cell-c">${scoreNumber(row.score)}${row.score_unknown ? ' (неполный результат)' : ''}</td>
+            <td class="cell-c">${row.completion_percent == null ? '—' : `${scoreNumber(row.completion_percent)}%`}</td>
             <td class="cell-rank"><span class="ranking-rank"><span class="ranking-rank-value">${row.rank == null ? '—' : esc(String(row.rank))}</span>${rankTrendHtml(row.trend)}</span></td>
-        </tr>`).join('') : '<tr><td class="cell-empty" colspan="4">Нет активных учеников в выбранной группе.</td></tr>'}</tbody>
+        </tr>`).join('') : '<tr><td class="cell-empty" colspan="5">Нет активных учеников в выбранной группе.</td></tr>'}</tbody>
     </table></div></div>`;
 }
 
@@ -114,9 +121,9 @@ export function renderRanking(root, handlers = {}, screen = 'ranking') {
     function render(message = '') {
         const content = message ? `<p class="ranking-message" role="status">${esc(message)}</p>` : rankingTableHtml(data, 'function' === typeof handlers.openSummary, screen === 'student-ranking');
         shell.innerHTML = `<div class="sum-head">${rankingPickersHtml(subject, groups, groupId, periods, periodFrom, showSubject, viewerGroupId)}</div>${content}`;
-        shell.querySelectorAll('[data-score-pid], [data-score-row]').forEach(button => {
+        shell.querySelectorAll('[data-score-row]').forEach(button => {
             const open = () => {
-                const row = data.rows.find(item => Number(item.person_id) === Number(button.dataset.scorePid || button.dataset.scoreRow));
+                const row = data.rows.find(item => Number(item.person_id) === Number(button.dataset.scoreRow));
                 if (!row) return;
                 const pop = document.getElementById('profGradePop');
                 if (!pop) return;
@@ -124,9 +131,11 @@ export function renderRanking(root, handlers = {}, screen = 'ranking') {
                 pop.querySelector('[data-score-close]').addEventListener('click', () => { closeGradePop(); button.focus(); });
                 openGradePopModal(pop);
             };
-            button.addEventListener('click', open);
-            if (button.hasAttribute('data-score-row')) button.addEventListener('keydown', event => {
-                if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(); }
+            button.addEventListener('click', event => {
+                if (!event.target.closest('[data-summary-pid]')) open();
+            });
+            button.addEventListener('keydown', event => {
+                if (event.target === button && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); open(); }
             });
         });
         shell.querySelectorAll('[data-summary-pid]').forEach(btn => btn.addEventListener('click', () => {

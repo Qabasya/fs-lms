@@ -22,7 +22,7 @@ class RankingSnapshotServiceTest extends TestCase {
 		$current = array( 'practice' => 2.0 );
 		$store = $this->createStub( RankingSnapshotRepository::class );
 		$store->method( 'read' )->willReturn( array(
-			'interval' => 'day', 'boundary' => '2026-11-06 00:00:00', 'captured_at' => '2026-11-06 00:13:00',
+			'metric' => 'completion-percent-v1', 'interval' => 'day', 'boundary' => '2026-11-06 00:00:00', 'captured_at' => '2026-11-06 00:13:00',
 			'season' => '2026-09-01 00:00:00', 'subjects' => array( 'math' => array( 0 => array( 1 => 2 ) ) ),
 			'policies' => array( 'math' => hash( 'sha256', serialize( $old ) ) ),
 		) );
@@ -60,7 +60,7 @@ class RankingSnapshotServiceTest extends TestCase {
 		$newPolicy = array( 'practice' => 2.0 );
 		$store = $this->createStub( RankingSnapshotRepository::class );
 		$store->method( 'read' )->willReturn( array(
-			'interval' => 'day', 'boundary' => '2026-11-06 00:00:00', 'captured_at' => '2026-11-06 00:13:00',
+			'metric' => 'completion-percent-v1', 'interval' => 'day', 'boundary' => '2026-11-06 00:00:00', 'captured_at' => '2026-11-06 00:13:00',
 			'season' => '2026-09-01 00:00:00', 'subjects' => array( 'math' => array( 0 => array( 1 => 2 ) ) ),
 			'policies' => array( 'math' => hash( 'sha256', serialize( $newPolicy ) ) ),
 		) );
@@ -75,7 +75,7 @@ class RankingSnapshotServiceTest extends TestCase {
 		$current = array( 'enabled' => true, 'practice' => 1.0, 'generation' => 'new' );
 		$store = $this->createStub( RankingSnapshotRepository::class );
 		$store->method( 'read' )->willReturn( array(
-			'interval' => 'day', 'boundary' => '2026-11-06 00:00:00', 'captured_at' => '2026-11-06 00:13:00',
+			'metric' => 'completion-percent-v1', 'interval' => 'day', 'boundary' => '2026-11-06 00:00:00', 'captured_at' => '2026-11-06 00:13:00',
 			'season' => '2026-09-01 00:00:00', 'subjects' => array( 'math' => array( 0 => array( 1 => 2 ) ) ),
 			'policies' => array( 'math' => hash( 'sha256', serialize( $old ) ) ),
 		) );
@@ -90,7 +90,7 @@ class RankingSnapshotServiceTest extends TestCase {
 		$current = array( 'enabled' => true, 'practice' => 1.0, 'revision' => 3 );
 		$store = $this->createStub( RankingSnapshotRepository::class );
 		$store->method( 'read' )->willReturn( array(
-			'interval' => 'day', 'boundary' => '2026-11-06 00:00:00', 'captured_at' => '2026-11-06 00:13:00',
+			'metric' => 'completion-percent-v1', 'interval' => 'day', 'boundary' => '2026-11-06 00:00:00', 'captured_at' => '2026-11-06 00:13:00',
 			'season' => '2026-09-01 00:00:00', 'subjects' => array( 'math' => array( 0 => array( 1 => 2 ) ), 'physics' => array( 0 => array( 1 => 2 ) ) ),
 			'policies' => array( 'math' => hash( 'sha256', serialize( array( 'assignments-v1', $old ) ) ), 'physics' => hash( 'sha256', serialize( array( 'assignments-v1', $old ) ) ) ),
 		) );
@@ -123,9 +123,23 @@ class RankingSnapshotServiceTest extends TestCase {
 		$store->method( 'read' )->willReturn( array() );
 		$store->expects( self::once() )->method( 'save' )->with( self::callback( static fn( array $data ): bool =>
 			$data['captured_at'] === '2026-11-06 00:14:59' && $data['boundary'] === '2026-11-06 00:00:00'
-			&& $data['subjects']['math'][5][1] === 1
+			&& $data['subjects']['math'][5][1] === 1 && $data['metric'] === 'completion-percent-v1'
 		) );
 		$this->makeService( $store, array( '2026-11-06 00:14:59', '2026-11-06 00:16:02' ) )->capture();
+	}
+
+	public function test_point_based_snapshot_is_not_compared_and_can_be_replaced_in_capture_window(): void {
+		$store = $this->createMock( RankingSnapshotRepository::class );
+		$store->method( 'read' )->willReturn( array(
+			'interval' => 'day', 'boundary' => '2026-11-06 00:00:00', 'captured_at' => '2026-11-06 00:03:00',
+			'season' => '2026-09-01 00:00:00', 'subjects' => array( 'math' => array( 0 => array( 1 => 2 ) ) ),
+		) );
+		$store->expects( self::once() )->method( 'save' )->with( self::callback(
+			static fn( array $data ): bool => 'completion-percent-v1' === $data['metric']
+		) );
+		$service = $this->makeService( $store, array( '2026-11-06 00:14:00', '2026-11-06 00:15:00' ) );
+		self::assertNull( $service->trend( 'math', 0, 1, 1, '2026-09-01 00:00:00', '2026-11-06 00:14:00' ) );
+		$service->capture();
 	}
 
 	public function test_boundary_change_during_capture_never_writes(): void {
@@ -137,7 +151,7 @@ class RankingSnapshotServiceTest extends TestCase {
 
 	public function test_existing_snapshot_for_same_day_is_not_replaced(): void {
 		$store = $this->createMock( RankingSnapshotRepository::class );
-		$store->method( 'read' )->willReturn( array( 'interval' => 'day', 'boundary' => '2026-11-06 00:00:00', 'captured_at' => '2026-11-06 00:03:00' ) );
+		$store->method( 'read' )->willReturn( array( 'metric' => 'completion-percent-v1', 'interval' => 'day', 'boundary' => '2026-11-06 00:00:00', 'captured_at' => '2026-11-06 00:03:00' ) );
 		$store->expects( self::never() )->method( 'save' );
 		$this->makeService( $store, array( '2026-11-06 00:14:00' ) )->capture();
 	}
@@ -145,7 +159,7 @@ class RankingSnapshotServiceTest extends TestCase {
 	public function test_missed_window_does_not_create_or_advertise_late_snapshot(): void {
 		$store = $this->createMock( RankingSnapshotRepository::class );
 		$store->method( 'read' )->willReturn( array(
-			'interval' => 'day', 'boundary' => '2026-11-06 00:00:00', 'captured_at' => '2026-11-06 16:00:00',
+			'metric' => 'completion-percent-v1', 'interval' => 'day', 'boundary' => '2026-11-06 00:00:00', 'captured_at' => '2026-11-06 16:00:00',
 			'season' => '2026-09-01 00:00:00', 'subjects' => array( 'math' => array( 0 => array( 1 => 2 ) ) ),
 		) );
 		$store->expects( self::never() )->method( 'save' );
@@ -157,7 +171,7 @@ class RankingSnapshotServiceTest extends TestCase {
 	public function test_no_trend_on_first_day_of_season(): void {
 		$store = $this->createStub( RankingSnapshotRepository::class );
 		$store->method( 'read' )->willReturn( array(
-			'interval' => 'day', 'boundary' => '2026-12-01 00:00:00', 'captured_at' => '2026-12-01 00:02:00',
+			'metric' => 'completion-percent-v1', 'interval' => 'day', 'boundary' => '2026-12-01 00:00:00', 'captured_at' => '2026-12-01 00:02:00',
 			'season' => '2026-12-01 00:00:00', 'subjects' => array( 'math' => array( 0 => array( 1 => 2 ) ) ),
 		) );
 		$service = $this->makeService( $store, array( '2026-12-01 01:00:00' ) );
@@ -186,7 +200,7 @@ class RankingSnapshotServiceTest extends TestCase {
 	public function test_trend_is_scoped_to_group_person_season_and_actual_day(): void {
 		$store = $this->createStub( RankingSnapshotRepository::class );
 		$store->method( 'read' )->willReturn( array(
-			'interval' => 'day', 'boundary' => '2026-11-06 00:00:00', 'captured_at' => '2026-11-06 00:13:00',
+			'metric' => 'completion-percent-v1', 'interval' => 'day', 'boundary' => '2026-11-06 00:00:00', 'captured_at' => '2026-11-06 00:13:00',
 			'season' => '2026-09-01 00:00:00', 'subjects' => array( 'math' => array( 0 => array( 1 => 2 ), 5 => array( 1 => 1 ) ) ),
 		) );
 		$service = $this->makeService( $store, array( '2026-11-06 00:14:00' ) );

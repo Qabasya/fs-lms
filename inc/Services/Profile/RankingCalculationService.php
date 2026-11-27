@@ -94,56 +94,55 @@ class RankingCalculationService {
 				}
 			}
 		}
-		$result = $this->rankTotals( $totals );
-		$incomplete = false;
+		$result = array_map( static fn( float $score ): array => array( 'score' => round( $score, 2 ), 'rank' => null ), $totals );
 		foreach ( $result as $id => &$row ) {
 			$row['score_unknown'] = false;
-			foreach ( $unknownScores[ $id ] ?? array() as $source => $unknown ) {
-				$row['score_unknown'] = $row['score_unknown'] || ( $unknown && (float) ( $weights[ $source ] ?? 0 ) > 0 );
-			}
-			$incomplete = $incomplete || $row['score_unknown'];
-		}
-		unset( $row );
-		if ( $incomplete ) {
-			foreach ( $result as &$row ) {
-				$row['rank'] = null;
-			}
-			unset( $row );
-		}
-		if ( $withBreakdown ) {
-			foreach ( $result as $id => &$row ) {
-				$row['max_score'] = $useAssignments ? 0.0 : null;
-				$row['max_unknown'] = false;
+			$row['max_score'] = $useAssignments ? 0.0 : null;
+			$row['max_unknown'] = false;
+			if ( $withBreakdown ) {
 				$row['breakdown'] = array();
-				$sources = array_unique( array_merge( array_diff( array_keys( $weights ), array( 'attendance_streak_length' ) ), array_keys( $parts[ $id ] ?? array() ) ) );
-				foreach ( $sources as $source ) {
-					$unknown = $useAssignments && array_key_exists( $source, $maxima[ $id ] ?? array() ) && null === $maxima[ $id ][ $source ];
-					$scoreUnknown = ! empty( $unknownScores[ $id ][ $source ] ) && (float) ( $weights[ $source ] ?? 0 ) > 0;
-					$row['score_unknown'] = $row['score_unknown'] || $scoreUnknown;
-					$maxAmount = $useAssignments && ! $unknown ? (float) ( $maxima[ $id ][ $source ] ?? 0 ) : null;
-					if ( null !== $maxAmount ) {
-						if ( null !== $row['max_score'] ) {
-							$row['max_score'] += $maxAmount * (float) ( $weights[ $source ] ?? 0 );
-						}
-					} elseif ( $unknown && (float) ( $weights[ $source ] ?? 0 ) > 0 ) {
-						$row['max_score'] = null;
-						$row['max_unknown'] = true;
+			}
+			$sources = array_unique( array_merge( array_diff( array_keys( $weights ), array( 'attendance_streak_length' ) ), array_keys( $parts[ $id ] ?? array() ) ) );
+			foreach ( $sources as $source ) {
+				$unknown = $useAssignments && array_key_exists( $source, $maxima[ $id ] ?? array() ) && null === $maxima[ $id ][ $source ];
+				$scoreUnknown = ! empty( $unknownScores[ $id ][ $source ] ) && (float) ( $weights[ $source ] ?? 0 ) > 0;
+				$row['score_unknown'] = $row['score_unknown'] || $scoreUnknown;
+				$maxAmount = $useAssignments && ! $unknown ? (float) ( $maxima[ $id ][ $source ] ?? 0 ) : null;
+				if ( null !== $maxAmount ) {
+					if ( null !== $row['max_score'] ) {
+						$row['max_score'] += $maxAmount * (float) ( $weights[ $source ] ?? 0 );
 					}
-					$row['breakdown'][] = array( 'source' => $source, 'amount' => $parts[ $id ][ $source ] ?? 0, 'max_amount' => $maxAmount, 'max_unknown' => $unknown, 'score_unknown' => $scoreUnknown, 'weight' => (float) ( $weights[ $source ] ?? 0 ), 'streak_length' => 'attendance_bonus' === $source ? (int) ( $weights['attendance_streak_length'] ?? 3 ) : null );
-					if ( 'practice' === $source ) {
-						$groups = $practiceGroups[ $id ] ?? array();
-						ksort( $groups, SORT_NUMERIC );
-						$last = array_key_last( $row['breakdown'] );
-						$row['breakdown'][ $last ]['task_groups'] = array();
-						foreach ( $groups as $points => $group ) {
-							$row['breakdown'][ $last ]['task_groups'][] = is_array( $group ) ? $group : array( 'points' => (float) $points, 'count' => $group );
-						}
+				} elseif ( $unknown && (float) ( $weights[ $source ] ?? 0 ) > 0 ) {
+					$row['max_score'] = null;
+					$row['max_unknown'] = true;
+				}
+				if ( ! $withBreakdown ) {
+					continue;
+				}
+				$row['breakdown'][] = array( 'source' => $source, 'amount' => $parts[ $id ][ $source ] ?? 0, 'max_amount' => $maxAmount, 'max_unknown' => $unknown, 'score_unknown' => $scoreUnknown, 'weight' => (float) ( $weights[ $source ] ?? 0 ), 'streak_length' => 'attendance_bonus' === $source ? (int) ( $weights['attendance_streak_length'] ?? 3 ) : null );
+				if ( 'practice' === $source ) {
+					$groups = $practiceGroups[ $id ] ?? array();
+					ksort( $groups, SORT_NUMERIC );
+					$last = array_key_last( $row['breakdown'] );
+					$row['breakdown'][ $last ]['task_groups'] = array();
+					foreach ( $groups as $points => $group ) {
+						$row['breakdown'][ $last ]['task_groups'][] = is_array( $group ) ? $group : array( 'points' => (float) $points, 'count' => $group );
 					}
 				}
 			}
-			unset( $row );
+			$row['completion_percent'] = $row['score_unknown'] || $row['max_unknown'] || null === $row['max_score']
+				? null : ( $row['max_score'] > 0 ? round( $row['score'] / $row['max_score'] * 100, 2 ) : 0.0 );
 		}
-		return $result;
+		unset( $row );
+		// Unknown denominators cannot produce authoritative places in this scope.
+		if ( in_array( null, array_column( $result, 'completion_percent' ), true ) ) {
+			return $result;
+		}
+		$ranked = array();
+		foreach ( $this->rankTotals( array_map( static fn( array $row ): float => $row['completion_percent'], $result ) ) as $id => $row ) {
+			$ranked[ $id ] = array_replace( $result[ $id ], array( 'rank' => $row['rank'] ) );
+		}
+		return $ranked;
 	}
 
 	/** The same policy must drive scores and the snapshot fingerprint. */

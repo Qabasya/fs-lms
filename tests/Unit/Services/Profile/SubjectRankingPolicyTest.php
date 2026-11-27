@@ -46,6 +46,8 @@ class SubjectRankingPolicyTest extends TestCase {
 		$row = $calculator->scoresForSubject( 'math', '2026-11-01 12:00:00', null, true, $policy )[1];
 		self::assertSame( 4.0, $row['score'] );
 		self::assertSame( 6.0, $row['max_score'] );
+		self::assertSame( 66.67, $row['completion_percent'] );
+		self::assertSame( 1, $row['rank'] );
 		self::assertSame( 3.0, $row['breakdown'][0]['max_amount'] );
 	}
 	public function test_unknown_maximum_preserves_known_earned_points(): void {
@@ -63,6 +65,8 @@ class SubjectRankingPolicyTest extends TestCase {
 		self::assertTrue( $row['score_unknown'] );
 		self::assertTrue( $row['breakdown'][0]['score_unknown'] );
 		self::assertTrue( $row['breakdown'][0]['max_unknown'] );
+		self::assertNull( $row['completion_percent'] );
+		self::assertNull( $row['rank'] );
 	}
 
 	public function test_incomplete_score_never_produces_authoritative_places(): void {

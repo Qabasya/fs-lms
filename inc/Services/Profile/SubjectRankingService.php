@@ -110,6 +110,7 @@ class SubjectRankingService {
 					'name'      => trim( $record['snapshot_last_name'] . ' ' . $record['snapshot_first_name'] ),
 					'groups'    => array(),
 					'score'     => $scores[ $id ]['score'],
+					'completion_percent' => $scores[ $id ]['completion_percent'],
 					'score_unknown' => $scores[ $id ]['score_unknown'] ?? false,
 					'rank'      => $scores[ $id ]['rank'],
 				);
@@ -127,19 +128,19 @@ class SubjectRankingService {
 			throw new \InvalidArgumentException( 'Группа не входит в выбранное направление.' );
 		}
 		$rows = array_values( array_filter( $students, static fn( array $student ): bool => 0 === $groupId || isset( $student['groups'][ $groupId ] ) ) );
-		$incomplete = (bool) array_filter( $rows, static fn( array $row ): bool => $row['score_unknown'] );
+		$incomplete = (bool) array_filter( $rows, static fn( array $row ): bool => null === $row['completion_percent'] );
 		$unordered = $incomplete || ( 0 === $groupId && (bool) array_filter( $rows, static fn( array $row ): bool => null === $row['rank'] ) );
 		if ( $groupId > 0 ) {
 			// Выбрана группа — места пересчитываются плотно внутри неё (свой рейтинг группы);
 			// «Все группы» оставляет общие места направления (эталон плитки ученика).
-			$ranks = $this->ranking->rankTotals( array_column( $rows, 'score', 'person_id' ) );
+			$ranks = $incomplete ? array() : $this->ranking->rankTotals( array_column( $rows, 'completion_percent', 'person_id' ) );
 			foreach ( $rows as &$row ) {
 				$row['rank'] = $incomplete ? null : $ranks[ $row['person_id'] ]['rank'];
 			}
 			unset( $row );
 		}
 		usort( $rows, static function ( array $a, array $b ) use ( $unordered ): int {
-			$scoreOrder = $unordered ? 0 : $b['score'] <=> $a['score'];
+			$scoreOrder = $unordered ? 0 : $b['completion_percent'] <=> $a['completion_percent'];
 			if ( 0 !== $scoreOrder ) {
 				return $scoreOrder;
 			}

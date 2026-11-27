@@ -19,7 +19,46 @@ use PHPUnit\Framework\TestCase;
 
 class SubjectRankingServiceTest extends TestCase {
 
-	public function test_group_places_are_hidden_only_when_that_group_contains_incomplete_score(): void {
+	public function test_percentage_orders_subject_group_tile_and_snapshot_instead_of_absolute_points(): void {
+		$GLOBALS['_test_user_can'][7] = [Capability::ManageLmsTeaching->value => true];
+		$repo = $this->createStub(LearnerRankingRepository::class);
+		$repo->method('studentIds')->willReturn([1, 2, 3, 4]);
+		$repo->method('roster')->willReturn(array_map(static fn(int $id): array => [
+			'student_person_id' => $id, 'snapshot_last_name' => 'Student ' . $id, 'snapshot_first_name' => '',
+			'group_id' => 2 === $id ? 1 : 2, 'group_name' => 'Group',
+		], [1, 2, 3, 4]));
+		$assignments = $this->createStub(\Inc\Services\Profile\RankingAssignmentsService::class);
+		$assignments->method('tasks')->willReturn(array_map(static fn(array $values): array => [
+			'student_person_id' => $values[0], 'group_lesson_id' => 1, 'work_id' => 1, 'task_id' => 1,
+			'source' => 'homework', 'task_points' => $values[2], 'earned_points' => $values[1], 'credited' => true,
+		], [[1, 80, 100], [2, 9, 10], [3, 18, 20]]));
+		$config = $this->createStub(PluginConfig::class);
+		$config->method('rankingForSubject')->willReturn(['homework' => 1.0, 'attendance_bonus' => 0.0, 'excluded_students' => []]);
+		$config->method('isLearnerRankingVisible')->willReturn(true);
+		$ranking = new RankingCalculationService($repo, new RankingPointsPolicy($config), $assignments);
+		$clock = $this->createStub(ClockInterface::class);
+		$now = '2026-11-01 12:00:00';
+		$clock->method('now')->willReturn($now);
+		$service = new SubjectRankingService($this->access(), $repo, $ranking, $clock, $this->createStub(\Inc\Services\Profile\RankingSnapshotService::class));
+		$all = $service->build(7, 'inf_ege');
+		self::assertSame([2, 3, 1, 4], array_column($all['rows'], 'person_id'));
+		self::assertSame([9.0, 18.0, 80.0, 0.0], array_column($all['rows'], 'score'));
+		self::assertSame([90.0, 90.0, 80.0, 0.0], array_column($all['rows'], 'completion_percent'));
+		self::assertSame([1, 1, 2, 3], array_column($all['rows'], 'rank'));
+		$group = $service->build(7, 'inf_ege', 2);
+		self::assertSame([3, 1, 4], array_column($group['rows'], 'person_id'));
+		self::assertSame([1, 2, 3], array_column($group['rows'], 'rank'));
+		$tile = (new \Inc\Services\Profile\Learner\LearnerRankingSection($ranking))->forGroups(1, [['subject_key' => 'inf_ege']], $now)[0];
+		self::assertSame(2, $tile['rank']);
+		self::assertSame(80.0, $tile['score']);
+		$scores = $ranking->scoresForSubject('inf_ege', $now);
+		self::assertArrayNotHasKey('breakdown', $scores[1]);
+		$snapshot = (new \Inc\Services\Profile\RankingSnapshotBuilder($ranking))->build($scores, $repo->roster('inf_ege'));
+		self::assertSame(array_column($all['rows'], 'rank', 'person_id'), $snapshot[0]);
+		self::assertSame(array_column($group['rows'], 'rank', 'person_id'), $snapshot[2]);
+	}
+
+	public function test_group_places_are_hidden_when_maximum_is_unknown_even_with_known_score(): void {
 		$GLOBALS['_test_user_can'][7] = [ Capability::ManageLmsTeaching->value => true ];
 		$repo = $this->createStub( LearnerRankingRepository::class );
 		$repo->method( 'studentIds' )->willReturn( [ 1, 2 ] );
@@ -28,7 +67,7 @@ class SubjectRankingServiceTest extends TestCase {
 			[ 'student_person_id' => 2, 'snapshot_last_name' => 'Б', 'snapshot_first_name' => 'Б', 'snapshot_middle_name' => '', 'group_id' => 2, 'group_name' => 'Группа 2' ],
 		] );
 		$assignments = $this->createStub( \Inc\Services\Profile\RankingAssignmentsService::class );
-		$assignments->method( 'tasks' )->willReturn( [ [ 'student_person_id' => 1, 'group_lesson_id' => 2, 'work_id' => 3, 'task_id' => 0, 'source' => 'homework', 'task_points' => 0, 'credited' => false, 'max_unknown' => true, 'score_unknown' => true ] ] );
+		$assignments->method( 'tasks' )->willReturn( [ [ 'student_person_id' => 1, 'group_lesson_id' => 2, 'work_id' => 3, 'task_id' => 0, 'source' => 'homework', 'task_points' => 0, 'credited' => false, 'max_unknown' => true, 'score_unknown' => false ] ] );
 		$config = $this->createStub( PluginConfig::class );
 		$config->method( 'rankingForSubject' )->willReturn( [ 'homework' => 1.0, 'attendance_bonus' => 0.0, 'attendance_streak_length' => 3, 'excluded_students' => [] ] );
 		$ranking = new RankingCalculationService( $repo, new RankingPointsPolicy( $config ), $assignments, true );
@@ -37,7 +76,8 @@ class SubjectRankingServiceTest extends TestCase {
 		$service = new SubjectRankingService( $this->access(), $repo, $ranking, $clock, $this->createStub( \Inc\Services\Profile\RankingSnapshotService::class ) );
 		$all = $service->build( 7, 'inf_ege' );
 		self::assertSame( [ null, null ], array_column( $all['rows'], 'rank' ) );
-		self::assertTrue( $all['rows'][0]['score_unknown'] );
+		self::assertFalse( $all['rows'][0]['score_unknown'] );
+		self::assertNull( $all['rows'][0]['completion_percent'] );
 		self::assertNull( $service->build( 7, 'inf_ege', 1 )['rows'][0]['rank'] );
 		self::assertSame( 1, $service->build( 7, 'inf_ege', 2 )['rows'][0]['rank'] );
 	}
@@ -93,6 +133,17 @@ class SubjectRankingServiceTest extends TestCase {
 		return new RankingAccessService($groups,$subjects,$records,$config);
 	}
 
+	private function assignments(array $earned, float $maximum = 100.0, string $source = 'homework'): \Inc\Services\Profile\RankingAssignmentsService {
+		$assignments = $this->createStub(\Inc\Services\Profile\RankingAssignmentsService::class);
+		$rows = [];
+		foreach ($earned as $id => $points) {
+			$rows[] = ['student_person_id' => $id, 'group_lesson_id' => 1, 'work_id' => 1, 'task_id' => 1,
+				'source' => $source, 'task_points' => $maximum, 'earned_points' => $points, 'credited' => $points > 0];
+		}
+		$assignments->method('tasks')->willReturn($rows);
+		return $assignments;
+	}
+
 	private function service(string $now='2026-10-31 12:00:00'): SubjectRankingService {
 		$repo=$this->createStub(LearnerRankingRepository::class);
 		$repo->method('studentIds')->willReturn([1,2,3,4]);
@@ -109,7 +160,7 @@ class SubjectRankingServiceTest extends TestCase {
 		$config=$this->createStub(PluginConfig::class);
 		$config->method('rankingForSubject')->willReturnCallback(static fn() => array_merge($config->rankingSettings(), ['excluded_students' => $config->rankingExcludedStudents()]));
 		$config->method('rankingSettings')->willReturn(['homework'=>1.0,'attendance_bonus'=>0.0]);
-		$ranking=new RankingCalculationService($repo,new RankingPointsPolicy($config));
+		$ranking=new RankingCalculationService($repo,new RankingPointsPolicy($config), $this->assignments([1 => 90, 2 => 90, 3 => 89, 4 => 0]));
 		$clock=$this->createStub(ClockInterface::class);
 		$clock->method('now')->willReturn($now);
 		return new SubjectRankingService($this->access(),$repo,$ranking,$clock,$this->createStub(\Inc\Services\Profile\RankingSnapshotService::class));
@@ -136,6 +187,7 @@ class SubjectRankingServiceTest extends TestCase {
 		self::assertSame([1,2,3,4],array_column($data['rows'],'person_id'));
 		self::assertSame([1,1,2,3],array_column($data['rows'],'rank'));
 		self::assertSame([90.0,90.0,89.0,0.0],array_column($data['rows'],'score'));
+		self::assertSame([90.0,90.0,89.0,0.0],array_column($data['rows'],'completion_percent'));
 		self::assertSame('Андреев Иван',$data['rows'][0]['name'],'без отчества — как в журнале');
 		self::assertCount(2,$data['rows'][0]['groups']);
 		self::assertCount(2,$data['groups']);
@@ -163,7 +215,7 @@ class SubjectRankingServiceTest extends TestCase {
 		$config->method('rankingSettings')->willReturn(['homework'=>1.0,'attendance_bonus'=>0.0]);
 		$clock=$this->createStub(ClockInterface::class);
 		$clock->method('now')->willReturn('2026-10-31 12:00:00');
-		$service=new SubjectRankingService($this->access(),$repo,new RankingCalculationService($repo,new RankingPointsPolicy($config)),$clock,$this->createStub(\Inc\Services\Profile\RankingSnapshotService::class));
+		$service=new SubjectRankingService($this->access(),$repo,new RankingCalculationService($repo,new RankingPointsPolicy($config), $this->assignments([1 => 89, 2 => 90, 4 => 95])),$clock,$this->createStub(\Inc\Services\Profile\RankingSnapshotService::class));
 
 		$all=$service->build(7,'inf_ege');
 		self::assertSame([1,2,3],array_column($all['rows'],'rank'),'все группы — общие места направления (эталон)');
@@ -268,7 +320,13 @@ class SubjectRankingServiceTest extends TestCase {
 		$config->expects(self::exactly(3))->method('rankingSettings')->willReturn([
 			'practice' => 0.1, 'homework' => 0.2, 'survey' => 0.3, 'attendance_bonus' => 0.0,
 		]);
-		$ranking = new RankingCalculationService($repo, new RankingPointsPolicy($config));
+		$assignments = $this->createStub(\Inc\Services\Profile\RankingAssignmentsService::class);
+		$assignments->method('tasks')->willReturn(array_map(static fn(array $values): array => [
+			'student_person_id' => $values[0], 'source' => $values[1], 'task_id' => $values[2],
+			'group_lesson_id' => 1, 'work_id' => 1, 'task_points' => $values[3], 'credited' => $values[4],
+		], [[1, 'practice', 1, 1, true], [1, 'homework', 2, 1, true], [2, 'survey', 1, 1, true],
+			[3, 'practice', 1, 1, true], [3, 'practice', 2, 2, false]]));
+		$ranking = new RankingCalculationService($repo, new RankingPointsPolicy($config), $assignments);
 		$clock = $this->createStub(ClockInterface::class);
 		$clock->method('now')->willReturn('2026-11-01 12:00:00');
 		$service = new SubjectRankingService($this->access(), $repo, $ranking, $clock, $this->createStub(\Inc\Services\Profile\RankingSnapshotService::class));
@@ -312,7 +370,7 @@ class SubjectRankingServiceTest extends TestCase {
 		$config->method('rankingForSubject')->willReturnCallback(static fn() => array_merge($config->rankingSettings(), ['excluded_students' => $config->rankingExcludedStudents()]));
 		$config->method('rankingSettings')->willReturn(['homework'=>1, 'attendance_bonus'=>0]);
 		$config->method('rankingExcludedStudents')->willReturn([1]);
-		$scores = (new RankingCalculationService($repo, new RankingPointsPolicy($config)))->scoresForSubject('inf_ege', '2026-11-01 12:00:00');
+		$scores = (new RankingCalculationService($repo, new RankingPointsPolicy($config), $this->assignments([1 => 10, 2 => 1], 10)))->scoresForSubject('inf_ege', '2026-11-01 12:00:00');
 		self::assertSame([2], array_keys($scores));
 		self::assertSame(1, $scores[2]['rank']);
 	}

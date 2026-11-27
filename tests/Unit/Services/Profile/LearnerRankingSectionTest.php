@@ -100,7 +100,7 @@ class LearnerRankingSectionTest extends TestCase {
 		self::assertArrayHasKey(1, $scores);
 	}
 
-	public function test_dense_rank_counts_all_four_sources_and_successful_repeats(): void {
+	public function test_legacy_scores_count_all_sources_and_successful_repeats_without_inventing_places(): void {
 		$repo = $this->createMock(LearnerRankingRepository::class);
 		$repo->expects(self::once())->method('studentIds')->with('python')->willReturn([1, 2, 3, 4]);
 		$work = [];
@@ -121,14 +121,18 @@ class LearnerRankingSectionTest extends TestCase {
 		$result = $section->forGroups(3, $groups, '2026-10-31');
 		self::assertCount(1, $result);
 		self::assertSame(4.0, $result[0]['score']);
-		self::assertSame(2, $result[0]['rank']); // 5, 5, 4 => 1, 1, 2.
+		self::assertNull($result[0]['rank']); // Legacy events have no assigned maximum.
 	}
 
 	public function test_subject_rosters_are_independent_and_zero_points_have_a_place(): void {
 		$repo = $this->createStub(LearnerRankingRepository::class);
 		$repo->method('studentIds')->willReturn([1, 2]);
 		$repo->method('workEvents')->willReturnCallback(static fn(string $subject): array => 'robo' === $subject ? [['student_person_id' => 2, 'source' => 'survey']] : []);
-		$section = new LearnerRankingSection( new \Inc\Services\Profile\RankingCalculationService($repo, $this->points()) );
+		$assignments = $this->createStub(\Inc\Services\Profile\RankingAssignmentsService::class);
+		$assignments->method('tasks')->willReturnCallback(static fn(string $subject): array => array_map(
+			static fn(int $id): array => ['student_person_id' => $id, 'group_lesson_id' => 1, 'work_id' => 1,
+				'task_id' => 1, 'source' => 'survey', 'task_points' => 1, 'credited' => 'robo' === $subject && 2 === $id], [1, 2]));
+		$section = new LearnerRankingSection( new \Inc\Services\Profile\RankingCalculationService($repo, $this->points(), $assignments) );
 		$result = $section->forGroups(1, [['subject_key' => 'python'], ['subject_key' => 'robo']], '2026-10-31');
 		self::assertSame([1, 2], array_column($result, 'rank'));
 		self::assertSame([0.0, 0.0], array_column($result, 'score'));
@@ -145,7 +149,7 @@ class LearnerRankingSectionTest extends TestCase {
 		foreach ([1,2] as $student) {
 			$result = $section->forGroups($student, [['subject_key'=>'python']], '2026-10-31');
 			self::assertSame(0.3, $result[0]['score']);
-			self::assertSame(1, $result[0]['rank']);
+			self::assertNull($result[0]['rank']);
 		}
 	}
 
@@ -187,7 +191,7 @@ class LearnerRankingSectionTest extends TestCase {
 		$section=new LearnerRankingSection( new \Inc\Services\Profile\RankingCalculationService($repo,$this->points(['homework'=>0.5,'assessment'=>1.0])) );
 		$result=$section->forGroups(1,[['subject_key'=>'python']],'2026-10-31');
 		self::assertSame(5.0,$result[0]['score']);
-		self::assertSame(1,$result[0]['rank']);
+		self::assertNull($result[0]['rank']);
 	}
 
 	public function test_hidden_subject_has_no_dashboard_tile(): void {

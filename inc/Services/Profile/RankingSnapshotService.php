@@ -13,6 +13,8 @@ use Inc\Repositories\WPDBRepositories\RankingSnapshotTransaction;
 
 /** Снимок создаётся тиком, а не при открытии рейтинга. */
 class RankingSnapshotService {
+	private const METRIC = 'completion-percent-v1';
+
 	public function __construct(
 		private readonly RankingSnapshotRepository $snapshots,
 		private readonly SubjectRepository $subjects,
@@ -33,7 +35,7 @@ class RankingSnapshotService {
 		}
 		$boundary = $this->interval->start( $instant, $tz )->format( 'Y-m-d H:i:s' );
 		$existing = $this->snapshots->read();
-		if ( ( $existing['interval'] ?? null ) === RankingSnapshotPeriod::INTERVAL && ( $existing['boundary'] ?? null ) === $boundary
+		if ( ( $existing['metric'] ?? null ) === self::METRIC && ( $existing['interval'] ?? null ) === RankingSnapshotPeriod::INTERVAL && ( $existing['boundary'] ?? null ) === $boundary
 			&& is_string( $existing['captured_at'] ?? null ) ) {
 			try {
 				$existingTime = new DateTimeImmutable( $existing['captured_at'], $tz );
@@ -65,6 +67,7 @@ class RankingSnapshotService {
 			return;
 		}
 		$this->snapshots->save( array(
+			'metric' => self::METRIC,
 			'interval' => RankingSnapshotPeriod::INTERVAL,
 			'boundary' => $boundary,
 			'captured_at' => $start,
@@ -77,6 +80,9 @@ class RankingSnapshotService {
 	/** @return array{direction:string, baseline_at:string}|null */
 	public function trend( string $subject, int $groupId, int $personId, int $rank, string $season, string $now, ?array $policy = null ): ?array {
 		$snapshot = $this->snapshots->read();
+		if ( ( $snapshot['metric'] ?? null ) !== self::METRIC ) {
+			return null;
+		}
 		if ( $this->ranking->usesSubjectSettings() ) {
 			$current = $this->fingerprint( $this->ranking->subjectPolicy( $subject ) );
 			if ( ( $snapshot['policies'][ $subject ] ?? null ) !== $current || ( null !== $policy && $this->fingerprint( $policy ) !== $current ) ) {

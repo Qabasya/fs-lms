@@ -6,7 +6,7 @@ import { test } from 'node:test';
 
 globalThis.window = { fsProfile: { groups: [] } };
 
-const { rankingPickersHtml, rankingTableHtml, scoreBreakdownHtml } = await import('../../src/js/profile/ranking.js');
+const { rankingPickersHtml, rankingTableHtml, scoreBreakdownHtml, renderRanking } = await import('../../src/js/profile/ranking.js');
 const textContent = html => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 
 test('каждое число и знак расчёта находится в отдельной колонке', () => {
@@ -53,7 +53,7 @@ test('нулевые категории и группы не показываю�
     assert.match(textContent(weighted), /С коэффициентом: 2 × 0,5 = 1/);
 });
 
-test('расчёт баллов показывает типы, веса, бонус и итог; кнопка доступна только сотруднику', () => {
+test('расчёт баллов показывает типы, веса, бонус и итог; строка кликабельна для сотрудника', () => {
     const row = { person_id: 7, name: 'Ученик', score: 7, groups: [], breakdown: [
         { source: 'homework', amount: 3, weight: 2 },
         { source: 'attendance_bonus', amount: 1, weight: 1, streak_length: 3 },
@@ -63,8 +63,8 @@ test('расчёт баллов показывает типы, веса, бон�
     assert.match(textContent(details), /3 × 2 = 6/);
     assert.match(details, /длина серии: 3/);
     assert.match(details, /Итого: <strong>7/);
-    assert.match(rankingTableHtml({ rows: [row] }), /data-score-pid="7"/);
-    assert.doesNotMatch(rankingTableHtml({ rows: [row] }, false, true), /data-score-pid/);
+    assert.match(rankingTableHtml({ rows: [row] }), /<tr data-score-row="7"/);
+    assert.doesNotMatch(rankingTableHtml({ rows: [row] }, false, true), /data-score-row/);
 });
 
 const subject = { key: 'inf_ege', name: 'Информатика ЕГЭ' };
@@ -160,7 +160,7 @@ test('имя ученика — кнопка-ссылка в «Сводку», �
 test('таблица: пустой срез — строка-заглушка на все колонки', () => {
     const html = rankingTableHtml({ period: 'Сентябрь — ноябрь', rows: [] });
 
-    assert.match(html, /cell-empty" colspan="4">Нет активных учеников/);
+    assert.match(html, /cell-empty" colspan="5">Нет активных учеников/);
 });
 
 test('в ученическом рейтинге отмечена только строка текущего ученика', () => {
@@ -233,4 +233,80 @@ test('таблица не выдаёт неполные баллы и неизв
     assert.match(html, /3 \(неполный результат\)/);
     assert.doesNotMatch(html, />null</);
     assert.match(html, /ranking-rank-value">—/);
+});
+
+test('процент прохождения доступен всем ролям, неизвестный процент показан прочерком', () => {
+    const rows = [
+        { person_id: 1, name: 'Иван', score: 4, completion_percent: 66.67 },
+        { person_id: 2, name: 'Олег', score: 0, completion_percent: 0 },
+        { person_id: 3, name: 'Анна', score: 3, completion_percent: null },
+    ];
+    for (const learner of [false, true]) {
+        const html = rankingTableHtml({ rows }, false, learner);
+        assert.match(html, /hd-name">Процент прохождения/);
+        assert.match(html, /<td class="cell-c">66,67%<\/td>/);
+        assert.match(html, /<td class="cell-c">0%<\/td>/);
+        assert.doesNotMatch(html, /null%|NaN%/);
+        assert.match(html, /<td class="cell-c">—<\/td>/);
+    }
+});
+
+test('строка открывает баллы мышью и клавиатурой; имя открывает только сводку', async t => {
+    const { FS_LMS_API } = await import('../../src/js/profile/api.js');
+    const oldRequest = FS_LMS_API.request;
+    const oldDocument = globalThis.document;
+    const oldWindow = globalThis.window;
+    t.after(() => {
+        FS_LMS_API.request = oldRequest;
+        globalThis.document = oldDocument;
+        globalThis.window = oldWindow;
+    });
+    const node = () => ({
+        events: {}, dataset: {}, style: {}, classes: new Set(),
+        addEventListener(type, callback) { this.events[type] = callback; },
+        focus() {},
+        closest(selector) { return selector === '[data-summary-pid]' && this.dataset.summaryPid ? this : null; },
+        get classList() {
+            return { add: (...values) => values.forEach(value => this.classes.add(value)), remove: (...values) => values.forEach(value => this.classes.delete(value)) };
+        },
+    });
+    const pop = node();
+    const close = node();
+    pop.querySelector = () => close;
+    const shell = node();
+    let rows = [], names = [];
+    Object.defineProperty(shell, 'innerHTML', {
+        set(html) {
+            rows = [...html.matchAll(/data-score-row="(\d+)"/g)].map(match => Object.assign(node(), { dataset: { scoreRow: match[1] } }));
+            names = [...html.matchAll(/data-summary-pid="(\d+)" data-summary-gid="(\d+)"/g)].map(match => Object.assign(node(), { dataset: { summaryPid: match[1], summaryGid: match[2] } }));
+        },
+    });
+    shell.querySelectorAll = selector => selector === '[data-score-row]' ? rows : selector === '[data-summary-pid]' ? names : [];
+    shell.querySelector = () => null;
+    globalThis.document = { createElement: () => shell, getElementById: id => id === 'profGradePop' ? pop : null };
+    globalThis.window = { fsProfile: { ranking: { subjects: [subject], actions: { getRanking: 'get_ranking' } } }, location: { href: 'https://example.test/profile' } };
+    FS_LMS_API.request = async () => ({ rows: [{ person_id: 7, name: 'Иван', groups: [{ id: 2 }], score: 9, max_score: 10, breakdown: [] }] });
+    const summaries = [];
+    renderRanking({ replaceChildren() {}, contains: () => true }, { openSummary: (...args) => summaries.push(args) });
+    await new Promise(resolve => setImmediate(resolve));
+    const row = rows[0], name = names[0];
+    // Click on a span inside the name bubbles through the button to the row.
+    const nameChild = { closest: selector => name.closest(selector) };
+    name.events.click({ target: nameChild });
+    row.events.click({ target: nameChild });
+    assert.deepEqual(summaries, [[2, 7]]);
+    assert.equal(pop.classes.has('open'), false);
+    // Enter/Space on the name must not also activate its parent row.
+    for (const key of ['Enter', ' ']) row.events.keydown({ target: name, key });
+    assert.equal(pop.classes.has('open'), false);
+    row.events.click({ target: { closest: () => null } });
+    assert.equal(pop.classes.has('open'), true);
+    assert.match(pop.innerHTML, /Итого: <strong>9 из 10 \(90%\)/);
+    for (const key of ['Enter', ' ']) {
+        pop.classes.clear();
+        let prevented = false;
+        row.events.keydown({ target: row, key, preventDefault() { prevented = true; } });
+        assert.equal(prevented, true);
+        assert.equal(pop.classes.has('open'), true);
+    }
 });
