@@ -684,5 +684,11 @@ function autoGrow( textarea ) {
 function make( tag, className ) {
 	const el     = document.createElement( tag );
 	el.className = className;
+	// Ответы восстанавливает плеер по ID работы/задания. Chrome при возврате
+	// восстанавливает безымянные поля по позиции, а порядок ленивых виджетов
+	// меняется с открытым шагом — так ответы попадали в другую работу.
+	if ( [ 'input', 'textarea', 'select' ].includes( tag ) ) {
+		el.setAttribute( 'autocomplete', 'off' );
+	}
 	return el;
 }
